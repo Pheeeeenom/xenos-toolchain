@@ -11,6 +11,7 @@
 #include <xenos/xenos.h>
 #include <xenos/edram.h>
 #include <console/console.h>
+#include <ppc/timebase.h>
 #include "xost_shaders.h"
 
 typedef float mat4[4][4]; /* [row][col], clip = M * column-vector */
@@ -130,10 +131,12 @@ int main(void)
 	printf("rendering...\n");
 	console_close();
 
-	int f = 0;
+	uint64_t t0 = mftb();
 	while (1)
 	{
-		f++;
+		/* wall-clock seconds since start — frame-rate independent */
+		float t = (float)((double)(mftb() - t0) /
+				  (double)PPC_TIMEBASE_FREQ);
 		Xe_InvalidateState(xe);
 		Xe_SetCullMode(xe, 0);   /* no culling; depth sorts it out */
 		Xe_SetZEnable(xe, 1);
@@ -144,8 +147,8 @@ int main(void)
 		m_persp(p, 50.0f * (float)M_PI / 180.0f, 1280.0f / 720.0f,
 			1.0f, 20.0f);
 		m_translate_z(t, -5.0f);
-		m_rot_y(ry, f * 0.013f);
-		m_rot_x(rx, f * 0.007f);
+		m_rot_y(ry, t * 0.9f);    /* ~7 s per revolution */
+		m_rot_x(rx, t * 0.55f);
 		m_mul(mvp, ry, rx);   /* model  = Ry * Rx   */
 		m_mul(mvp, t, mvp);   /* view   = T * model */
 		m_mul(mvp, p, mvp);   /* clip   = P * view  */

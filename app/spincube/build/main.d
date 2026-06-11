@@ -5,6 +5,7 @@ main.o: /mnt/d/claude/fable/xenos-toolchain/app/spincube/source/main.c \
  /usr/local/xenon/usr/include/xenos/xenos_videomodes.h \
  /usr/local/xenon/usr/include/xenos/edram.h \
  /usr/local/xenon/usr/include/console/console.h \
+ /usr/local/xenon/usr/include/ppc/timebase.h \
  /mnt/d/claude/fable/xenos-toolchain/app/spincube/source/xost_shaders.h
 
 /usr/local/xenon/usr/include/xenos/xe.h:
@@ -18,5 +19,7 @@ main.o: /mnt/d/claude/fable/xenos-toolchain/app/spincube/source/main.c \
 /usr/local/xenon/usr/include/xenos/edram.h:
 
 /usr/local/xenon/usr/include/console/console.h:
+
+/usr/local/xenon/usr/include/ppc/timebase.h:
 
 /mnt/d/claude/fable/xenos-toolchain/app/spincube/source/xost_shaders.h:
