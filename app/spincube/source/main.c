@@ -1,8 +1,15 @@
-/* xost spincube — a rotating 3D cube drawn with fully open-toolchain
- * shaders (xost_vs1: pos * mvp from c0-c3; xost_ps0: color passthrough).
+/* xost spincube — rotating 3D cube + live CPU/GPU usage HUD, all drawn
+ * with fully open-toolchain shaders (xost_vs1 mvp transform + xost_ps0).
  *
- * VS contract: oPos[i] = dot4(position, c[i]) — we upload the rows of the
- * column-vector MVP matrix as constants c0..c3.
+ * The HUD is a 7-segment vector font built from colored quads — no
+ * textures, no console: the same two shaders draw everything. For the HUD
+ * pass we simply upload an identity matrix to c0-c3.
+ *
+ * Metrics (bare metal, measured via the PPC timebase):
+ *   CPU% = time spent preparing the frame / 60fps frame budget
+ *   GPU% = time from Resolve kick to GPU idle / 60fps frame budget
+ * Both are approximations in the honest direction: there is no OS here,
+ * so "usage" means "fraction of the frame budget actually busy".
  */
 #include <stdio.h>
 #include <string.h>
@@ -13,6 +20,8 @@
 #include <console/console.h>
 #include <ppc/timebase.h>
 #include "xost_shaders.h"
+
+/* ---------------- matrices ---------------- */
 
 typedef float mat4[4][4]; /* [row][col], clip = M * column-vector */
 
@@ -36,7 +45,6 @@ static void m_mul(mat4 out, const mat4 a, const mat4 b)
 	memcpy(out, t, sizeof(mat4));
 }
 
-/* right-handed, camera looks down -Z, clip z in [0,1] */
 static void m_persp(mat4 m, float fovy, float aspect, float n, float f)
 {
 	float ct = 1.0f / tanf(fovy * 0.5f);
@@ -68,7 +76,8 @@ static void m_translate_z(mat4 m, float tz)
 	m[2][3] = tz;
 }
 
-/* 8 corners, rainbow colors; 12 triangles. depth handles visibility. */
+/* ---------------- cube ---------------- */
+
 static const float verts[] = {
 	/*   X      Y      Z     W      R     G     B     A  */
 	-1.0f, -1.0f, -1.0f, 1.0f,  0.0f, 0.0f, 0.0f, 1.0f,
@@ -82,19 +91,95 @@ static const float verts[] = {
 };
 
 static const unsigned short indices[] = {
-	0, 1, 2,  0, 2, 3,   /* -z */
-	4, 6, 5,  4, 7, 6,   /* +z */
-	0, 4, 5,  0, 5, 1,   /* -y */
-	3, 2, 6,  3, 6, 7,   /* +y */
-	0, 3, 7,  0, 7, 4,   /* -x */
-	1, 5, 6,  1, 6, 2,   /* +x */
+	0, 1, 2,  0, 2, 3,
+	4, 6, 5,  4, 7, 6,
+	0, 4, 5,  0, 5, 1,
+	3, 2, 6,  3, 6, 7,
+	0, 3, 7,  0, 7, 4,
+	1, 5, 6,  1, 6, 2,
 };
+
+/* ---------------- 7-segment HUD ---------------- */
+
+#define HUD_MAX_VERTS 4096
+static float hud[HUD_MAX_VERTS * 8];
+static int hud_verts;
+
+static void hud_rect(float x, float y, float w, float h, const float *col)
+{
+	/* (x,y) = top-left in clip space (y up); emits 2 triangles */
+	if (hud_verts + 6 > HUD_MAX_VERTS)
+		return;
+	float x1 = x + w, y1 = y - h;
+	float quad[6][2] = {
+		{x, y}, {x1, y}, {x1, y1},
+		{x, y}, {x1, y1}, {x, y1},
+	};
+	int i;
+	for (i = 0; i < 6; i++) {
+		float *v = &hud[hud_verts++ * 8];
+		v[0] = quad[i][0]; v[1] = quad[i][1];
+		v[2] = 0.0f;       v[3] = 1.0f;
+		v[4] = col[0]; v[5] = col[1]; v[6] = col[2]; v[7] = 1.0f;
+	}
+}
+
+/* segment bits: a=1 b=2 c=4 d=8 e=16 f=32 g=64 */
+static const unsigned char seg_digit[10] = {
+	0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F
+};
+#define SEG_C 0x39
+#define SEG_P 0x73
+#define SEG_U 0x3E
+#define SEG_G 0x3D
+#define SEG_PCT 0x49  /* a+g+d: a fake but readable '%' stand-in (≡) */
+
+static void hud_char(float cx, float cy, float cw, float ch,
+		     unsigned char mask, const float *col)
+{
+	float th = cw * 0.22f, half = ch * 0.5f;
+	if (mask & 0x01) hud_rect(cx + th, cy, cw - 2 * th, th, col);
+	if (mask & 0x02) hud_rect(cx + cw - th, cy - th, th, half - th, col);
+	if (mask & 0x04) hud_rect(cx + cw - th, cy - half - th * 0.5f, th,
+				  half - th * 0.5f, col);
+	if (mask & 0x08) hud_rect(cx + th, cy - ch + th, cw - 2 * th, th, col);
+	if (mask & 0x10) hud_rect(cx, cy - half - th * 0.5f, th,
+				  half - th * 0.5f, col);
+	if (mask & 0x20) hud_rect(cx, cy - th, th, half - th, col);
+	if (mask & 0x40) hud_rect(cx + th, cy - half + th * 0.5f,
+				  cw - 2 * th, th, col);
+}
+
+static void hud_row(float x, float y, const unsigned char *label, int nlabel,
+		    int value, const float *col)
+{
+	float cw = 0.030f, ch = 0.075f, adv = cw * 1.45f;
+	int i;
+	for (i = 0; i < nlabel; i++) {
+		hud_char(x, y, cw, ch, label[i], col);
+		x += adv;
+	}
+	x += adv * 0.5f;
+	if (value > 999) value = 999;
+	if (value < 0) value = 0;
+	if (value >= 100) { hud_char(x, y, cw, ch,
+				     seg_digit[(value / 100) % 10], col); }
+	x += adv;
+	if (value >= 10) { hud_char(x, y, cw, ch,
+				    seg_digit[(value / 10) % 10], col); }
+	x += adv;
+	hud_char(x, y, cw, ch, seg_digit[value % 10], col);
+	x += adv;
+	hud_char(x, y, cw, ch, SEG_PCT, col);
+}
+
+/* ---------------- main ---------------- */
 
 int main(void)
 {
 	xenos_init(VIDEO_MODE_AUTO);
 	console_init();
-	printf("xost spincube: open-toolchain 3D, now with the third D\n");
+	printf("xost spincube + perf HUD\n");
 
 	struct XenosDevice _xe, *xe = &_xe;
 	Xe_Init(xe);
@@ -123,37 +208,61 @@ int main(void)
 
 	struct XenosIndexBuffer *ib =
 		Xe_CreateIndexBuffer(xe, sizeof(indices), XE_FMT_INDEX16);
-	void *i = Xe_IB_Lock(xe, ib, 0, sizeof(indices), XE_LOCK_WRITE);
-	memcpy(i, indices, sizeof(indices));
+	void *ip = Xe_IB_Lock(xe, ib, 0, sizeof(indices), XE_LOCK_WRITE);
+	memcpy(ip, indices, sizeof(indices));
 	Xe_IB_Unlock(xe, ib);
+
+	struct XenosVertexBuffer *hvb =
+		Xe_CreateVertexBuffer(xe, sizeof(hud));
 
 	edram_init(xe);
 	printf("rendering...\n");
 	console_close();
 
+	const uint64_t frame_ticks = PPC_TIMEBASE_FREQ / 60; /* 60 fps cap */
+	const float cpu_col[3] = {0.2f, 1.0f, 0.2f};
+	const float gpu_col[3] = {0.2f, 0.9f, 1.0f};
+	const unsigned char lbl_cpu[3] = {SEG_C, SEG_P, SEG_U};
+	const unsigned char lbl_gpu[3] = {SEG_G, SEG_P, SEG_U};
+
+	float cpu_avg = 0.0f, gpu_avg = 0.0f;
+	int show_cpu = 0, show_gpu = 0, refresh = 0;
 	uint64_t t0 = mftb();
+
 	while (1)
 	{
-		/* wall-clock seconds since start — frame-rate independent */
-		float t = (float)((double)(mftb() - t0) /
+		uint64_t fstart = mftb();
+		float t = (float)((double)(fstart - t0) /
 				  (double)PPC_TIMEBASE_FREQ);
+
+		/* ---- CPU phase: matrices + HUD geometry + uploads ---- */
 		Xe_InvalidateState(xe);
-		Xe_SetCullMode(xe, 0);   /* no culling; depth sorts it out */
+		Xe_SetCullMode(xe, 0);
 		Xe_SetZEnable(xe, 1);
 		Xe_SetZWrite(xe, 1);
 		Xe_SetClearColor(xe, 0xFF202020);
 
-		mat4 mvp, p, tr, ry, rx;
+		mat4 mvp, p, tr, ry, rx, ident;
 		m_persp(p, 50.0f * (float)M_PI / 180.0f, 1280.0f / 720.0f,
 			1.0f, 20.0f);
 		m_translate_z(tr, -5.0f);
-		m_rot_y(ry, t * 0.9f);    /* ~7 s per revolution */
+		m_rot_y(ry, t * 0.9f);
 		m_rot_x(rx, t * 0.55f);
-		m_mul(mvp, ry, rx);   /* model  = Ry * Rx   */
-		m_mul(mvp, tr, mvp);  /* view   = T * model */
-		m_mul(mvp, p, mvp);   /* clip   = P * view  */
-		Xe_SetVertexShaderConstantF(xe, 0, (float *)mvp, 4);
+		m_mul(mvp, ry, rx);
+		m_mul(mvp, tr, mvp);
+		m_mul(mvp, p, mvp);
+		m_identity(ident);
 
+		hud_verts = 0;
+		hud_row(-0.97f, 0.95f, lbl_cpu, 3, show_cpu, cpu_col);
+		hud_row(-0.97f, 0.84f, lbl_gpu, 3, show_gpu, gpu_col);
+		void *hv = Xe_VB_Lock(xe, hvb, 0, hud_verts * 32,
+				      XE_LOCK_WRITE);
+		memcpy(hv, hud, hud_verts * 32);
+		Xe_VB_Unlock(xe, hvb);
+
+		/* cube pass */
+		Xe_SetVertexShaderConstantF(xe, 0, (float *)mvp, 4);
 		Xe_SetShader(xe, SHADER_TYPE_PIXEL, ps, 0);
 		Xe_SetShader(xe, SHADER_TYPE_VERTEX, vs, 0);
 		Xe_SetStreamSource(xe, 0, vb, 0, 8);
@@ -161,8 +270,33 @@ int main(void)
 		Xe_DrawIndexedPrimitive(xe, XE_PRIMTYPE_TRIANGLELIST,
 					0, 0, 8, 0, 12);
 
+		/* HUD pass: identity transform, same shaders */
+		Xe_SetVertexShaderConstantF(xe, 0, (float *)ident, 4);
+		Xe_SetStreamSource(xe, 0, hvb, 0, 8);
+		Xe_DrawPrimitive(xe, XE_PRIMTYPE_TRIANGLELIST,
+				 0, hud_verts / 3);
+
+		/* ---- GPU phase: kick + drain ---- */
+		uint64_t t_kick = mftb();
 		Xe_Resolve(xe);
 		Xe_Sync(xe);
+		uint64_t t_done = mftb();
+
+		float cpu_pct = 100.0f * (float)(t_kick - fstart)
+				/ (float)frame_ticks;
+		float gpu_pct = 100.0f * (float)(t_done - t_kick)
+				/ (float)frame_ticks;
+		cpu_avg += 0.05f * (cpu_pct - cpu_avg);
+		gpu_avg += 0.05f * (gpu_pct - gpu_avg);
+		if (++refresh >= 20) { /* update display ~3x/s */
+			refresh = 0;
+			show_cpu = (int)(cpu_avg + 0.5f);
+			show_gpu = (int)(gpu_avg + 0.5f);
+		}
+
+		/* 60 fps cap (busy-wait; not counted as usage) */
+		while (mftb() - fstart < frame_ticks)
+			;
 	}
 	return 0;
 }
