@@ -149,7 +149,15 @@ is what we replace.
   - **examples/author_passthrough.py: first fully open-toolchain Xenos
     shader pair** (passthrough VS 228 B + PS 148 B), inversion-proof against
     corpus instructions, validated by XenosRecomp (correct HLSL semantics
-    both). REMAINING for Phase 1 exit: render a triangle with these shaders
-    on the real console via libxenon (needs libxenon env: WSL/MSYS2 + user's
-    RGH box; mystery fields 0x290/field10=0x20000 get their hardware test
-    here too).
+    both).
+- 2026-06-11: **🏆 PHASE 1 EXIT GATE PASSED ON HARDWARE.** Two RGB triangles
+  (opposite windings) rendered on the user's RGH console via libxenon
+  (Debian WSL xenon-gcc 9.2; app/triangle). On-console dump confirms
+  Xe_ShaderApplyVFetchPatches consumed our patch table exactly as designed
+  (templates → fmt 0x26/FLOAT4, stride 8, offsets 0/4 per our
+  VertexElements). Mystery fields (0x290, field10) hardware-confirmed
+  non-blocking. Lesson: libxenon default cull state after InvalidateState
+  culls — set Xe_SetCullMode explicitly (build-1 "no triangle" cause).
+  First known fully open-toolchain hardware 3D on Xbox 360.
+  NEXT (Phase 2): minimal compiler / combiner-style shader generator on top
+  of xasm builders; project naming + release prep; text-assembler frontend.
