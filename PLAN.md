@@ -161,3 +161,20 @@ is what we replace.
   First known fully open-toolchain hardware 3D on Xbox 360.
   NEXT (Phase 2): minimal compiler / combiner-style shader generator on top
   of xasm builders; project naming + release prep; text-assembler frontend.
+- 2026-06-11: **Phase 2 core landed, hardware-verified same day.**
+  (a) spincube: mvp dp4 transform VS (xost_vs1), per-frame constants, depth,
+  time-based animation — verified. (b) Live CPU/GPU% HUD (7-seg vector font
+  from quads, identity-matrix overlay pass) — verified: CPU 0% / GPU 3%.
+  (c) **xasm/program.py Program builder**: declarative authoring (auto
+  slot/CF layout, exec chunking, sequence bits, reg scan → SQ_PROGRAM_CNTL,
+  VertexElement/Interpolator/export metadata). (d) **Textured pipeline**
+  (xost_vs2 + xost_ps1 via Program API, tfetch2D × vertex color) + texcube
+  app (two shader pairs per frame, procedural checkerboard, linear ARGB) —
+  **verified on console: 6 tinted checkered faces.** tfetch, sampler
+  binding, multi-interpolator routing, FLOAT2 vfetch component fixup all
+  proven. Hardware-proven feature matrix now: vfetch (F4/F2), tfetch2D,
+  ALU vector ops (dp4/max/mul), exports (oPos/oN/oC0), constants (float4
+  matrices), depth, shader switching. REMAINING unproven: bool constants +
+  cjmp control flow, scalar co-issue, loops/predication, ubyte4 verts,
+  depth export/MRT. NEXT: combiner generator (the emulator enabler) or
+  naming/release.
