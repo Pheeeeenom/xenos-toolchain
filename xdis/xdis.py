@@ -22,6 +22,9 @@ def main():
                     help="treat input as raw big-endian ucode, not a container")
     ap.add_argument("--no-header", action="store_true",
                     help="suppress container metadata")
+    ap.add_argument("--exact", action="store_true",
+                    help="lossless mode: annotate with ;; raw/pad/tail lines "
+                         "so the text reconstructs to identical bytes")
     args = ap.parse_args()
 
     for path in args.blobs:
@@ -36,7 +39,8 @@ def main():
                 print(c.describe())
                 print("-" * 60)
             dwords, shader_type = c.ucode_dwords, c.shader_type
-        print(xenos_ucode.disassemble(dwords, shader_type))
+        print(xenos_ucode.disassemble(dwords, shader_type,
+                                      exact=args.exact))
         print()
 
 

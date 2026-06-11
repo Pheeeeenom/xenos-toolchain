@@ -2235,13 +2235,16 @@ def _scan_program(dwords) -> tuple:
 
 def _decode_exec_slots(dwords, exec_instr: ParsedExecInstruction,
                        shader_type: str, previous_vfetch_full: list,
-                       records: list, out: list) -> None:
+                       records: list, out: list, exact: bool = False,
+                       covered_slots: set | None = None) -> None:
     """Decodes the ALU/fetch slots referenced by an exec-type CF instruction
     (mirrors Shader::GatherExecInformation)."""
     sequence = exec_instr.sequence
     for instr_offset in range(
             exec_instr.instruction_address,
             exec_instr.instruction_address + exec_instr.instruction_count):
+        if covered_slots is not None:
+            covered_slots.add(instr_offset)
         out.append(f"/* {instr_offset:4d}   */ ")
         serialize = bool(sequence & 0b10)
         if serialize:
@@ -2311,11 +2314,21 @@ def _decode_exec_slots(dwords, exec_instr: ParsedExecInstruction,
                 kind="alu", offset=instr_offset, opcode=opcode_name,
                 text=text.rstrip("\n"), detail=instr, raw=raw,
                 serialize=serialize, exec_cf_index=exec_instr.dword_index))
+        if exact and base + 3 <= len(dwords):
+            out.append(f"             ;; raw {raw[0]:#010x} {raw[1]:#010x} "
+                       f"{raw[2]:#010x}\n")
         sequence >>= 2
 
 
-def _decode_program(dwords, shader_type: str) -> tuple:
-    """Walks a whole shader program. Returns (records, full_text)."""
+def _decode_program(dwords, shader_type: str, exact: bool = False) -> tuple:
+    """Walks a whole shader program. Returns (records, full_text).
+
+    exact=True appends lossless annotations to the text: a
+    `;; raw <dwords>` line after every CF entry and slot instruction, and a
+    `;; pad <slot> <dwords>` footer line for every dword triplet neither in
+    the CF program nor referenced by an exec — together these make the text
+    reconstructible to the exact original bytes (see docs/xasm.md).
+    """
     if shader_type not in ("vertex", "pixel"):
         raise ValueError(
             f"shader_type must be 'vertex' or 'pixel', got {shader_type!r}")
@@ -2323,6 +2336,7 @@ def _decode_program(dwords, shader_type: str) -> tuple:
     is_vertex_shader = shader_type == "vertex"
 
     cf_pair_index_bound, label_addresses = _scan_program(dwords)
+    covered_slots: set[int] = set()
 
     records: list[DecodedInstruction] = []
     out: list[str] = []
@@ -2391,16 +2405,37 @@ def _decode_program(dwords, shader_type: str) -> tuple:
             if isinstance(detail, ParsedExecInstruction):
                 text = detail.Disassemble()
                 out.append(text)
+                if exact:
+                    out.append(f"             ;; raw {raw[0]:#010x} "
+                               f"{raw[1]:#06x}\n")
                 records.append(DecodedInstruction(
                     kind="cf", offset=cf_index, opcode=detail.opcode_name,
                     text=text.rstrip("\n"), detail=detail, raw=raw))
                 _decode_exec_slots(dwords, detail, shader_type,
-                                   previous_vfetch_full, records, out)
+                                   previous_vfetch_full, records, out,
+                                   exact=exact, covered_slots=covered_slots)
             else:
+                if exact:
+                    if opcode == ControlFlowOpcode.kMarkVsFetchDone:
+                        # prints no text of its own; raw keeps its bits
+                        out.append("\n")
+                    out.append(f"             ;; raw {raw[0]:#010x} "
+                               f"{raw[1]:#06x}\n")
                 records.append(DecodedInstruction(
                     kind="cf", offset=cf_index,
                     opcode=_CF_OPCODE_NAMES.get(opcode, f"cf_{int(opcode)}"),
                     text=text.rstrip("\n"), detail=detail, raw=raw))
+    if exact:
+        for slot in range(cf_pair_index_bound, len(dwords) // 3):
+            if slot not in covered_slots:
+                base = slot * 3
+                out.append(f"             ;; pad {slot} "
+                           f"{dwords[base]:#010x} {dwords[base+1]:#010x} "
+                           f"{dwords[base+2]:#010x}\n")
+        leftover = len(dwords) % 3
+        if leftover:
+            tail = " ".join(f"{d:#010x}" for d in dwords[-leftover:])
+            out.append(f"             ;; tail {tail}\n")
     return records, "".join(out)
 
 
@@ -2408,15 +2443,77 @@ def _decode_program(dwords, shader_type: str) -> tuple:
 # Public API
 # =============================================================================
 
-def disassemble(dwords, shader_type: str) -> str:
+def disassemble(dwords, shader_type: str, exact: bool = False) -> str:
     """Disassembles a whole Xenos shader microcode program.
 
     dwords: host-order uint32 values in ucode order.
     shader_type: "vertex" or "pixel".
+    exact: append lossless `;; raw`/`;; pad`/`;; tail` annotations making the
+    text byte-reconstructible (default output is unchanged and stays
+    diffable against Xenia's ucode disassembler).
     Returns the full multi-line disassembly text (Xenia ucode disasm style).
     """
-    _, text = _decode_program(list(dwords), shader_type)
+    _, text = _decode_program(list(dwords), shader_type, exact=exact)
     return text
+
+
+def reconstruct_from_exact(text: str) -> bytes:
+    """Rebuilds the exact big-endian ucode bytes from exact-mode disassembly
+    (the authoritative-bytes path; mnemonic-based assembly lives in xasm).
+
+    CF `;; raw` lines carry (dword0, 16-bit dword1) per 48-bit CF entry; two
+    consecutive entries re-pack into one 3-dword pair. `;; pad`/`;; tail`
+    lines carry uncovered slots/trailing dwords at their slot positions.
+    """
+    import re
+    import struct
+    cf_entries: list[tuple[int, int]] = []
+    slot_words: dict[int, tuple] = {}
+    tail: list[int] = []
+    for line in text.splitlines():
+        m = re.search(r";; raw ((?:0x[0-9a-f]+ ?)+)$", line)
+        if m:
+            words = [int(w, 16) for w in m.group(1).split()]
+            if len(words) == 2:
+                cf_entries.append((words[0], words[1]))
+            continue
+        m = re.search(r";; pad (\d+) ((?:0x[0-9a-f]+ ?)+)$", line)
+        if m:
+            slot_words[int(m.group(1))] = tuple(
+                int(w, 16) for w in m.group(2).split())
+            continue
+        m = re.search(r";; tail ((?:0x[0-9a-f]+ ?)+)$", line)
+        if m:
+            tail = [int(w, 16) for w in m.group(1).split()]
+    # Slot raws appear in exec order; map them back via a second pass over
+    # the text pairing "/* N   */" markers with their ;; raw line.
+    slot_re = re.compile(r"/\*\s*(\d+)\s+\*/")
+    cur_slot = None
+    for line in text.splitlines():
+        m = slot_re.search(line)
+        if m:
+            cur_slot = int(m.group(1))
+        m = re.search(r";; raw ((?:0x[0-9a-f]+ ?)+)$", line)
+        if m:
+            words = tuple(int(w, 16) for w in m.group(1).split())
+            if len(words) == 3 and cur_slot is not None:
+                slot_words[cur_slot] = words
+    if len(cf_entries) % 2:
+        cf_entries.append((0, 0))
+    n_cf_pairs = len(cf_entries) // 2
+    total_slots = n_cf_pairs + (
+        (max(slot_words) - n_cf_pairs + 1) if slot_words else 0)
+    if slot_words:
+        total_slots = max(total_slots, max(slot_words) + 1)
+    dwords: list[int] = []
+    for i in range(n_cf_pairs):
+        (a0, a1), (b0, b1) = cf_entries[2 * i], cf_entries[2 * i + 1]
+        dwords.extend(_pack_cf_pair(a0, a1, b0, b1))
+    for slot in range(n_cf_pairs, total_slots):
+        words = slot_words.get(slot, (0, 0, 0))
+        dwords.extend(words)
+    dwords.extend(tail)
+    return struct.pack(f">{len(dwords)}I", *dwords)
 
 
 def parse_program(dwords, shader_type: str) -> list:
