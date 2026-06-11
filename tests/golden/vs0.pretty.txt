@@ -1,0 +1,17 @@
+/*    0.0 */       exec
+/*    3   */          vfetch_full r2, r0.x, vf0
+/*    4   */          vfetch_full r1.__xy, r0.x, vf0
+/*    5   */          vfetch_full r1.xy__, r0.x, vf0
+/*    6   */          vfetch_full r0, r0.x, vf0
+/*    0.1 */       alloc position
+/*    1.0 */       exec
+/*    7   */          dp4 oPos.x___, r2.wzxy, c0.wzxy
+/*    8   */          dp4 oPos._y__, r2.wzxy, c1.wzxy
+/*    9   */          dp4 oPos.__z_, r2.wzxy, c2.wzxy
+/*   10   */          dp4 oPos.___w, r2.wzxy, c3.wzxy
+/*    1.1 */       alloc interpolators
+/*    2.0 */       exece
+/*   11   */          max o0.xy__, r1.zwww, r1.zwww
+/*   12   */          max o1.xy__, r1.xyyy, r1.xyyy
+/*   13   */          max o2, r0, r0
+/*    2.1 */       cnop

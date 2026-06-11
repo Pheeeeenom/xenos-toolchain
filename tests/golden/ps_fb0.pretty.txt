@@ -1,0 +1,10 @@
+/*    0.0 */       cjmp !b128, L4
+/*    0.1 */       exec
+/*    3   */          tfetch2D r0, r0.xy, tf0
+/*    1.0 */       alloc colors
+/*    1.1 */       exece
+/*    4   */          max oC0, r0, r0
+                label L4
+/*    2.0 */       alloc colors
+/*    2.1 */       exece
+/*    5   */          max oC0, r2, r2
