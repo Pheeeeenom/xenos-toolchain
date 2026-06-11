@@ -130,6 +130,26 @@ is what we replace.
   with VS18 and run on both corpus blobs (`corpus/*.recomp.hlsl`); its HLSL
   matches xdis instruction-for-instruction (same dp4/ortho transform, same
   b128 use_tex branch, same swizzles) and it resolved constant names from the
-  container, validating docs/container.md. NEXT: Phase 1 `xasm` — assembler
-  syntax ≡ xdis output; encoder = bitfield inverse (classes already exported
-  by xenos_ucode.py); exit test = corpus disasm→asm→byte-identical.
+  container, validating docs/container.md.
+- 2026-06-11: **Phase 1 PC-side COMPLETE** (scope note: the *text* parser
+  moved to Phase 2 — the builder API is the assembler-as-library and is how
+  generators will emit shaders anyway; corpus byte-round-trip is covered by
+  exact mode instead).
+  - git repo initialized (after one agent stall; narrow-lane agent prompts
+    from now on).
+  - `--exact` disasm mode: lossless ;; raw/pad/tail annotations;
+    reconstruct_from_exact → byte-identical (tests/test_exact_total.py).
+  - `xasm/encode.py`: builders for all CF/vfetch/tfetch/ALU forms, 16k-case
+    fuzz vs decoders green (tests/test_encode_fuzz.py).
+  - Container emitter regenerates both corpus blobs byte-identically from
+    semantic params (tests/test_container_regen.py). SQ_PROGRAM_CNTL now
+    computed from xenia registers.h layout (validated vs corpus values).
+    Decoded: interpolator flags = (export_index<<4)|type_nibble; ps_field18
+    = (interp_count<<16)|7; VertexElement.address = template vfetch slot.
+  - **examples/author_passthrough.py: first fully open-toolchain Xenos
+    shader pair** (passthrough VS 228 B + PS 148 B), inversion-proof against
+    corpus instructions, validated by XenosRecomp (correct HLSL semantics
+    both). REMAINING for Phase 1 exit: render a triangle with these shaders
+    on the real console via libxenon (needs libxenon env: WSL/MSYS2 + user's
+    RGH box; mystery fields 0x290/field10=0x20000 get their hardware test
+    here too).
