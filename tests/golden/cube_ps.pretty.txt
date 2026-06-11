@@ -1,0 +1,11 @@
+=== corpus\cube_ps.bin ===
+/*    0.0 */       exec
+/*    2   */          tfetch2D r1, r1.xy, tf0
+/*    0.1 */       alloc colors
+/*    1.0 */       exece
+/*    3   */          dp3 r0.x___, r0.zxyy, c0.zxyy
+/*    4   */          mul oC0.xyz_, r0.xxxx, r1.xyzz
+              +       maxs oC0.___w, r1.ww
+/*    1.1 */       cnop
+
+

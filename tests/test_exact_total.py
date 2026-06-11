@@ -15,7 +15,7 @@ import xenos_ucode  # noqa: E402
 
 def main():
     ok = True
-    for name in ("vs0", "ps_fb0"):
+    for name in ("vs0", "ps_fb0", "cube_vs", "cube_ps"):
         blob = (ROOT / "corpus" / f"{name}.bin").read_bytes()
         c = container.Container(blob)
         exact_text = xenos_ucode.disassemble(c.ucode_dwords, c.shader_type,

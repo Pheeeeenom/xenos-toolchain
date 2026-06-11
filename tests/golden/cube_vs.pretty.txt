@@ -1,0 +1,20 @@
+=== corpus\cube_vs.bin ===
+/*    0.0 */       exec
+/*    3   */          vfetch_full r2, r0.x, vf0
+/*    4   */          vfetch_full r0._xyz, r0.x, vf0
+/*    5   */          vfetch_full r1, r0.x, vf0
+/*    0.1 */       alloc position
+/*    1.0 */       exec
+/*    6   */          dp4 oPos.x___, r2.wzxy, c0.wzxy
+/*    7   */          dp4 oPos._y__, r2.wzxy, c1.wzxy
+/*    8   */          dp4 oPos.__z_, r2.wzxy, c2.wzxy
+/*    9   */          dp4 oPos.___w, r2.wzxy, c3.wzxy
+/*    1.1 */       alloc interpolators
+/*    2.0 */       exece
+/*   10   */          max o1, r1, r1
+/*   11   */          dp3 o0.x___, r0.wyzz, c4.zxyy
+/*   12   */          dp3 o0._y__, r0.wyzz, c5.zxyy
+/*   13   */          dp3 o0.__z_, r0.wyzz, c6.zxyy
+/*    2.1 */       cnop
+
+
