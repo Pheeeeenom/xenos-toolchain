@@ -143,14 +143,14 @@ int main(void)
 		Xe_SetZWrite(xe, 1);
 		Xe_SetClearColor(xe, 0xFF202020);
 
-		mat4 mvp, p, t, ry, rx;
+		mat4 mvp, p, tr, ry, rx;
 		m_persp(p, 50.0f * (float)M_PI / 180.0f, 1280.0f / 720.0f,
 			1.0f, 20.0f);
-		m_translate_z(t, -5.0f);
+		m_translate_z(tr, -5.0f);
 		m_rot_y(ry, t * 0.9f);    /* ~7 s per revolution */
 		m_rot_x(rx, t * 0.55f);
 		m_mul(mvp, ry, rx);   /* model  = Ry * Rx   */
-		m_mul(mvp, t, mvp);   /* view   = T * model */
+		m_mul(mvp, tr, mvp);  /* view   = T * model */
 		m_mul(mvp, p, mvp);   /* clip   = P * view  */
 		Xe_SetVertexShaderConstantF(xe, 0, (float *)mvp, 4);
 
