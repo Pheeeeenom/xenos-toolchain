@@ -156,6 +156,13 @@ int main(void)
 		for(i=0;i<gallery[mode].n_const;i++)
 			Xe_SetPixelShaderConstantF(xe,gallery[mode].consts[i].reg,
 				(float*)gallery[mode].consts[i].v,1);
+		/* data-dependent loop proof: upload loop constant i0 with an animated
+		   trip count (count|start<<8|step<<16). The LOOP slot's shader runs its
+		   body i0.x times (oC0 = count*c0 -> brightness steps with count);
+		   non-loop slots ignore it. integer_constants[8+id] = loop const i#. */
+		int lcount=1+((int)t)%6;
+		xe->integer_constants[8+0]=(lcount&0xff)|(0<<8)|(1<<16);
+		xe->dirty|=DIRTY_INTEGER;
 		Xe_SetShader(xe,SHADER_TYPE_PIXEL,gps[mode],0);
 		Xe_SetShader(xe,SHADER_TYPE_VERTEX,vs,0);
 		Xe_SetTexture(xe,0,tex);
