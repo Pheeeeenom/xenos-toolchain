@@ -2259,12 +2259,12 @@ LOAD /usr/local/xenon/lib/gcc/xenon/9.2.0/../../../../xenon/lib/../lib/crtn.o
                 0x0000000080001edc       0x2c /usr/local/xenon/lib/gcc/xenon/9.2.0/../../../../xenon/lib/../lib/crt1.o
                 0x0000000080001edc                __crtmain
  .text          0x0000000080001f08      0x628 main.o
- .text.startup  0x0000000080002530      0xc90 main.o
+ .text.startup  0x0000000080002530      0xc88 main.o
                 0x0000000080002530                main
  .text.__check_argv
-                0x00000000800031c0       0x24 /usr/local/xenon/usr/lib/libxenon.a(argv.o)
-                0x00000000800031c0                __check_argv
- *fill*         0x00000000800031e4       0x1c 
+                0x00000000800031b8       0x24 /usr/local/xenon/usr/lib/libxenon.a(argv.o)
+                0x00000000800031b8                __check_argv
+ *fill*         0x00000000800031dc       0x24 
  .text          0x0000000080003200      0x2f4 /usr/local/xenon/usr/lib/libxenon.a(startup_from_xell.o)
                 0x0000000080003200                _start
                 0x00000000800033f8                wait
@@ -3148,971 +3148,972 @@ LOAD /usr/local/xenon/lib/gcc/xenon/9.2.0/../../../../xenon/lib/../lib/crtn.o
  *(.elfldr)
                 0x0000000080022668                elfldr_end = .
 
-.data           0x0000000080022668     0xace4
+.data           0x0000000080022668     0xaec4
  *(.data*)
- .data          0x0000000080022668      0xc48 main.o
+ .data          0x0000000080022668      0xe24 main.o
  .data.devoptab_list
-                0x00000000800232b0       0x40 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
-                0x00000000800232b0                devoptab_list
+                0x000000008002348c       0x40 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+                0x000000008002348c                devoptab_list
  .data.__syscalls
-                0x00000000800232f0       0x24 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
-                0x00000000800232f0                __syscalls
+                0x00000000800234cc       0x24 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+                0x00000000800234cc                __syscalls
  .data.lockowner
-                0x0000000080023314        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+                0x00000000800234f0        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
  .data.ana_hdmi_720p
-                0x0000000080023318      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080023318                ana_hdmi_720p
+                0x00000000800234f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800234f4                ana_hdmi_720p
  .data.ana_hdmi_720p_corona
-                0x0000000080023718      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080023718                ana_hdmi_720p_corona
+                0x00000000800238f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800238f4                ana_hdmi_720p_corona
  .data.ana_ntsc
-                0x0000000080023b18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080023b18                ana_ntsc
+                0x0000000080023cf4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x0000000080023cf4                ana_ntsc
  .data.ana_ntsc_corona
-                0x0000000080023f18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080023f18                ana_ntsc_corona
+                0x00000000800240f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800240f4                ana_ntsc_corona
  .data.ana_pal50
-                0x0000000080024318      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080024318                ana_pal50
+                0x00000000800244f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800244f4                ana_pal50
  .data.ana_pal50_corona
-                0x0000000080024718      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080024718                ana_pal50_corona
+                0x00000000800248f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800248f4                ana_pal50_corona
  .data.ana_pal60
-                0x0000000080024b18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080024b18                ana_pal60
+                0x0000000080024cf4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x0000000080024cf4                ana_pal60
  .data.ana_pal60_corona
-                0x0000000080024f18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080024f18                ana_pal60_corona
+                0x00000000800250f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800250f4                ana_pal60_corona
  .data.ana_vga_1024x768
-                0x0000000080025318      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080025318                ana_vga_1024x768
+                0x00000000800254f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800254f4                ana_vga_1024x768
  .data.ana_vga_1024x768_corona
-                0x0000000080025718      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080025718                ana_vga_1024x768_corona
+                0x00000000800258f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800258f4                ana_vga_1024x768_corona
  .data.ana_vga_1280x1024
-                0x0000000080025b18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080025b18                ana_vga_1280x1024
+                0x0000000080025cf4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x0000000080025cf4                ana_vga_1280x1024
  .data.ana_vga_1280x1024_corona
-                0x0000000080025f18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080025f18                ana_vga_1280x1024_corona
+                0x00000000800260f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800260f4                ana_vga_1280x1024_corona
  .data.ana_vga_1280x720
-                0x0000000080026318      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080026318                ana_vga_1280x720
+                0x00000000800264f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800264f4                ana_vga_1280x720
  .data.ana_vga_1280x720_corona
-                0x0000000080026718      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080026718                ana_vga_1280x720_corona
+                0x00000000800268f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800268f4                ana_vga_1280x720_corona
  .data.ana_vga_1280x768
-                0x0000000080026b18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080026b18                ana_vga_1280x768
+                0x0000000080026cf4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x0000000080026cf4                ana_vga_1280x768
  .data.ana_vga_1280x768_corona
-                0x0000000080026f18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080026f18                ana_vga_1280x768_corona
+                0x00000000800270f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800270f4                ana_vga_1280x768_corona
  .data.ana_vga_1360x768
-                0x0000000080027318      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080027318                ana_vga_1360x768
+                0x00000000800274f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800274f4                ana_vga_1360x768
  .data.ana_vga_1360x768_corona
-                0x0000000080027718      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080027718                ana_vga_1360x768_corona
+                0x00000000800278f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800278f4                ana_vga_1360x768_corona
  .data.ana_vga_1440x900
-                0x0000000080027b18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080027b18                ana_vga_1440x900
+                0x0000000080027cf4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x0000000080027cf4                ana_vga_1440x900
  .data.ana_vga_1440x900_corona
-                0x0000000080027f18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080027f18                ana_vga_1440x900_corona
+                0x00000000800280f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800280f4                ana_vga_1440x900_corona
  .data.ana_vga_640x480
-                0x0000000080028318      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080028318                ana_vga_640x480
+                0x00000000800284f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800284f4                ana_vga_640x480
  .data.ana_vga_640x480_corona
-                0x0000000080028718      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080028718                ana_vga_640x480_corona
+                0x00000000800288f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800288f4                ana_vga_640x480_corona
  .data.ana_yuv_480p
-                0x0000000080028b18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080028b18                ana_yuv_480p
+                0x0000000080028cf4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x0000000080028cf4                ana_yuv_480p
  .data.ana_yuv_480p_corona
-                0x0000000080028f18      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080028f18                ana_yuv_480p_corona
+                0x00000000800290f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800290f4                ana_yuv_480p_corona
  .data.ana_yuv_720p
-                0x0000000080029318      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080029318                ana_yuv_720p
+                0x00000000800294f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800294f4                ana_yuv_720p
  .data.ana_yuv_720p_corona
-                0x0000000080029718      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080029718                ana_yuv_720p_corona
+                0x00000000800298f4      0x400 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x00000000800298f4                ana_yuv_720p_corona
  .data.xenos_modes
-                0x0000000080029b18      0x30c /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080029b18                xenos_modes
+                0x0000000080029cf4      0x30c /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x0000000080029cf4                xenos_modes
  .data.xenos_modes_corona
-                0x0000000080029e24      0x30c /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080029e24                xenos_modes_corona
+                0x000000008002a000      0x30c /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x000000008002a000                xenos_modes_corona
  .data.xenos_ucode0
-                0x000000008002a130      0x480 /usr/local/xenon/usr/lib/libxenon.a(ucode.o)
-                0x000000008002a130                xenos_ucode0
+                0x000000008002a30c      0x480 /usr/local/xenon/usr/lib/libxenon.a(ucode.o)
+                0x000000008002a30c                xenos_ucode0
  .data.xenos_ucode1
-                0x000000008002a5b0     0x2400 /usr/local/xenon/usr/lib/libxenon.a(ucode.o)
-                0x000000008002a5b0                xenos_ucode1
- .data          0x000000008002c9b0      0x428 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-impure.o)
- .data          0x000000008002cdd8      0x408 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
-                0x000000008002cdd8                __malloc_av_
- .data          0x000000008002d1e0      0x16c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
-                0x000000008002d1e0                __global_locale
+                0x000000008002a78c     0x2400 /usr/local/xenon/usr/lib/libxenon.a(ucode.o)
+                0x000000008002a78c                xenos_ucode1
+ *fill*         0x000000008002cb8c        0x4 
+ .data          0x000000008002cb90      0x428 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-impure.o)
+ .data          0x000000008002cfb8      0x408 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
+                0x000000008002cfb8                __malloc_av_
+ .data          0x000000008002d3c0      0x16c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
+                0x000000008002d3c0                __global_locale
 
-.branch_lt      0x000000008002d34c        0x0
- .branch_lt     0x000000008002d34c        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+.branch_lt      0x000000008002d52c        0x0
+ .branch_lt     0x000000008002d52c        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
 
-.got2           0x000000008002d34c       0x18
- .got2          0x000000008002d34c       0x18 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
+.got2           0x000000008002d52c       0x18
+ .got2          0x000000008002d52c       0x18 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
 
-.sdata          0x000000008002d364       0x20
+.sdata          0x000000008002d544       0x20
  *(.sdata*)
- .sdata         0x000000008002d364        0x4 /usr/local/xenon/usr/lib/libxenon.a(startup_from_xell.o)
-                0x000000008002d364                __system_argv
+ .sdata         0x000000008002d544        0x4 /usr/local/xenon/usr/lib/libxenon.a(startup_from_xell.o)
+                0x000000008002d544                __system_argv
  .sdata.console_color
-                0x000000008002d368        0x8 /usr/local/xenon/usr/lib/libxenon.a(console.o)
-                0x000000008002d368                console_color
- .sdata         0x000000008002d370        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
-                0x0000000080035370                _SDA_BASE_
- .sdata2        0x000000008002d370        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
-                0x0000000080035370                _SDA2_BASE_
+                0x000000008002d548        0x8 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x000000008002d548                console_color
+ .sdata         0x000000008002d550        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080035550                _SDA_BASE_
+ .sdata2        0x000000008002d550        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080035550                _SDA2_BASE_
  .sdata.xenon_smc_last_ir
-                0x000000008002d370        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
-                0x000000008002d370                xenon_smc_last_ir
- .sdata         0x000000008002d374        0x8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-impure.o)
-                0x000000008002d374                _global_impure_ptr
-                0x000000008002d378                _impure_ptr
- .sdata         0x000000008002d37c        0x8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
-                0x000000008002d37c                __malloc_sbrk_base
-                0x000000008002d380                __malloc_trim_threshold
+                0x000000008002d550        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
+                0x000000008002d550                xenon_smc_last_ir
+ .sdata         0x000000008002d554        0x8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-impure.o)
+                0x000000008002d554                _global_impure_ptr
+                0x000000008002d558                _impure_ptr
+ .sdata         0x000000008002d55c        0x8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
+                0x000000008002d55c                __malloc_sbrk_base
+                0x000000008002d560                __malloc_trim_threshold
 
-.rodata         0x000000008002d388     0x3634
+.rodata         0x000000008002d568     0x3674
  *(.rodata*)
  .rodata.str1.8
-                0x000000008002d388       0xc8 main.o
-                                         0xc7 (size before relaxing)
- .rodata.cst4   0x000000008002d450       0x74 main.o
- *fill*         0x000000008002d4c4        0x4 
- .rodata        0x000000008002d4c8      0x320 main.o
+                0x000000008002d568       0xd0 main.o
+                                         0xce (size before relaxing)
+ .rodata.cst4   0x000000008002d638       0x74 main.o
+ *fill*         0x000000008002d6ac        0x4 
+ .rodata        0x000000008002d6b0      0x358 main.o
  .rodata.console_init.str1.1
-                0x000000008002d7e8       0x33 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- *fill*         0x000000008002d81b        0x5 
+                0x000000008002da08       0x33 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ *fill*         0x000000008002da3b        0x5 
  .rodata.fontdata_8x16
-                0x000000008002d820     0x1000 /usr/local/xenon/usr/lib/libxenon.a(console.o)
-                0x000000008002d820                fontdata_8x16
+                0x000000008002da40     0x1000 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x000000008002da40                fontdata_8x16
  .rodata.abort.str1.1
-                0x000000008002e820        0xf /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+                0x000000008002ea40        0xf /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
  .rodata.AddDevice.str1.1
-                0x000000008002e82f        0x8 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+                0x000000008002ea4f        0x8 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
  .rodata.str1.1
-                0x000000008002e837        0x7 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
- *fill*         0x000000008002e83e        0x2 
+                0x000000008002ea57        0x7 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+ *fill*         0x000000008002ea5e        0x2 
  .rodata.console_optab
-                0x000000008002e840       0x64 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
-                0x000000008002e840                console_optab
+                0x000000008002ea60       0x64 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+                0x000000008002ea60                console_optab
  .rodata.dotab_stdnull
-                0x000000008002e8a4       0x64 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
-                0x000000008002e8a4                dotab_stdnull
+                0x000000008002eac4       0x64 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+                0x000000008002eac4                dotab_stdnull
  .rodata.xenon_malloc_unlock.str1.1
-                0x000000008002e908       0x40 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+                0x000000008002eb28       0x40 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
  .rodata.xenon_malloc_lock.str1.1
-                0x000000008002e948        0x9 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+                0x000000008002eb68        0x9 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
  .rodata.try_return_to_xell.str1.1
-                0x000000008002e951       0x11 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+                0x000000008002eb71       0x11 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
  .rodata.xenon_exit.str1.1
-                0x000000008002e962       0x93 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
- *fill*         0x000000008002e9f5        0x3 
+                0x000000008002eb82       0x93 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+ *fill*         0x000000008002ec15        0x3 
  .rodata.__func__.5047
-                0x000000008002e9f8       0x12 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
- *fill*         0x000000008002ea0a        0x6 
+                0x000000008002ec18       0x12 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+ *fill*         0x000000008002ec2a        0x6 
  .rodata.__func__.5053
-                0x000000008002ea10       0x14 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+                0x000000008002ec30       0x14 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
  .rodata.crashdump.str1.1
-                0x000000008002ea24       0xf7 /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
+                0x000000008002ec44       0xf7 /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
                                          0xfb (size before relaxing)
  .rodata.xenon_smc_handle_bulk.str1.1
-                0x000000008002eb1b       0x46 /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
+                0x000000008002ed3b       0x46 /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
  .rodata.xenon_smc_ana_write.str1.1
-                0x000000008002eb61       0x2f /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
+                0x000000008002ed81       0x2f /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
  .rodata.xenon_smc_ana_read.str1.1
-                0x000000008002eb90       0x2e /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
+                0x000000008002edb0       0x2e /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
  .rodata.xenon_smc_i2c_ddc_lock.str1.1
-                0x000000008002ebbe       0x27 /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
+                0x000000008002edde       0x27 /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
  .rodata.xenon_smc_i2c_write.str1.1
-                0x000000008002ebe5       0x2f /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
+                0x000000008002ee05       0x2f /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
  .rodata.xenon_smc_i2c_read.str1.1
-                0x000000008002ec14       0x2e /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
+                0x000000008002ee34       0x2e /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
  .rodata.xenon_config_init.str1.1
-                0x000000008002ec42       0x20 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
+                0x000000008002ee62       0x20 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
  .rodata.xenon_config_get_avregion.str1.1
-                0x000000008002ec62       0x20 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
+                0x000000008002ee82       0x20 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
  .rodata.edram_p2.str1.1
-                0x000000008002ec82       0x7f /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+                0x000000008002eea2       0x7f /usr/local/xenon/usr/lib/libxenon.a(edram.o)
                                          0x81 (size before relaxing)
  .rodata.edram_init_state1.str1.1
-                0x000000008002ed01       0x25 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+                0x000000008002ef21       0x25 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
  .rodata.edram_init.str1.1
-                0x000000008002ed26       0x3e /usr/local/xenon/usr/lib/libxenon.a(edram.o)
- .rodata        0x000000008002ed64      0x39c /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+                0x000000008002ef46       0x3e /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+ .rodata        0x000000008002ef84      0x39c /usr/local/xenon/usr/lib/libxenon.a(edram.o)
  .rodata.__func__.4863
-                0x000000008002f100        0x9 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+                0x000000008002f320        0x9 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
  .rodata.Xe_pDrawIndexedPrimitive.str1.1
-                0x000000008002f109       0x3f /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f329       0x3f /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_Fatal.str1.1
-                0x000000008002f148       0x13 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f368       0x13 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_pAlloc.str1.1
-                0x000000008002f15b        0xf /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f37b        0xf /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_InstantiateShader.str1.1
-                0x000000008002f16a       0x20 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f38a       0x20 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_pRBKick.str1.1
-                0x000000008002f18a       0x13 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f3aa       0x13 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_pLoadUcodes.str1.1
-                0x000000008002f19d       0x30 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f3bd       0x30 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_pWaitReady.str1.1
-                0x000000008002f1cd       0x44 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f3ed       0x44 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_pResetCP.str1.1
-                0x000000008002f211       0x4d /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f431       0x4d /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_pMasterInit.str1.1
-                0x000000008002f25e       0x14 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f47e       0x14 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_Init.str1.1
-                0x000000008002f272       0x21 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f492       0x21 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_LoadShaderFromMemory.str1.1
-                0x000000008002f293       0x36 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f4b3       0x36 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_VBFCalcSize.str1.1
-                0x000000008002f2c9       0x11 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f4e9       0x11 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_pUnlock.str1.1
-                0x000000008002f2da       0x14 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f4fa       0x14 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_pLock.str1.1
-                0x000000008002f2ee       0x15 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f50e       0x15 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_ShaderApplyVFetchPatches.str1.1
-                0x000000008002f303       0x90 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f523       0x90 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_pDebugSync.str1.1
-                0x000000008002f393       0x56 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f5b3       0x56 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_SetCullMode.str1.1
-                0x000000008002f3e9        0xd /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f609        0xd /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_SetShader.str1.1
-                0x000000008002f3f6       0x1b /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f616       0x1b /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_CreateVertexBuffer.str1.1
-                0x000000008002f411       0x22 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f631       0x22 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_VBBegin.str1.1
-                0x000000008002f433       0x41 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f653       0x41 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_VBPut.str1.1
-                0x000000008002f474       0x24 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f694       0x24 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_ResolveInto.str1.1
-                0x000000008002f498       0x22 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f6b8       0x22 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_pCalcVtxCount.str1.1
-                0x000000008002f4ba       0x17 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
- *fill*         0x000000008002f4d1        0x3 
+                0x000000008002f6da       0x17 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ *fill*         0x000000008002f6f1        0x3 
  .rodata.Xe_pCalcVtxCount
-                0x000000008002f4d4       0x34 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f6f4       0x34 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_DrawIndexedPrimitive.str1.1
-                0x000000008002f508        0xe /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f728        0xe /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_SetStreamSource.str1.1
-                0x000000008002f516       0x15 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f736       0x15 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.Xe_CreateTexture.str1.1
-                0x000000008002f52b        0x5 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
- .rodata.cst4   0x000000008002f530        0x8 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f74b        0x5 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ .rodata.cst4   0x000000008002f750        0x8 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.__func__.5158
-                0x000000008002f530       0x19 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
- *fill*         0x000000008002f549        0x7 
+                0x000000008002f750       0x19 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ *fill*         0x000000008002f769        0x7 
  .rodata.__func__.5387
-                0x000000008002f550       0x1c /usr/local/xenon/usr/lib/libxenon.a(xe.o)
- *fill*         0x000000008002f56c        0x4 
+                0x000000008002f770       0x1c /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ *fill*         0x000000008002f78c        0x4 
  .rodata.__func__.5431
-                0x000000008002f570       0x15 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
- *fill*         0x000000008002f585        0x3 
+                0x000000008002f790       0x15 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ *fill*         0x000000008002f7a5        0x3 
  .rodata.__func__.5672
-                0x000000008002f588        0xf /usr/local/xenon/usr/lib/libxenon.a(xe.o)
- *fill*         0x000000008002f597        0x1 
+                0x000000008002f7a8        0xf /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ *fill*         0x000000008002f7b7        0x1 
  .rodata.__func__.5749
-                0x000000008002f598        0xd /usr/local/xenon/usr/lib/libxenon.a(xe.o)
- *fill*         0x000000008002f5a5        0x3 
+                0x000000008002f7b8        0xd /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ *fill*         0x000000008002f7c5        0x3 
  .rodata.__func__.5849
-                0x000000008002f5a8       0x18 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f7c8       0x18 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.__func__.5858
-                0x000000008002f5c0       0x11 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
- *fill*         0x000000008002f5d1        0x7 
+                0x000000008002f7e0       0x11 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ *fill*         0x000000008002f7f1        0x7 
  .rodata.__func__.5944
-                0x000000008002f5d8       0x11 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008002f7f8       0x11 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
  .rodata.xenos_ana_write.str1.1
-                0x000000008002f5e9       0x33 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x000000008002f809       0x33 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
  .rodata.xenos_init_ana_new.str1.1
-                0x000000008002f61c       0xf5 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x000000008002f83c       0xf5 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
  .rodata.xenos_init_phase1.str1.1
-                0x000000008002f711       0x85 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x000000008002f931       0x85 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
  .rodata.xenos_set_mode.str1.1
-                0x000000008002f796       0x29 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x000000008002f9b6       0x29 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
  .rodata.xenos_autoset_mode.str1.1
-                0x000000008002f7bf       0x17 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
- *fill*         0x000000008002f7d6        0x2 
+                0x000000008002f9df       0x17 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+ *fill*         0x000000008002f9f6        0x2 
  .rodata.xenos_autoset_mode
-                0x000000008002f7d8       0x50 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x000000008002f9f8       0x50 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
  .rodata.xenos_init.str1.1
-                0x000000008002f828       0x57 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x000000008002fa48       0x57 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
  .rodata.xenos_is_overscan.str1.1
-                0x000000008002f87f       0x16 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x000000008002fa9f       0x16 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
  .rodata.str1.1
-                0x000000008002f895       0x94 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
- *fill*         0x000000008002f929        0x3 
- .rodata        0x000000008002f92c      0x140 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
- *fill*         0x000000008002fa6c        0x4 
+                0x000000008002fab5       0x94 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+ *fill*         0x000000008002fb49        0x3 
+ .rodata        0x000000008002fb4c      0x140 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+ *fill*         0x000000008002fc8c        0x4 
  .rodata.CSWTCH.64
-                0x000000008002fa70        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
- *fill*         0x000000008002fa74        0x4 
+                0x000000008002fc90        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+ *fill*         0x000000008002fc94        0x4 
  .rodata.__func__.4759
-                0x000000008002fa78       0x12 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x000000008002fc98       0x12 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
  .rodata.xenos_ddc_read_edid.str1.1
-                0x000000008002fa8a       0xa5 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
+                0x000000008002fcaa       0xa5 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
  .rodata.xenos_get_edid.str1.1
-                0x000000008002fb2f       0x61 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
+                0x000000008002fd4f       0x61 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
  .rodata.edid_header
-                0x000000008002fb90        0x8 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
+                0x000000008002fdb0        0x8 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
  .rodata.sfcx_init.str1.1
-                0x000000008002fb98       0x7e /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
- .rodata.cst4   0x000000008002fc16        0x4 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_cos.o)
- .rodata.cst4   0x000000008002fc16        0x4 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_sin.o)
- *fill*         0x000000008002fc16        0x2 
- .rodata.cst4   0x000000008002fc18       0x20 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
+                0x000000008002fdb8       0x7e /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
+ .rodata.cst4   0x000000008002fe36        0x4 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_cos.o)
+ .rodata.cst4   0x000000008002fe36        0x4 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_sin.o)
+ *fill*         0x000000008002fe36        0x2 
+ .rodata.cst4   0x000000008002fe38       0x20 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
                                          0x28 (size before relaxing)
- .rodata        0x000000008002fc38      0x398 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
- .rodata.cst4   0x000000008002ffd0       0x20 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_cos.o)
+ .rodata        0x000000008002fe58      0x398 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
+ .rodata.cst4   0x00000000800301f0       0x20 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_cos.o)
                                          0x28 (size before relaxing)
- .rodata.cst4   0x000000008002fff0       0x10 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
+ .rodata.cst4   0x0000000080030210       0x10 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
                                          0x20 (size before relaxing)
- .rodata        0x0000000080030000       0x38 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
- .rodata.cst4   0x0000000080030038       0x1c /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_sin.o)
+ .rodata        0x0000000080030220       0x38 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
+ .rodata.cst4   0x0000000080030258       0x1c /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_sin.o)
                                          0x20 (size before relaxing)
- .rodata.cst4   0x0000000080030054        0x4 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_floor.o)
+ .rodata.cst4   0x0000000080030274        0x4 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_floor.o)
                                           0xc (size before relaxing)
- .rodata.cst4   0x0000000080030058       0x14 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_scalbn.o)
+ .rodata.cst4   0x0000000080030278       0x14 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_scalbn.o)
                                          0x18 (size before relaxing)
- .rodata        0x000000008003006c       0x3c /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
+ .rodata        0x000000008003028c       0x3c /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
  .rodata.str1.4
-                0x00000000800300a8       0x3f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-assert.o)
+                0x00000000800302c8       0x3f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-assert.o)
                                          0x43 (size before relaxing)
- *fill*         0x00000000800300e7        0x1 
- .rodata        0x00000000800300e8      0x101 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ctype_.o)
-                0x00000000800300e8                _ctype_
- *fill*         0x00000000800301e9        0x3 
+ *fill*         0x0000000080030307        0x1 
+ .rodata        0x0000000080030308      0x101 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ctype_.o)
+                0x0000000080030308                _ctype_
+ *fill*         0x0000000080030409        0x3 
  .rodata.str1.4
-                0x00000000800301ec        0x2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-puts.o)
- *fill*         0x00000000800301ee        0x2 
+                0x000000008003040c        0x2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-puts.o)
+ *fill*         0x000000008003040e        0x2 
  .rodata.str1.4
-                0x00000000800301f0       0x42 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
- *fill*         0x0000000080030232        0x2 
- .rodata        0x0000000080030234      0x184 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
- .rodata.cst4   0x00000000800303b8        0x4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
- .rodata.cst8   0x00000000800303b8        0x8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
+                0x0000000080030410       0x42 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
+ *fill*         0x0000000080030452        0x2 
+ .rodata        0x0000000080030454      0x184 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
+ .rodata.cst4   0x00000000800305d8        0x4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
+ .rodata.cst8   0x00000000800305d8        0x8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
  .rodata.str1.4
-                0x00000000800303c0       0x2f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
- .rodata        0x00000000800303c0      0x184 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
+                0x00000000800305e0       0x2f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
+ .rodata        0x00000000800305e0      0x184 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
  .rodata.str1.4
-                0x0000000080030544       0x42 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
- .rodata        0x0000000080030544      0x184 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
- .rodata.cst4   0x00000000800306c8        0x4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
- .rodata.cst8   0x00000000800306c8        0x8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
+                0x0000000080030764       0x42 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
+ .rodata        0x0000000080030764      0x184 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
+ .rodata.cst4   0x00000000800308e8        0x4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
+ .rodata.cst8   0x00000000800308e8        0x8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
  .rodata.str1.4
-                0x00000000800306c8        0xd /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
+                0x00000000800308e8        0xd /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
                                          0x12 (size before relaxing)
- *fill*         0x00000000800306d5        0x3 
- .rodata.cst4   0x00000000800306d8       0x10 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
+ *fill*         0x00000000800308f5        0x3 
+ .rodata.cst4   0x00000000800308f8       0x10 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
                                          0x1c (size before relaxing)
- .rodata.cst8   0x00000000800306e8       0x18 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
+ .rodata.cst8   0x0000000080030908       0x18 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
  .rodata.str1.4
-                0x0000000080030700       0x10 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
+                0x0000000080030920       0x10 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
                                          0x12 (size before relaxing)
- .rodata.cst4   0x0000000080030710        0x8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
- .rodata        0x0000000080030710      0x128 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
-                0x0000000080030720                __mprec_tens
-                0x00000000800307e8                __mprec_tinytens
-                0x0000000080030810                __mprec_bigtens
+ .rodata.cst4   0x0000000080030930        0x8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
+ .rodata        0x0000000080030930      0x128 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
+                0x0000000080030940                __mprec_tens
+                0x0000000080030a08                __mprec_tinytens
+                0x0000000080030a30                __mprec_bigtens
  .rodata.str1.4
-                0x0000000080030838       0x2f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
- .rodata        0x0000000080030838      0x184 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
+                0x0000000080030a58       0x2f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
+ .rodata        0x0000000080030a58      0x184 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
 
-.ctors          0x00000000800309bc        0x0
-                0x00000000800309bc                __CTOR_LIST__ = .
+.ctors          0x0000000080030bdc        0x0
+                0x0000000080030bdc                __CTOR_LIST__ = .
  *(.ctors)
-                0x00000000800309bc                __CTOR_END__ = .
+                0x0000000080030bdc                __CTOR_END__ = .
 
-.dtors          0x00000000800309bc        0x0
-                0x00000000800309bc                __DTOR_LIST__ = .
+.dtors          0x0000000080030bdc        0x0
+                0x0000000080030bdc                __DTOR_LIST__ = .
  *(.dtors)
-                0x00000000800309bc                __DTOR_END__ = .
+                0x0000000080030bdc                __DTOR_END__ = .
 
-.eh_frame_hdr   0x00000000800309bc      0xbd4
+.eh_frame_hdr   0x0000000080030bdc      0xbd4
  *(.eh_frame_hdr)
- .eh_frame_hdr  0x00000000800309bc      0xbd4 /usr/local/xenon/lib/gcc/xenon/9.2.0/../../../../xenon/lib/../lib/crt1.o
-                0x00000000800309bc                __GNU_EH_FRAME_HDR
+ .eh_frame_hdr  0x0000000080030bdc      0xbd4 /usr/local/xenon/lib/gcc/xenon/9.2.0/../../../../xenon/lib/../lib/crt1.o
+                0x0000000080030bdc                __GNU_EH_FRAME_HDR
 
-.eh_frame       0x0000000080031590     0x4178
-                0x0000000080031590                PROVIDE (__eh_frame_start = .)
+.eh_frame       0x00000000800317b0     0x4178
+                0x00000000800317b0                PROVIDE (__eh_frame_start = .)
  *(.eh_frame)
- .eh_frame      0x0000000080031590       0x6c /usr/local/xenon/lib/gcc/xenon/9.2.0/../../../../xenon/lib/../lib/crt1.o
- .eh_frame      0x00000000800315fc      0x128 main.o
+ .eh_frame      0x00000000800317b0       0x6c /usr/local/xenon/lib/gcc/xenon/9.2.0/../../../../xenon/lib/../lib/crt1.o
+ .eh_frame      0x000000008003181c      0x128 main.o
                                         0x13c (size before relaxing)
- .eh_frame      0x0000000080031724       0x14 /usr/local/xenon/usr/lib/libxenon.a(argv.o)
+ .eh_frame      0x0000000080031944       0x14 /usr/local/xenon/usr/lib/libxenon.a(argv.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080031738      0x138 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .eh_frame      0x0000000080031958      0x138 /usr/local/xenon/usr/lib/libxenon.a(console.o)
                                         0x240 (size before relaxing)
- .eh_frame      0x0000000080031870        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- .eh_frame      0x0000000080031870      0x1e0 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+ .eh_frame      0x0000000080031a90        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .eh_frame      0x0000000080031a90      0x1e0 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
                                         0x9e0 (size before relaxing)
- .eh_frame      0x0000000080031a50      0x114 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+ .eh_frame      0x0000000080031c70      0x114 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
                                         0x128 (size before relaxing)
- .eh_frame      0x0000000080031b64       0x58 /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
+ .eh_frame      0x0000000080031d84       0x58 /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
                                          0x6c (size before relaxing)
- .eh_frame      0x0000000080031bbc        0x0 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
+ .eh_frame      0x0000000080031ddc        0x0 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
                                          0xc0 (size before relaxing)
- .eh_frame      0x0000000080031bbc       0x3c /usr/local/xenon/usr/lib/libxenon.a(time.o)
+ .eh_frame      0x0000000080031ddc       0x3c /usr/local/xenon/usr/lib/libxenon.a(time.o)
                                          0x64 (size before relaxing)
- .eh_frame      0x0000000080031bf8       0x14 /usr/local/xenon/usr/lib/libxenon.a(usbmain.o)
+ .eh_frame      0x0000000080031e18       0x14 /usr/local/xenon/usr/lib/libxenon.a(usbmain.o)
                                          0xb0 (size before relaxing)
- .eh_frame      0x0000000080031c0c        0x0 /usr/local/xenon/usr/lib/libxenon.a(tinyehci.o)
+ .eh_frame      0x0000000080031e2c        0x0 /usr/local/xenon/usr/lib/libxenon.a(tinyehci.o)
                                         0xa1c (size before relaxing)
- .eh_frame      0x0000000080031c0c       0x14 /usr/local/xenon/usr/lib/libxenon.a(debug.o)
+ .eh_frame      0x0000000080031e2c       0x14 /usr/local/xenon/usr/lib/libxenon.a(debug.o)
                                          0xa8 (size before relaxing)
- .eh_frame      0x0000000080031c20      0x19c /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
+ .eh_frame      0x0000000080031e40      0x19c /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
                                         0x288 (size before relaxing)
- .eh_frame      0x0000000080031dbc       0xb0 /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
+ .eh_frame      0x0000000080031fdc       0xb0 /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
                                         0x17c (size before relaxing)
- .eh_frame      0x0000000080031e6c       0x80 /usr/local/xenon/usr/lib/libxenon.a(xenon_uart.o)
+ .eh_frame      0x000000008003208c       0x80 /usr/local/xenon/usr/lib/libxenon.a(xenon_uart.o)
                                          0x94 (size before relaxing)
- .eh_frame      0x0000000080031eec       0x54 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
+ .eh_frame      0x000000008003210c       0x54 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
                                          0xb0 (size before relaxing)
- .eh_frame      0x0000000080031f40      0x290 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+ .eh_frame      0x0000000080032160      0x290 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
                                         0x2b8 (size before relaxing)
- .eh_frame      0x00000000800321d0      0xc44 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ .eh_frame      0x00000000800323f0      0xc44 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
                                        0x10d8 (size before relaxing)
- .eh_frame      0x0000000080032e14      0x220 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+ .eh_frame      0x0000000080033034      0x220 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
                                         0x234 (size before relaxing)
- .eh_frame      0x0000000080033034       0xa0 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
+ .eh_frame      0x0000000080033254       0xa0 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
                                          0xb4 (size before relaxing)
- .eh_frame      0x00000000800330d4       0x14 /usr/local/xenon/usr/lib/libxenon.a(enet.o)
+ .eh_frame      0x00000000800332f4       0x14 /usr/local/xenon/usr/lib/libxenon.a(enet.o)
                                          0xfc (size before relaxing)
- .eh_frame      0x00000000800330e8       0xac /usr/local/xenon/usr/lib/libxenon.a(xb360.o)
+ .eh_frame      0x0000000080033308       0xac /usr/local/xenon/usr/lib/libxenon.a(xb360.o)
                                         0x31c (size before relaxing)
- .eh_frame      0x0000000080033194        0x0 /usr/local/xenon/usr/lib/libxenon.a(lib_malloc.o)
+ .eh_frame      0x00000000800333b4        0x0 /usr/local/xenon/usr/lib/libxenon.a(lib_malloc.o)
                                          0xc4 (size before relaxing)
- .eh_frame      0x0000000080033194        0x0 /usr/local/xenon/usr/lib/libxenon.a(ohci.o)
+ .eh_frame      0x00000000800333b4        0x0 /usr/local/xenon/usr/lib/libxenon.a(ohci.o)
                                         0x234 (size before relaxing)
- .eh_frame      0x0000000080033194        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbd.o)
+ .eh_frame      0x00000000800333b4        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbd.o)
                                         0x434 (size before relaxing)
- .eh_frame      0x0000000080033194        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbdevs.o)
+ .eh_frame      0x00000000800333b4        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbdevs.o)
                                          0x44 (size before relaxing)
- .eh_frame      0x0000000080033194        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbhid.o)
+ .eh_frame      0x00000000800333b4        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbhid.o)
                                          0x90 (size before relaxing)
- .eh_frame      0x0000000080033194        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbhub.o)
+ .eh_frame      0x00000000800333b4        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbhub.o)
                                         0x1dc (size before relaxing)
- .eh_frame      0x0000000080033194        0x0 /usr/local/xenon/usr/lib/libxenon.a(usb_os.o)
+ .eh_frame      0x00000000800333b4        0x0 /usr/local/xenon/usr/lib/libxenon.a(usb_os.o)
                                         0x140 (size before relaxing)
- .eh_frame      0x0000000080033194       0x28 /usr/local/xenon/usr/lib/libxenon.a(xenon_gpio.o)
+ .eh_frame      0x00000000800333b4       0x28 /usr/local/xenon/usr/lib/libxenon.a(xenon_gpio.o)
                                          0x54 (size before relaxing)
- .eh_frame      0x00000000800331bc        0x0 /usr/local/xenon/usr/lib/libxenon.a(xenon_secotp.o)
+ .eh_frame      0x00000000800333dc        0x0 /usr/local/xenon/usr/lib/libxenon.a(xenon_secotp.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x00000000800331bc       0x38 /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
+ .eh_frame      0x00000000800333dc       0x38 /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
                                         0x384 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(mem.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(mem.o)
                                          0xc4 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(pbuf.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(pbuf.o)
                                         0x2f0 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(stats.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(stats.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(tcp.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(tcp.o)
                                         0x504 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(ip.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(ip.o)
                                          0xd4 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(ip_frag.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(ip_frag.o)
                                         0x178 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(tcp_out.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(tcp_out.o)
                                         0x2c8 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(udp.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(udp.o)
                                         0x1a8 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(etharp.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(etharp.o)
                                         0x230 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(dhcp.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(dhcp.o)
                                         0x43c (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(raw.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(raw.o)
                                         0x104 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(timers.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(timers.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(hmac_sha1.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(hmac_sha1.o)
                                         0x15c (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(rc4.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(rc4.o)
                                          0x3c (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(sha1.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(sha1.o)
                                          0xdc (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(lib_queue.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(lib_queue.o)
                                          0xa8 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(dummy.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(dummy.o)
                                          0x3c (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbctrl.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbctrl.o)
                                         0x178 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbdebug.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(usbdebug.o)
                                         0x110 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(tcp_in.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(tcp_in.o)
                                         0x130 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(inet_chksum.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(inet_chksum.o)
                                          0xec (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(memp.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(memp.o)
                                          0x6c (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(netif.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(netif.o)
                                         0x17c (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(ip_addr.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(ip_addr.o)
                                          0xc8 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(icmp.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(icmp.o)
                                          0xb4 (size before relaxing)
- .eh_frame      0x00000000800331f4        0x0 /usr/local/xenon/usr/lib/libxenon.a(input.o)
+ .eh_frame      0x0000000080033414        0x0 /usr/local/xenon/usr/lib/libxenon.a(input.o)
                                          0x6c (size before relaxing)
- .eh_frame      0x00000000800331f4       0x2c /usr/local/xenon/xenon/lib/32/libm.a(lib_a-wf_sincos.o)
+ .eh_frame      0x0000000080033414       0x2c /usr/local/xenon/xenon/lib/32/libm.a(lib_a-wf_sincos.o)
                                          0x40 (size before relaxing)
- .eh_frame      0x0000000080033220       0x48 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_cos.o)
+ .eh_frame      0x0000000080033440       0x48 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_cos.o)
                                          0x5c (size before relaxing)
- .eh_frame      0x0000000080033268       0x48 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_sin.o)
+ .eh_frame      0x0000000080033488       0x48 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_sin.o)
                                          0x5c (size before relaxing)
- .eh_frame      0x00000000800332b0       0x7c /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
+ .eh_frame      0x00000000800334d0       0x7c /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
                                          0x90 (size before relaxing)
- .eh_frame      0x000000008003332c       0x24 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_cos.o)
+ .eh_frame      0x000000008003354c       0x24 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_cos.o)
                                          0x38 (size before relaxing)
- .eh_frame      0x0000000080033350       0x6c /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
+ .eh_frame      0x0000000080033570       0x6c /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
                                          0x80 (size before relaxing)
- .eh_frame      0x00000000800333bc       0x20 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_sin.o)
+ .eh_frame      0x00000000800335dc       0x20 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_sin.o)
                                          0x34 (size before relaxing)
- .eh_frame      0x00000000800333dc       0x18 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_fabs.o)
+ .eh_frame      0x00000000800335fc       0x18 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_fabs.o)
                                          0x2c (size before relaxing)
- .eh_frame      0x00000000800333f4       0x20 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_floor.o)
+ .eh_frame      0x0000000080033614       0x20 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_floor.o)
                                          0x34 (size before relaxing)
- .eh_frame      0x0000000080033414       0x28 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_scalbn.o)
+ .eh_frame      0x0000000080033634       0x28 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_scalbn.o)
                                          0x3c (size before relaxing)
- .eh_frame      0x000000008003343c       0x14 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtsavgpr.o)
+ .eh_frame      0x000000008003365c       0x14 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtsavgpr.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080033450       0x7c /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtresxgpr.o)
- .eh_frame      0x00000000800334cc      0x6b0 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
+ .eh_frame      0x0000000080033670       0x7c /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtresxgpr.o)
+ .eh_frame      0x00000000800336ec      0x6b0 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
                                         0x6c4 (size before relaxing)
- .eh_frame      0x0000000080033b7c       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-assert.o)
+ .eh_frame      0x0000000080033d9c       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-assert.o)
                                          0x48 (size before relaxing)
- .eh_frame      0x0000000080033bb0        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-errno.o)
+ .eh_frame      0x0000000080033dd0        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-errno.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080033bb0       0x20 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-exit.o)
+ .eh_frame      0x0000000080033dd0       0x20 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-exit.o)
                                          0x34 (size before relaxing)
- .eh_frame      0x0000000080033bd0       0x6c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fclose.o)
+ .eh_frame      0x0000000080033df0       0x6c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fclose.o)
                                          0x80 (size before relaxing)
- .eh_frame      0x0000000080033c3c       0xec /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fflush.o)
+ .eh_frame      0x0000000080033e5c       0xec /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fflush.o)
                                         0x100 (size before relaxing)
- .eh_frame      0x0000000080033d28      0x17c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-findfp.o)
+ .eh_frame      0x0000000080033f48      0x17c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-findfp.o)
                                         0x190 (size before relaxing)
- .eh_frame      0x0000000080033ea4       0x48 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fiprintf.o)
+ .eh_frame      0x00000000800340c4       0x48 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fiprintf.o)
                                          0x5c (size before relaxing)
- .eh_frame      0x0000000080033eec        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fopen.o)
+ .eh_frame      0x000000008003410c        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fopen.o)
                                          0x74 (size before relaxing)
- .eh_frame      0x0000000080033eec        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fread.o)
+ .eh_frame      0x000000008003410c        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fread.o)
                                          0xc4 (size before relaxing)
- .eh_frame      0x0000000080033eec       0x98 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-freer.o)
+ .eh_frame      0x000000008003410c       0x98 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-freer.o)
                                          0xac (size before relaxing)
- .eh_frame      0x0000000080033f84        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseek.o)
+ .eh_frame      0x00000000800341a4        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseek.o)
                                          0x3c (size before relaxing)
- .eh_frame      0x0000000080033f84        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseeko.o)
+ .eh_frame      0x00000000800341a4        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseeko.o)
                                          0xa4 (size before relaxing)
- .eh_frame      0x0000000080033f84       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fstatr.o)
+ .eh_frame      0x00000000800341a4       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fstatr.o)
                                          0x48 (size before relaxing)
- .eh_frame      0x0000000080033fb8        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftell.o)
+ .eh_frame      0x00000000800341d8        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftell.o)
                                          0x3c (size before relaxing)
- .eh_frame      0x0000000080033fb8        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftello.o)
+ .eh_frame      0x00000000800341d8        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftello.o)
                                          0x7c (size before relaxing)
- .eh_frame      0x0000000080033fb8       0x6c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fwalk.o)
+ .eh_frame      0x00000000800341d8       0x6c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fwalk.o)
                                          0x80 (size before relaxing)
- .eh_frame      0x0000000080034024       0x94 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-makebuf.o)
+ .eh_frame      0x0000000080034244       0x94 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-makebuf.o)
                                          0xa8 (size before relaxing)
- .eh_frame      0x00000000800340b8       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malign.o)
+ .eh_frame      0x00000000800342d8       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malign.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x00000000800340cc       0x60 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malignr.o)
+ .eh_frame      0x00000000800342ec       0x60 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malignr.o)
                                          0x74 (size before relaxing)
- .eh_frame      0x000000008003412c       0x28 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malloc.o)
+ .eh_frame      0x000000008003434c       0x28 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malloc.o)
                                          0x3c (size before relaxing)
- .eh_frame      0x0000000080034154       0xe8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
+ .eh_frame      0x0000000080034374       0xe8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
                                          0xfc (size before relaxing)
- .eh_frame      0x000000008003423c       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcmp.o)
+ .eh_frame      0x000000008003445c       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcmp.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080034250       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcpy.o)
+ .eh_frame      0x0000000080034470       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcpy.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080034264       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memset.o)
+ .eh_frame      0x0000000080034484       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memset.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080034278        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-openr.o)
+ .eh_frame      0x0000000080034498        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-openr.o)
                                          0x44 (size before relaxing)
- .eh_frame      0x0000000080034278       0x48 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-printf.o)
+ .eh_frame      0x0000000080034498       0x48 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-printf.o)
                                          0x5c (size before relaxing)
- .eh_frame      0x00000000800342c0       0x28 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putchar.o)
+ .eh_frame      0x00000000800344e0       0x28 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putchar.o)
                                          0x3c (size before relaxing)
- .eh_frame      0x00000000800342e8       0x64 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putc.o)
+ .eh_frame      0x0000000080034508       0x64 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putc.o)
                                          0x78 (size before relaxing)
- .eh_frame      0x000000008003434c       0x40 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-puts.o)
+ .eh_frame      0x000000008003456c       0x40 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-puts.o)
                                          0x54 (size before relaxing)
- .eh_frame      0x000000008003438c        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reent.o)
+ .eh_frame      0x00000000800345ac        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reent.o)
                                          0x78 (size before relaxing)
- .eh_frame      0x000000008003438c        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-refill.o)
+ .eh_frame      0x00000000800345ac        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-refill.o)
                                          0x90 (size before relaxing)
- .eh_frame      0x000000008003438c       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sbrkr.o)
+ .eh_frame      0x00000000800345ac       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sbrkr.o)
                                          0x48 (size before relaxing)
- .eh_frame      0x00000000800343c0       0x50 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sprintf.o)
+ .eh_frame      0x00000000800345e0       0x50 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sprintf.o)
                                          0x64 (size before relaxing)
- .eh_frame      0x0000000080034410       0xc4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-stdio.o)
+ .eh_frame      0x0000000080034630       0xc4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-stdio.o)
                                          0xd8 (size before relaxing)
- .eh_frame      0x00000000800344d4       0x24 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcat.o)
+ .eh_frame      0x00000000800346f4       0x24 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcat.o)
                                          0x38 (size before relaxing)
- .eh_frame      0x00000000800344f8        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strchr.o)
+ .eh_frame      0x0000000080034718        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strchr.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x00000000800344f8       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcmp.o)
+ .eh_frame      0x0000000080034718       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcmp.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x000000008003450c       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcpy.o)
+ .eh_frame      0x000000008003472c       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcpy.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080034520       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strlen.o)
+ .eh_frame      0x0000000080034740       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strlen.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080034534        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncmp.o)
+ .eh_frame      0x0000000080034754        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncmp.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080034534        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncpy.o)
+ .eh_frame      0x0000000080034754        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncpy.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080034534        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strnlen.o)
+ .eh_frame      0x0000000080034754        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strnlen.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080034534        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strrchr.o)
+ .eh_frame      0x0000000080034754        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strrchr.o)
                                          0x48 (size before relaxing)
- .eh_frame      0x0000000080034534      0x12c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
+ .eh_frame      0x0000000080034754      0x12c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
                                         0x140 (size before relaxing)
- .eh_frame      0x0000000080034660      0x1cc /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
+ .eh_frame      0x0000000080034880      0x1cc /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
                                         0x1e0 (size before relaxing)
- .eh_frame      0x000000008003482c      0x174 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
+ .eh_frame      0x0000000080034a4c      0x174 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
                                         0x188 (size before relaxing)
- .eh_frame      0x00000000800349a0       0x28 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vprintf.o)
+ .eh_frame      0x0000000080034bc0       0x28 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vprintf.o)
                                          0x3c (size before relaxing)
- .eh_frame      0x00000000800349c8       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vsprintf.o)
+ .eh_frame      0x0000000080034be8       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vsprintf.o)
                                          0x48 (size before relaxing)
- .eh_frame      0x00000000800349fc       0x54 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wbuf.o)
+ .eh_frame      0x0000000080034c1c       0x54 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wbuf.o)
                                          0x68 (size before relaxing)
- .eh_frame      0x0000000080034a50       0x30 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-writer.o)
+ .eh_frame      0x0000000080034c70       0x30 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-writer.o)
                                          0x44 (size before relaxing)
- .eh_frame      0x0000000080034a80       0x44 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wsetup.o)
+ .eh_frame      0x0000000080034ca0       0x44 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wsetup.o)
                                          0x58 (size before relaxing)
- .eh_frame      0x0000000080034ac4       0x74 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-__call_atexit.o)
+ .eh_frame      0x0000000080034ce4       0x74 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-__call_atexit.o)
                                          0x88 (size before relaxing)
- .eh_frame      0x0000000080034b38       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-closer.o)
+ .eh_frame      0x0000000080034d58       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-closer.o)
                                          0x48 (size before relaxing)
- .eh_frame      0x0000000080034b6c      0x158 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
+ .eh_frame      0x0000000080034d8c      0x158 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
                                         0x16c (size before relaxing)
- .eh_frame      0x0000000080034cc4        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-flags.o)
+ .eh_frame      0x0000000080034ee4        0x0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-flags.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080034cc4       0x9c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fputwc.o)
+ .eh_frame      0x0000000080034ee4       0x9c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fputwc.o)
                                          0xb0 (size before relaxing)
- .eh_frame      0x0000000080034d60       0xec /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fvwrite.o)
+ .eh_frame      0x0000000080034f80       0xec /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fvwrite.o)
                                         0x100 (size before relaxing)
- .eh_frame      0x0000000080034e4c       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-isattyr.o)
+ .eh_frame      0x000000008003506c       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-isattyr.o)
                                          0x48 (size before relaxing)
- .eh_frame      0x0000000080034e80       0x3c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-localeconv.o)
+ .eh_frame      0x00000000800350a0       0x3c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-localeconv.o)
                                          0x50 (size before relaxing)
- .eh_frame      0x0000000080034ebc       0x5c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
+ .eh_frame      0x00000000800350dc       0x5c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
                                          0x70 (size before relaxing)
- .eh_frame      0x0000000080034f18       0x30 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-lseekr.o)
+ .eh_frame      0x0000000080035138       0x30 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-lseekr.o)
                                          0x44 (size before relaxing)
- .eh_frame      0x0000000080034f48       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mbtowc_r.o)
+ .eh_frame      0x0000000080035168       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mbtowc_r.o)
                                          0x48 (size before relaxing)
- .eh_frame      0x0000000080034f7c       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memchr.o)
+ .eh_frame      0x000000008003519c       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memchr.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080034f90       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memmove.o)
+ .eh_frame      0x00000000800351b0       0x14 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memmove.o)
                                          0x28 (size before relaxing)
- .eh_frame      0x0000000080034fa4      0x37c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
+ .eh_frame      0x00000000800351c4      0x37c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
                                         0x390 (size before relaxing)
- .eh_frame      0x0000000080035320       0x30 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-readr.o)
+ .eh_frame      0x0000000080035540       0x30 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-readr.o)
                                          0x44 (size before relaxing)
- .eh_frame      0x0000000080035350      0x108 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reallocr.o)
+ .eh_frame      0x0000000080035570      0x108 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reallocr.o)
                                         0x11c (size before relaxing)
- .eh_frame      0x0000000080035458      0x17c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
+ .eh_frame      0x0000000080035678      0x17c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
                                         0x190 (size before relaxing)
- .eh_frame      0x00000000800355d4       0x68 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wcrtomb.o)
+ .eh_frame      0x00000000800357f4       0x68 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wcrtomb.o)
                                          0x7c (size before relaxing)
- .eh_frame      0x000000008003563c       0x28 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wctomb_r.o)
+ .eh_frame      0x000000008003585c       0x28 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wctomb_r.o)
                                          0x3c (size before relaxing)
- .eh_frame      0x0000000080035664       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-callocr.o)
+ .eh_frame      0x0000000080035884       0x34 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-callocr.o)
                                          0x48 (size before relaxing)
- .eh_frame      0x0000000080035698       0x34 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_udivdi3.o)
+ .eh_frame      0x00000000800358b8       0x34 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_udivdi3.o)
                                          0x48 (size before relaxing)
- .eh_frame      0x00000000800356cc       0x34 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_umoddi3.o)
+ .eh_frame      0x00000000800358ec       0x34 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_umoddi3.o)
                                          0x48 (size before relaxing)
- .eh_frame      0x0000000080035700        0x4 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/crtend.o
-                0x0000000080035704        0x4 LONG 0x0
+ .eh_frame      0x0000000080035920        0x4 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/crtend.o
+                0x0000000080035924        0x4 LONG 0x0
 
-.rela.dyn       0x0000000080035708        0x0
- .rela.iplt     0x0000000080035708        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+.rela.dyn       0x0000000080035928        0x0
+ .rela.iplt     0x0000000080035928        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .rela.text.call_ctors
-                0x0000000080035708        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080035928        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .rela.text.c_register_frame
-                0x0000000080035708        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- .rela.text     0x0000000080035708        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080035928        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .rela.text     0x0000000080035928        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .rela.text.xenon_sbrk
-                0x0000000080035708        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080035928        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .rela.text.edram_72c
-                0x0000000080035708        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080035928        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .rela.text.edram_974
-                0x0000000080035708        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080035928        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .rela.text.edram_9e4
-                0x0000000080035708        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080035928        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .rela.text.edram_4c
-                0x0000000080035708        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080035928        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .rela.text.edram_init
-                0x0000000080035708        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080035928        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
 
 .gcc_except_table
  *(.gcc_except_table .gcc_except_table.*)
-                0x0000000080035708                bss_start = .
+                0x0000000080035928                bss_start = .
 
-.bss            0x0000000080035780    0x3b7dc
+.bss            0x0000000080035980    0x3b7dc
  *(.bss.beginning.lower)
  *(.bss.beginning.upper)
  *(.bss*)
- .bss           0x0000000080035780    0x2040c main.o
+ .bss           0x0000000080035980    0x2040c main.o
  .bss.console_fb
-                0x0000000080055b8c        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080055d8c        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .bss.console_height
-                0x0000000080055b90        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080055d90        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .bss.console_size
-                0x0000000080055b94        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080055d94        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .bss.console_width
-                0x0000000080055b98        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- .bss.cursor_x  0x0000000080055b9c        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- .bss.cursor_y  0x0000000080055ba0        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- .bss.max_x     0x0000000080055ba4        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- .bss.max_y     0x0000000080055ba8        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- .bss.offset_x  0x0000000080055bac        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- .bss.offset_y  0x0000000080055bb0        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x0000000080055d98        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .bss.cursor_x  0x0000000080055d9c        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .bss.cursor_y  0x0000000080055da0        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .bss.max_x     0x0000000080055da4        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .bss.max_y     0x0000000080055da8        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .bss.offset_x  0x0000000080055dac        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .bss.offset_y  0x0000000080055db0        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
  .bss.pixel_max_x
-                0x0000000080055bb4        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- .bss.handles   0x0000000080055bb8     0x1000 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+                0x0000000080055db4        0x4 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .bss.handles   0x0000000080055db8     0x1000 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
  .bss.lockcount
-                0x0000000080056bb8        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
- *fill*         0x0000000080056bbc       0x44 
+                0x0000000080056db8        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+ *fill*         0x0000000080056dbc       0x44 
  .bss.malloc_spinlock
-                0x0000000080056c00        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
- *fill*         0x0000000080056c04       0x7c 
+                0x0000000080056e00        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+ *fill*         0x0000000080056e04       0x7c 
  .bss.safety_spinlock
-                0x0000000080056c80        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
- *fill*         0x0000000080056c84        0x4 
- .bss.text      0x0000000080056c88     0x1000 /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
+                0x0000000080056e80        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+ *fill*         0x0000000080056e84        0x4 
+ .bss.text      0x0000000080056e88     0x1000 /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
  .bss.userpagetable
-                0x0000000080057c88    0x14000 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
-                0x0000000080057c88                userpagetable
- .bss.stack     0x000000008006bc88     0x5000 /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
+                0x0000000080057e88    0x14000 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
+                0x0000000080057e88                userpagetable
+ .bss.stack     0x000000008006be88     0x5000 /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
  .bss.thread_state
-                0x0000000080070c88       0x18 /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
+                0x0000000080070e88       0x18 /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
  .bss.secured_settings
-                0x0000000080070ca0      0x208 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
-                0x0000000080070ca0                secured_settings
+                0x0000000080070ea0      0x208 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
+                0x0000000080070ea0                secured_settings
  .bss.xenon_config_initialized
-                0x0000000080070ea8        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
+                0x00000000800710a8        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
  .bss.base.5017
-                0x0000000080070eac        0x4 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
- .bss.ptr.5018  0x0000000080070eb0        0x4 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+                0x00000000800710ac        0x4 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+ .bss.ptr.5018  0x00000000800710b0        0x4 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
  .bss.xenos_current_mode
-                0x0000000080070eb4        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
- .bss.sfc       0x0000000080070eb8       0x44 /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
-                0x0000000080070eb8                sfc
- .bss           0x0000000080070efc       0x10 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
- .bss           0x0000000080070f0c       0x28 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
-                0x0000000080070f0c                __malloc_current_mallinfo
- COMMON         0x0000000080070f34       0x28 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
-                0x0000000080070f34                reloc
+                0x00000000800710b4        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+ .bss.sfc       0x00000000800710b8       0x44 /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
+                0x00000000800710b8                sfc
+ .bss           0x00000000800710fc       0x10 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
+ .bss           0x000000008007110c       0x28 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
+                0x000000008007110c                __malloc_current_mallinfo
+ COMMON         0x0000000080071134       0x28 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+                0x0000000080071134                reloc
 
-.iplt           0x0000000080070f60        0x0
- .iplt          0x0000000080070f60        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+.iplt           0x0000000080071160        0x0
+ .iplt          0x0000000080071160        0x0 /usr/local/xenon/usr/lib/libxenon.a(console.o)
 
-.sbss           0x0000000080070f5c       0x40
+.sbss           0x000000008007115c       0x40
  *(.sbss .sbss.*)
- .sbss          0x0000000080070f5c        0x8 /usr/local/xenon/usr/lib/libxenon.a(console.o)
-                0x0000000080070f5c                console_oldbg
-                0x0000000080070f60                console_oldfg
+ .sbss          0x000000008007115c        0x8 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+                0x000000008007115c                console_oldbg
+                0x0000000080071160                console_oldfg
  .sbss.stdlog_hook
-                0x0000000080070f64        0x4 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
-                0x0000000080070f64                stdlog_hook
+                0x0000000080071164        0x4 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+                0x0000000080071164                stdlog_hook
  .sbss.stdout_hook
-                0x0000000080070f68        0x4 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
-                0x0000000080070f68                stdout_hook
- .sbss          0x0000000080070f6c        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
-                0x0000000080070f6c                heap_ptr
+                0x0000000080071168        0x4 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+                0x0000000080071168                stdout_hook
+ .sbss          0x000000008007116c        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+                0x000000008007116c                heap_ptr
  .sbss.vm_segfault_handler
-                0x0000000080070f70        0x4 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
-                0x0000000080070f70                vm_segfault_handler
+                0x0000000080071170        0x4 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
+                0x0000000080071170                vm_segfault_handler
  .sbss.edram_id
-                0x0000000080070f74        0x4 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
-                0x0000000080070f74                edram_id
+                0x0000000080071174        0x4 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+                0x0000000080071174                edram_id
  .sbss.edram_rev
-                0x0000000080070f78        0x4 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
-                0x0000000080070f78                edram_rev
+                0x0000000080071178        0x4 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+                0x0000000080071178                edram_rev
  .sbss.stat_alu_uploaded
-                0x0000000080070f7c        0x4 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
-                0x0000000080070f7c                stat_alu_uploaded
+                0x000000008007117c        0x4 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+                0x000000008007117c                stat_alu_uploaded
  .sbss.xenos_id
-                0x0000000080070f80        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080070f80                xenos_id
+                0x0000000080071180        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x0000000080071180                xenos_id
  .sbss.xenos_is_corona
-                0x0000000080070f84        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080070f84                xenos_is_corona
+                0x0000000080071184        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x0000000080071184                xenos_is_corona
  .sbss.xenos_is_hdmi
-                0x0000000080070f88        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
-                0x0000000080070f88                xenos_is_hdmi
- .sbss          0x0000000080070f8c        0xc /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
-                0x0000000080070f8c                __malloc_max_total_mem
-                0x0000000080070f90                __malloc_max_sbrked_mem
-                0x0000000080070f94                __malloc_top_pad
- .sbss          0x0000000080070f98        0x4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reent.o)
-                0x0000000080070f98                errno
-                0x0000000080070f9c                bss_end = .
-                0x0000000080070f9c                heap_begin = .
+                0x0000000080071188        0x4 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+                0x0000000080071188                xenos_is_hdmi
+ .sbss          0x000000008007118c        0xc /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
+                0x000000008007118c                __malloc_max_total_mem
+                0x0000000080071190                __malloc_max_sbrked_mem
+                0x0000000080071194                __malloc_top_pad
+ .sbss          0x0000000080071198        0x4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reent.o)
+                0x0000000080071198                errno
+                0x000000008007119c                bss_end = .
+                0x000000008007119c                heap_begin = .
                 0x000000009e000000                . = 0x9e000000
                 0x000000009e000000                __libc_stack_end = .
                 0x000000009e000000                heap_end = .
                 0x00000000a0000000                . = 0xa0000000
 OUTPUT(/mnt/d/claude/fable/xenos-toolchain/app/glslgallery/glslgallery.elf elf32-powerpc)
 
-.debug_info     0x0000000000000000    0xb12f1
+.debug_info     0x0000000000000000    0xb1327
  .debug_info    0x0000000000000000      0x200 /usr/local/xenon/lib/gcc/xenon/9.2.0/../../../../xenon/lib/../lib/crt1.o
- .debug_info    0x0000000000000200     0x304f main.o
- .debug_info    0x000000000000324f       0xd8 /usr/local/xenon/usr/lib/libxenon.a(argv.o)
- .debug_info    0x0000000000003327     0x1166 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- .debug_info    0x000000000000448d     0x3a05 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
- .debug_info    0x0000000000007e92     0x1ad5 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
- .debug_info    0x0000000000009967      0xe62 /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
- .debug_info    0x000000000000a7c9      0xdf0 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
- .debug_info    0x000000000000b5b9      0x1e6 /usr/local/xenon/usr/lib/libxenon.a(time.o)
- .debug_info    0x000000000000b79f     0x17cc /usr/local/xenon/usr/lib/libxenon.a(usbmain.o)
- .debug_info    0x000000000000cf6b     0x6a8a /usr/local/xenon/usr/lib/libxenon.a(tinyehci.o)
- .debug_info    0x00000000000139f5      0xdfb /usr/local/xenon/usr/lib/libxenon.a(debug.o)
- .debug_info    0x00000000000147f0     0x14f2 /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
- .debug_info    0x0000000000015ce2     0x18a2 /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
- .debug_info    0x0000000000017584      0x135 /usr/local/xenon/usr/lib/libxenon.a(xenon_uart.o)
- .debug_info    0x00000000000176b9      0xeb6 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
- .debug_info    0x000000000001856f     0x3058 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
- .debug_info    0x000000000001b5c7     0x61db /usr/local/xenon/usr/lib/libxenon.a(xe.o)
- .debug_info    0x00000000000217a2     0x6734 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
- .debug_info    0x0000000000027ed6     0x15e4 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
- .debug_info    0x00000000000294ba     0x21c7 /usr/local/xenon/usr/lib/libxenon.a(enet.o)
- .debug_info    0x000000000002b681     0x2657 /usr/local/xenon/usr/lib/libxenon.a(xb360.o)
- .debug_info    0x000000000002dcd8      0xef6 /usr/local/xenon/usr/lib/libxenon.a(lib_malloc.o)
- .debug_info    0x000000000002ebce     0x3382 /usr/local/xenon/usr/lib/libxenon.a(ohci.o)
- .debug_info    0x0000000000031f50     0x2aea /usr/local/xenon/usr/lib/libxenon.a(usbd.o)
- .debug_info    0x0000000000034a3a     0x140b /usr/local/xenon/usr/lib/libxenon.a(usbdevs.o)
- .debug_info    0x0000000000035e45     0x1873 /usr/local/xenon/usr/lib/libxenon.a(usbhid.o)
- .debug_info    0x00000000000376b8     0x273e /usr/local/xenon/usr/lib/libxenon.a(usbhub.o)
- .debug_info    0x0000000000039df6      0xddd /usr/local/xenon/usr/lib/libxenon.a(usb_os.o)
- .debug_info    0x000000000003abd3      0x27e /usr/local/xenon/usr/lib/libxenon.a(xenon_gpio.o)
- .debug_info    0x000000000003ae51      0x108 /usr/local/xenon/usr/lib/libxenon.a(xenon_secotp.o)
- .debug_info    0x000000000003af59     0x242c /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
- .debug_info    0x000000000003d385      0x128 /usr/local/xenon/usr/lib/libxenon.a(ucode.o)
- .debug_info    0x000000000003d4ad     0x1066 /usr/local/xenon/usr/lib/libxenon.a(mem.o)
- .debug_info    0x000000000003e513     0x27ec /usr/local/xenon/usr/lib/libxenon.a(pbuf.o)
- .debug_info    0x0000000000040cff      0xb36 /usr/local/xenon/usr/lib/libxenon.a(stats.o)
- .debug_info    0x0000000000041835     0x2e2a /usr/local/xenon/usr/lib/libxenon.a(tcp.o)
- .debug_info    0x000000000004465f     0x1f90 /usr/local/xenon/usr/lib/libxenon.a(ip.o)
- .debug_info    0x00000000000465ef     0x1d92 /usr/local/xenon/usr/lib/libxenon.a(ip_frag.o)
- .debug_info    0x0000000000048381     0x2a69 /usr/local/xenon/usr/lib/libxenon.a(tcp_out.o)
- .debug_info    0x000000000004adea     0x1b9a /usr/local/xenon/usr/lib/libxenon.a(udp.o)
- .debug_info    0x000000000004c984     0x2637 /usr/local/xenon/usr/lib/libxenon.a(etharp.o)
- .debug_info    0x000000000004efbb     0x3792 /usr/local/xenon/usr/lib/libxenon.a(dhcp.o)
- .debug_info    0x000000000005274d     0x1447 /usr/local/xenon/usr/lib/libxenon.a(raw.o)
- .debug_info    0x0000000000053b94     0x12f3 /usr/local/xenon/usr/lib/libxenon.a(timers.o)
- .debug_info    0x0000000000054e87     0x10bf /usr/local/xenon/usr/lib/libxenon.a(hmac_sha1.o)
- .debug_info    0x0000000000055f46      0x142 /usr/local/xenon/usr/lib/libxenon.a(rc4.o)
- .debug_info    0x0000000000056088      0xc86 /usr/local/xenon/usr/lib/libxenon.a(sha1.o)
- .debug_info    0x0000000000056d0e      0xbb2 /usr/local/xenon/usr/lib/libxenon.a(lib_queue.o)
- .debug_info    0x00000000000578c0     0x115f /usr/local/xenon/usr/lib/libxenon.a(dummy.o)
- .debug_info    0x0000000000058a1f     0x2034 /usr/local/xenon/usr/lib/libxenon.a(usbctrl.o)
- .debug_info    0x000000000005aa53     0x2116 /usr/local/xenon/usr/lib/libxenon.a(usbdebug.o)
- .debug_info    0x000000000005cb69     0x24b7 /usr/local/xenon/usr/lib/libxenon.a(tcp_in.o)
- .debug_info    0x000000000005f020      0xda6 /usr/local/xenon/usr/lib/libxenon.a(inet_chksum.o)
- .debug_info    0x000000000005fdc6     0x181f /usr/local/xenon/usr/lib/libxenon.a(memp.o)
- .debug_info    0x00000000000615e5     0x1dbe /usr/local/xenon/usr/lib/libxenon.a(netif.o)
- .debug_info    0x00000000000633a3      0xf28 /usr/local/xenon/usr/lib/libxenon.a(ip_addr.o)
- .debug_info    0x00000000000642cb     0x1552 /usr/local/xenon/usr/lib/libxenon.a(icmp.o)
- .debug_info    0x000000000006581d      0x330 /usr/local/xenon/usr/lib/libxenon.a(input.o)
- .debug_info    0x0000000000065b4d      0xa17 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-wf_sincos.o)
- .debug_info    0x0000000000066564      0xac2 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_cos.o)
- .debug_info    0x0000000000067026      0xac3 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_sin.o)
- .debug_info    0x0000000000067ae9      0xcc3 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
- .debug_info    0x00000000000687ac      0xaea /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_cos.o)
- .debug_info    0x0000000000069296      0xce0 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
- .debug_info    0x0000000000069f76      0xabc /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_sin.o)
- .debug_info    0x000000000006aa32      0xa08 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_fabs.o)
- .debug_info    0x000000000006b43a      0xa52 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_floor.o)
- .debug_info    0x000000000006be8c      0xaca /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_scalbn.o)
- .debug_info    0x000000000006c956       0x26 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtsavgpr.o)
- .debug_info    0x000000000006c97c       0x26 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtresxgpr.o)
- .debug_info    0x000000000006c9a2     0x5071 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
- .debug_info    0x0000000000071a13      0xa2d /usr/local/xenon/xenon/lib/32/libc.a(lib_a-assert.o)
- .debug_info    0x0000000000072440      0xe91 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ctype_.o)
- .debug_info    0x00000000000732d1      0x953 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-errno.o)
- .debug_info    0x0000000000073c24      0x9d0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-exit.o)
- .debug_info    0x00000000000745f4      0xcd9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fclose.o)
- .debug_info    0x00000000000752cd      0xd72 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fflush.o)
- .debug_info    0x000000000007603f     0x1142 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-findfp.o)
- .debug_info    0x0000000000077181      0xaae /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fiprintf.o)
- .debug_info    0x0000000000077c2f      0xd12 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fopen.o)
- .debug_info    0x0000000000078941      0xddd /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fread.o)
- .debug_info    0x000000000007971e      0xdc4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-freer.o)
- .debug_info    0x000000000007a4e2      0xcaf /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseek.o)
- .debug_info    0x000000000007b191     0x1134 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseeko.o)
- .debug_info    0x000000000007c2c5      0xc23 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fstatr.o)
- .debug_info    0x000000000007cee8      0xc35 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftell.o)
- .debug_info    0x000000000007db1d      0xc10 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftello.o)
- .debug_info    0x000000000007e72d      0xcaa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fwalk.o)
- .debug_info    0x000000000007f3d7      0x92a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-impure.o)
- .debug_info    0x000000000007fd01      0xf63 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-makebuf.o)
- .debug_info    0x0000000000080c64      0x989 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malign.o)
- .debug_info    0x00000000000815ed      0xccf /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malignr.o)
- .debug_info    0x00000000000822bc      0x9b6 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malloc.o)
- .debug_info    0x0000000000082c72      0xf41 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
- .debug_info    0x0000000000083bb3      0x9c2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcmp.o)
- .debug_info    0x0000000000084575      0xf2d /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcpy.o)
- .debug_info    0x00000000000854a2      0xf21 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memset.o)
- .debug_info    0x00000000000863c3      0xa42 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-openr.o)
- .debug_info    0x0000000000086e05      0xc80 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-printf.o)
- .debug_info    0x0000000000087a85      0xbb5 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putchar.o)
- .debug_info    0x000000000008863a      0xd09 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putc.o)
- .debug_info    0x0000000000089343      0xce0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-puts.o)
- .debug_info    0x000000000008a023      0xac5 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reent.o)
- .debug_info    0x000000000008aae8      0xcd4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-refill.o)
- .debug_info    0x000000000008b7bc      0x9fa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sbrkr.o)
- .debug_info    0x000000000008c1b6      0xcd2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sprintf.o)
- .debug_info    0x000000000008ce88      0xe8a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-stdio.o)
- .debug_info    0x000000000008dd12      0x9a4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcat.o)
- .debug_info    0x000000000008e6b6      0x9b9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strchr.o)
- .debug_info    0x000000000008f06f      0x977 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcmp.o)
- .debug_info    0x000000000008f9e6      0x9a8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcpy.o)
- .debug_info    0x000000000009038e      0x973 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strlen.o)
- .debug_info    0x0000000000090d01      0x995 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncmp.o)
- .debug_info    0x0000000000091696      0x9ca /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncpy.o)
- .debug_info    0x0000000000092060      0x967 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strnlen.o)
- .debug_info    0x00000000000929c7      0x986 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strrchr.o)
- .debug_info    0x000000000009334d     0x1e61 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
- .debug_info    0x00000000000951ae     0x1ebd /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
- .debug_info    0x000000000009706b     0x2048 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
- .debug_info    0x00000000000990b3      0xc41 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vprintf.o)
- .debug_info    0x0000000000099cf4      0xc95 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vsprintf.o)
- .debug_info    0x000000000009a989      0xcaa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wbuf.o)
- .debug_info    0x000000000009b633      0xa2c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-writer.o)
- .debug_info    0x000000000009c05f      0xbf3 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wsetup.o)
- .debug_info    0x000000000009cc52      0xa0b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-__call_atexit.o)
- .debug_info    0x000000000009d65d      0x9d7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-closer.o)
- .debug_info    0x000000000009e034     0x1a1f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
- .debug_info    0x000000000009fa53      0x9fa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-flags.o)
- .debug_info    0x00000000000a044d      0xe22 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fputwc.o)
- .debug_info    0x00000000000a126f      0xecc /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fvwrite.o)
- .debug_info    0x00000000000a213b      0x9d7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-isattyr.o)
- .debug_info    0x00000000000a2b12      0xf49 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-localeconv.o)
- .debug_info    0x00000000000a3a5b     0x10c7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
- .debug_info    0x00000000000a4b22      0xa0d /usr/local/xenon/xenon/lib/32/libc.a(lib_a-lseekr.o)
- .debug_info    0x00000000000a552f     0x1039 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mbtowc_r.o)
- .debug_info    0x00000000000a6568      0x9e3 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memchr.o)
- .debug_info    0x00000000000a6f4b      0xf23 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memmove.o)
- .debug_info    0x00000000000a7e6e     0x2061 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
- .debug_info    0x00000000000a9ecf      0xa25 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-readr.o)
- .debug_info    0x00000000000aa8f4      0xeec /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reallocr.o)
- .debug_info    0x00000000000ab7e0     0x1921 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
- .debug_info    0x00000000000ad101     0x10a9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wcrtomb.o)
- .debug_info    0x00000000000ae1aa      0xff7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wctomb_r.o)
- .debug_info    0x00000000000af1a1      0xc2f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-callocr.o)
- .debug_info    0x00000000000afdd0      0xa81 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_udivdi3.o)
- .debug_info    0x00000000000b0851      0xaa0 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_umoddi3.o)
+ .debug_info    0x0000000000000200     0x3085 main.o
+ .debug_info    0x0000000000003285       0xd8 /usr/local/xenon/usr/lib/libxenon.a(argv.o)
+ .debug_info    0x000000000000335d     0x1166 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .debug_info    0x00000000000044c3     0x3a05 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+ .debug_info    0x0000000000007ec8     0x1ad5 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+ .debug_info    0x000000000000999d      0xe62 /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
+ .debug_info    0x000000000000a7ff      0xdf0 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
+ .debug_info    0x000000000000b5ef      0x1e6 /usr/local/xenon/usr/lib/libxenon.a(time.o)
+ .debug_info    0x000000000000b7d5     0x17cc /usr/local/xenon/usr/lib/libxenon.a(usbmain.o)
+ .debug_info    0x000000000000cfa1     0x6a8a /usr/local/xenon/usr/lib/libxenon.a(tinyehci.o)
+ .debug_info    0x0000000000013a2b      0xdfb /usr/local/xenon/usr/lib/libxenon.a(debug.o)
+ .debug_info    0x0000000000014826     0x14f2 /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
+ .debug_info    0x0000000000015d18     0x18a2 /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
+ .debug_info    0x00000000000175ba      0x135 /usr/local/xenon/usr/lib/libxenon.a(xenon_uart.o)
+ .debug_info    0x00000000000176ef      0xeb6 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
+ .debug_info    0x00000000000185a5     0x3058 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+ .debug_info    0x000000000001b5fd     0x61db /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ .debug_info    0x00000000000217d8     0x6734 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+ .debug_info    0x0000000000027f0c     0x15e4 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
+ .debug_info    0x00000000000294f0     0x21c7 /usr/local/xenon/usr/lib/libxenon.a(enet.o)
+ .debug_info    0x000000000002b6b7     0x2657 /usr/local/xenon/usr/lib/libxenon.a(xb360.o)
+ .debug_info    0x000000000002dd0e      0xef6 /usr/local/xenon/usr/lib/libxenon.a(lib_malloc.o)
+ .debug_info    0x000000000002ec04     0x3382 /usr/local/xenon/usr/lib/libxenon.a(ohci.o)
+ .debug_info    0x0000000000031f86     0x2aea /usr/local/xenon/usr/lib/libxenon.a(usbd.o)
+ .debug_info    0x0000000000034a70     0x140b /usr/local/xenon/usr/lib/libxenon.a(usbdevs.o)
+ .debug_info    0x0000000000035e7b     0x1873 /usr/local/xenon/usr/lib/libxenon.a(usbhid.o)
+ .debug_info    0x00000000000376ee     0x273e /usr/local/xenon/usr/lib/libxenon.a(usbhub.o)
+ .debug_info    0x0000000000039e2c      0xddd /usr/local/xenon/usr/lib/libxenon.a(usb_os.o)
+ .debug_info    0x000000000003ac09      0x27e /usr/local/xenon/usr/lib/libxenon.a(xenon_gpio.o)
+ .debug_info    0x000000000003ae87      0x108 /usr/local/xenon/usr/lib/libxenon.a(xenon_secotp.o)
+ .debug_info    0x000000000003af8f     0x242c /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
+ .debug_info    0x000000000003d3bb      0x128 /usr/local/xenon/usr/lib/libxenon.a(ucode.o)
+ .debug_info    0x000000000003d4e3     0x1066 /usr/local/xenon/usr/lib/libxenon.a(mem.o)
+ .debug_info    0x000000000003e549     0x27ec /usr/local/xenon/usr/lib/libxenon.a(pbuf.o)
+ .debug_info    0x0000000000040d35      0xb36 /usr/local/xenon/usr/lib/libxenon.a(stats.o)
+ .debug_info    0x000000000004186b     0x2e2a /usr/local/xenon/usr/lib/libxenon.a(tcp.o)
+ .debug_info    0x0000000000044695     0x1f90 /usr/local/xenon/usr/lib/libxenon.a(ip.o)
+ .debug_info    0x0000000000046625     0x1d92 /usr/local/xenon/usr/lib/libxenon.a(ip_frag.o)
+ .debug_info    0x00000000000483b7     0x2a69 /usr/local/xenon/usr/lib/libxenon.a(tcp_out.o)
+ .debug_info    0x000000000004ae20     0x1b9a /usr/local/xenon/usr/lib/libxenon.a(udp.o)
+ .debug_info    0x000000000004c9ba     0x2637 /usr/local/xenon/usr/lib/libxenon.a(etharp.o)
+ .debug_info    0x000000000004eff1     0x3792 /usr/local/xenon/usr/lib/libxenon.a(dhcp.o)
+ .debug_info    0x0000000000052783     0x1447 /usr/local/xenon/usr/lib/libxenon.a(raw.o)
+ .debug_info    0x0000000000053bca     0x12f3 /usr/local/xenon/usr/lib/libxenon.a(timers.o)
+ .debug_info    0x0000000000054ebd     0x10bf /usr/local/xenon/usr/lib/libxenon.a(hmac_sha1.o)
+ .debug_info    0x0000000000055f7c      0x142 /usr/local/xenon/usr/lib/libxenon.a(rc4.o)
+ .debug_info    0x00000000000560be      0xc86 /usr/local/xenon/usr/lib/libxenon.a(sha1.o)
+ .debug_info    0x0000000000056d44      0xbb2 /usr/local/xenon/usr/lib/libxenon.a(lib_queue.o)
+ .debug_info    0x00000000000578f6     0x115f /usr/local/xenon/usr/lib/libxenon.a(dummy.o)
+ .debug_info    0x0000000000058a55     0x2034 /usr/local/xenon/usr/lib/libxenon.a(usbctrl.o)
+ .debug_info    0x000000000005aa89     0x2116 /usr/local/xenon/usr/lib/libxenon.a(usbdebug.o)
+ .debug_info    0x000000000005cb9f     0x24b7 /usr/local/xenon/usr/lib/libxenon.a(tcp_in.o)
+ .debug_info    0x000000000005f056      0xda6 /usr/local/xenon/usr/lib/libxenon.a(inet_chksum.o)
+ .debug_info    0x000000000005fdfc     0x181f /usr/local/xenon/usr/lib/libxenon.a(memp.o)
+ .debug_info    0x000000000006161b     0x1dbe /usr/local/xenon/usr/lib/libxenon.a(netif.o)
+ .debug_info    0x00000000000633d9      0xf28 /usr/local/xenon/usr/lib/libxenon.a(ip_addr.o)
+ .debug_info    0x0000000000064301     0x1552 /usr/local/xenon/usr/lib/libxenon.a(icmp.o)
+ .debug_info    0x0000000000065853      0x330 /usr/local/xenon/usr/lib/libxenon.a(input.o)
+ .debug_info    0x0000000000065b83      0xa17 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-wf_sincos.o)
+ .debug_info    0x000000000006659a      0xac2 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_cos.o)
+ .debug_info    0x000000000006705c      0xac3 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_sin.o)
+ .debug_info    0x0000000000067b1f      0xcc3 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
+ .debug_info    0x00000000000687e2      0xaea /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_cos.o)
+ .debug_info    0x00000000000692cc      0xce0 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
+ .debug_info    0x0000000000069fac      0xabc /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_sin.o)
+ .debug_info    0x000000000006aa68      0xa08 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_fabs.o)
+ .debug_info    0x000000000006b470      0xa52 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_floor.o)
+ .debug_info    0x000000000006bec2      0xaca /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_scalbn.o)
+ .debug_info    0x000000000006c98c       0x26 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtsavgpr.o)
+ .debug_info    0x000000000006c9b2       0x26 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtresxgpr.o)
+ .debug_info    0x000000000006c9d8     0x5071 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
+ .debug_info    0x0000000000071a49      0xa2d /usr/local/xenon/xenon/lib/32/libc.a(lib_a-assert.o)
+ .debug_info    0x0000000000072476      0xe91 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ctype_.o)
+ .debug_info    0x0000000000073307      0x953 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-errno.o)
+ .debug_info    0x0000000000073c5a      0x9d0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-exit.o)
+ .debug_info    0x000000000007462a      0xcd9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fclose.o)
+ .debug_info    0x0000000000075303      0xd72 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fflush.o)
+ .debug_info    0x0000000000076075     0x1142 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-findfp.o)
+ .debug_info    0x00000000000771b7      0xaae /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fiprintf.o)
+ .debug_info    0x0000000000077c65      0xd12 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fopen.o)
+ .debug_info    0x0000000000078977      0xddd /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fread.o)
+ .debug_info    0x0000000000079754      0xdc4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-freer.o)
+ .debug_info    0x000000000007a518      0xcaf /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseek.o)
+ .debug_info    0x000000000007b1c7     0x1134 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseeko.o)
+ .debug_info    0x000000000007c2fb      0xc23 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fstatr.o)
+ .debug_info    0x000000000007cf1e      0xc35 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftell.o)
+ .debug_info    0x000000000007db53      0xc10 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftello.o)
+ .debug_info    0x000000000007e763      0xcaa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fwalk.o)
+ .debug_info    0x000000000007f40d      0x92a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-impure.o)
+ .debug_info    0x000000000007fd37      0xf63 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-makebuf.o)
+ .debug_info    0x0000000000080c9a      0x989 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malign.o)
+ .debug_info    0x0000000000081623      0xccf /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malignr.o)
+ .debug_info    0x00000000000822f2      0x9b6 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malloc.o)
+ .debug_info    0x0000000000082ca8      0xf41 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
+ .debug_info    0x0000000000083be9      0x9c2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcmp.o)
+ .debug_info    0x00000000000845ab      0xf2d /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcpy.o)
+ .debug_info    0x00000000000854d8      0xf21 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memset.o)
+ .debug_info    0x00000000000863f9      0xa42 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-openr.o)
+ .debug_info    0x0000000000086e3b      0xc80 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-printf.o)
+ .debug_info    0x0000000000087abb      0xbb5 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putchar.o)
+ .debug_info    0x0000000000088670      0xd09 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putc.o)
+ .debug_info    0x0000000000089379      0xce0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-puts.o)
+ .debug_info    0x000000000008a059      0xac5 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reent.o)
+ .debug_info    0x000000000008ab1e      0xcd4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-refill.o)
+ .debug_info    0x000000000008b7f2      0x9fa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sbrkr.o)
+ .debug_info    0x000000000008c1ec      0xcd2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sprintf.o)
+ .debug_info    0x000000000008cebe      0xe8a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-stdio.o)
+ .debug_info    0x000000000008dd48      0x9a4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcat.o)
+ .debug_info    0x000000000008e6ec      0x9b9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strchr.o)
+ .debug_info    0x000000000008f0a5      0x977 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcmp.o)
+ .debug_info    0x000000000008fa1c      0x9a8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcpy.o)
+ .debug_info    0x00000000000903c4      0x973 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strlen.o)
+ .debug_info    0x0000000000090d37      0x995 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncmp.o)
+ .debug_info    0x00000000000916cc      0x9ca /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncpy.o)
+ .debug_info    0x0000000000092096      0x967 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strnlen.o)
+ .debug_info    0x00000000000929fd      0x986 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strrchr.o)
+ .debug_info    0x0000000000093383     0x1e61 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
+ .debug_info    0x00000000000951e4     0x1ebd /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
+ .debug_info    0x00000000000970a1     0x2048 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
+ .debug_info    0x00000000000990e9      0xc41 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vprintf.o)
+ .debug_info    0x0000000000099d2a      0xc95 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vsprintf.o)
+ .debug_info    0x000000000009a9bf      0xcaa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wbuf.o)
+ .debug_info    0x000000000009b669      0xa2c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-writer.o)
+ .debug_info    0x000000000009c095      0xbf3 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wsetup.o)
+ .debug_info    0x000000000009cc88      0xa0b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-__call_atexit.o)
+ .debug_info    0x000000000009d693      0x9d7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-closer.o)
+ .debug_info    0x000000000009e06a     0x1a1f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
+ .debug_info    0x000000000009fa89      0x9fa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-flags.o)
+ .debug_info    0x00000000000a0483      0xe22 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fputwc.o)
+ .debug_info    0x00000000000a12a5      0xecc /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fvwrite.o)
+ .debug_info    0x00000000000a2171      0x9d7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-isattyr.o)
+ .debug_info    0x00000000000a2b48      0xf49 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-localeconv.o)
+ .debug_info    0x00000000000a3a91     0x10c7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
+ .debug_info    0x00000000000a4b58      0xa0d /usr/local/xenon/xenon/lib/32/libc.a(lib_a-lseekr.o)
+ .debug_info    0x00000000000a5565     0x1039 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mbtowc_r.o)
+ .debug_info    0x00000000000a659e      0x9e3 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memchr.o)
+ .debug_info    0x00000000000a6f81      0xf23 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memmove.o)
+ .debug_info    0x00000000000a7ea4     0x2061 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
+ .debug_info    0x00000000000a9f05      0xa25 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-readr.o)
+ .debug_info    0x00000000000aa92a      0xeec /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reallocr.o)
+ .debug_info    0x00000000000ab816     0x1921 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
+ .debug_info    0x00000000000ad137     0x10a9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wcrtomb.o)
+ .debug_info    0x00000000000ae1e0      0xff7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wctomb_r.o)
+ .debug_info    0x00000000000af1d7      0xc2f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-callocr.o)
+ .debug_info    0x00000000000afe06      0xa81 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_udivdi3.o)
+ .debug_info    0x00000000000b0887      0xaa0 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_umoddi3.o)
 
 .debug_abbrev   0x0000000000000000    0x1b692
  .debug_abbrev  0x0000000000000000      0x182 /usr/local/xenon/lib/gcc/xenon/9.2.0/../../../../xenon/lib/../lib/crt1.o
@@ -4263,145 +4264,145 @@ OUTPUT(/mnt/d/claude/fable/xenos-toolchain/app/glslgallery/glslgallery.elf elf32
  .debug_abbrev  0x000000000001b231      0x220 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_udivdi3.o)
  .debug_abbrev  0x000000000001b451      0x241 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_umoddi3.o)
 
-.debug_loc      0x0000000000000000    0x4b845
+.debug_loc      0x0000000000000000    0x4b852
  .debug_loc     0x0000000000000000       0x15 /usr/local/xenon/lib/gcc/xenon/9.2.0/../../../../xenon/lib/../lib/crt1.o
- .debug_loc     0x0000000000000015     0x1a4f main.o
- .debug_loc     0x0000000000001a64      0x447 /usr/local/xenon/usr/lib/libxenon.a(console.o)
- .debug_loc     0x0000000000001eab     0x248c /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
- .debug_loc     0x0000000000004337      0x337 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
- .debug_loc     0x000000000000466e      0x29d /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
- .debug_loc     0x000000000000490b      0x355 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
- .debug_loc     0x0000000000004c60      0x11e /usr/local/xenon/usr/lib/libxenon.a(time.o)
- .debug_loc     0x0000000000004d7e      0x3ba /usr/local/xenon/usr/lib/libxenon.a(usbmain.o)
- .debug_loc     0x0000000000005138     0x51c2 /usr/local/xenon/usr/lib/libxenon.a(tinyehci.o)
- .debug_loc     0x000000000000a2fa      0x2e0 /usr/local/xenon/usr/lib/libxenon.a(debug.o)
- .debug_loc     0x000000000000a5da      0x6e3 /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
- .debug_loc     0x000000000000acbd      0xbde /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
- .debug_loc     0x000000000000b89b       0x7a /usr/local/xenon/usr/lib/libxenon.a(xenon_uart.o)
- .debug_loc     0x000000000000b915       0x68 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
- .debug_loc     0x000000000000b97d      0xdbf /usr/local/xenon/usr/lib/libxenon.a(edram.o)
- .debug_loc     0x000000000000c73c     0x4bd6 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
- .debug_loc     0x0000000000011312     0x4775 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
- .debug_loc     0x0000000000015a87      0x5e9 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
- .debug_loc     0x0000000000016070      0xdcd /usr/local/xenon/usr/lib/libxenon.a(enet.o)
- .debug_loc     0x0000000000016e3d      0xc75 /usr/local/xenon/usr/lib/libxenon.a(xb360.o)
- .debug_loc     0x0000000000017ab2      0x4a0 /usr/local/xenon/usr/lib/libxenon.a(lib_malloc.o)
- .debug_loc     0x0000000000017f52     0x2b9e /usr/local/xenon/usr/lib/libxenon.a(ohci.o)
- .debug_loc     0x000000000001aaf0     0x15b7 /usr/local/xenon/usr/lib/libxenon.a(usbd.o)
- .debug_loc     0x000000000001c0a7      0x187 /usr/local/xenon/usr/lib/libxenon.a(usbdevs.o)
- .debug_loc     0x000000000001c22e      0x365 /usr/local/xenon/usr/lib/libxenon.a(usbhid.o)
- .debug_loc     0x000000000001c593      0xba8 /usr/local/xenon/usr/lib/libxenon.a(usbhub.o)
- .debug_loc     0x000000000001d13b      0x226 /usr/local/xenon/usr/lib/libxenon.a(usb_os.o)
- .debug_loc     0x000000000001d361      0x159 /usr/local/xenon/usr/lib/libxenon.a(xenon_gpio.o)
- .debug_loc     0x000000000001d4ba       0x25 /usr/local/xenon/usr/lib/libxenon.a(xenon_secotp.o)
- .debug_loc     0x000000000001d4df     0x1510 /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
- .debug_loc     0x000000000001e9ef      0x62d /usr/local/xenon/usr/lib/libxenon.a(mem.o)
- .debug_loc     0x000000000001f01c     0x1908 /usr/local/xenon/usr/lib/libxenon.a(pbuf.o)
- .debug_loc     0x0000000000020924     0x185c /usr/local/xenon/usr/lib/libxenon.a(tcp.o)
- .debug_loc     0x0000000000022180      0xa19 /usr/local/xenon/usr/lib/libxenon.a(ip.o)
- .debug_loc     0x0000000000022b99      0xe07 /usr/local/xenon/usr/lib/libxenon.a(ip_frag.o)
- .debug_loc     0x00000000000239a0     0x1a52 /usr/local/xenon/usr/lib/libxenon.a(tcp_out.o)
- .debug_loc     0x00000000000253f2      0xb1a /usr/local/xenon/usr/lib/libxenon.a(udp.o)
- .debug_loc     0x0000000000025f0c     0x16f9 /usr/local/xenon/usr/lib/libxenon.a(etharp.o)
- .debug_loc     0x0000000000027605     0x1d91 /usr/local/xenon/usr/lib/libxenon.a(dhcp.o)
- .debug_loc     0x0000000000029396      0x381 /usr/local/xenon/usr/lib/libxenon.a(raw.o)
- .debug_loc     0x0000000000029717      0x532 /usr/local/xenon/usr/lib/libxenon.a(hmac_sha1.o)
- .debug_loc     0x0000000000029c49      0x1b9 /usr/local/xenon/usr/lib/libxenon.a(rc4.o)
- .debug_loc     0x0000000000029e02      0xc87 /usr/local/xenon/usr/lib/libxenon.a(sha1.o)
- .debug_loc     0x000000000002aa89      0x1de /usr/local/xenon/usr/lib/libxenon.a(lib_queue.o)
- .debug_loc     0x000000000002ac67       0x4a /usr/local/xenon/usr/lib/libxenon.a(dummy.o)
- .debug_loc     0x000000000002acb1      0x993 /usr/local/xenon/usr/lib/libxenon.a(usbctrl.o)
- .debug_loc     0x000000000002b644      0x543 /usr/local/xenon/usr/lib/libxenon.a(usbdebug.o)
- .debug_loc     0x000000000002bb87      0xcb0 /usr/local/xenon/usr/lib/libxenon.a(tcp_in.o)
- .debug_loc     0x000000000002c837      0x93b /usr/local/xenon/usr/lib/libxenon.a(inet_chksum.o)
- .debug_loc     0x000000000002d172      0x164 /usr/local/xenon/usr/lib/libxenon.a(memp.o)
- .debug_loc     0x000000000002d2d6      0x4e0 /usr/local/xenon/usr/lib/libxenon.a(netif.o)
- .debug_loc     0x000000000002d7b6      0x59e /usr/local/xenon/usr/lib/libxenon.a(ip_addr.o)
- .debug_loc     0x000000000002dd54      0x354 /usr/local/xenon/usr/lib/libxenon.a(icmp.o)
- .debug_loc     0x000000000002e0a8      0x15c /usr/local/xenon/usr/lib/libxenon.a(input.o)
- .debug_loc     0x000000000002e204       0x9a /usr/local/xenon/xenon/lib/32/libm.a(lib_a-wf_sincos.o)
- .debug_loc     0x000000000002e29e      0x193 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_cos.o)
- .debug_loc     0x000000000002e431      0x193 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_sin.o)
- .debug_loc     0x000000000002e5c4      0x75c /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
- .debug_loc     0x000000000002ed20      0x294 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_cos.o)
- .debug_loc     0x000000000002efb4      0xca3 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
- .debug_loc     0x000000000002fc57      0x1b4 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_sin.o)
- .debug_loc     0x000000000002fe0b       0x78 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_fabs.o)
- .debug_loc     0x000000000002fe83      0x1c4 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_floor.o)
- .debug_loc     0x0000000000030047      0x3db /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_scalbn.o)
- .debug_loc     0x0000000000030422     0x2ab9 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
- .debug_loc     0x0000000000032edb      0x188 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-assert.o)
- .debug_loc     0x0000000000033063       0x22 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-exit.o)
- .debug_loc     0x0000000000033085      0x1ea /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fclose.o)
- .debug_loc     0x000000000003326f      0x522 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fflush.o)
- .debug_loc     0x0000000000033791      0x328 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-findfp.o)
- .debug_loc     0x0000000000033ab9       0xfd /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fiprintf.o)
- .debug_loc     0x0000000000033bb6      0x249 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fopen.o)
- .debug_loc     0x0000000000033dff      0x651 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fread.o)
- .debug_loc     0x0000000000034450      0x731 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-freer.o)
- .debug_loc     0x0000000000034b81      0x1c0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseek.o)
- .debug_loc     0x0000000000034d41      0x486 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseeko.o)
- .debug_loc     0x00000000000351c7       0xc8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fstatr.o)
- .debug_loc     0x000000000003528f       0xae /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftell.o)
- .debug_loc     0x000000000003533d      0x1d0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftello.o)
- .debug_loc     0x000000000003550d      0x223 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fwalk.o)
- .debug_loc     0x0000000000035730      0x3bf /usr/local/xenon/xenon/lib/32/libc.a(lib_a-makebuf.o)
- .debug_loc     0x0000000000035aef       0x64 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malign.o)
- .debug_loc     0x0000000000035b53      0x3b1 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malignr.o)
- .debug_loc     0x0000000000035f04       0x64 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malloc.o)
- .debug_loc     0x0000000000035f68      0xf58 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
- .debug_loc     0x0000000000036ec0      0x13f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcmp.o)
- .debug_loc     0x0000000000036fff      0x2dc /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcpy.o)
- .debug_loc     0x00000000000372db      0x20f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memset.o)
- .debug_loc     0x00000000000374ea       0xfa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-openr.o)
- .debug_loc     0x00000000000375e4       0xc8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-printf.o)
- .debug_loc     0x00000000000376ac       0x91 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putchar.o)
- .debug_loc     0x000000000003773d      0x3c9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putc.o)
- .debug_loc     0x0000000000037b06      0x142 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-puts.o)
- .debug_loc     0x0000000000037c48      0x148 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reent.o)
- .debug_loc     0x0000000000037d90      0x1b9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-refill.o)
- .debug_loc     0x0000000000037f49       0x89 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sbrkr.o)
- .debug_loc     0x0000000000037fd2      0x11e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sprintf.o)
- .debug_loc     0x00000000000380f0      0x48a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-stdio.o)
- .debug_loc     0x000000000003857a       0xd0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcat.o)
- .debug_loc     0x000000000003864a      0x1f1 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strchr.o)
- .debug_loc     0x000000000003883b      0x102 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcmp.o)
- .debug_loc     0x000000000003893d      0x142 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcpy.o)
- .debug_loc     0x0000000000038a7f       0xca /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strlen.o)
- .debug_loc     0x0000000000038b49      0x131 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncmp.o)
- .debug_loc     0x0000000000038c7a      0x15b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncpy.o)
- .debug_loc     0x0000000000038dd5       0x6b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strnlen.o)
- .debug_loc     0x0000000000038e40       0xf5 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strrchr.o)
- .debug_loc     0x0000000000038f35     0x288d /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
- .debug_loc     0x000000000003b7c2     0x1ea2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
- .debug_loc     0x000000000003d664     0x2af2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
- .debug_loc     0x0000000000040156      0x102 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vprintf.o)
- .debug_loc     0x0000000000040258      0x14c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vsprintf.o)
- .debug_loc     0x00000000000403a4      0x1e7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wbuf.o)
- .debug_loc     0x000000000004058b       0xfa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-writer.o)
- .debug_loc     0x0000000000040685       0xba /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wsetup.o)
- .debug_loc     0x000000000004073f      0x1ba /usr/local/xenon/xenon/lib/32/libc.a(lib_a-__call_atexit.o)
- .debug_loc     0x00000000000408f9       0x89 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-closer.o)
- .debug_loc     0x0000000000040982     0x2bce /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
- .debug_loc     0x0000000000043550      0x12c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-flags.o)
- .debug_loc     0x000000000004367c      0x4b6 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fputwc.o)
- .debug_loc     0x0000000000043b32      0x76e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fvwrite.o)
- .debug_loc     0x00000000000442a0       0x89 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-isattyr.o)
- .debug_loc     0x0000000000044329       0x6f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-localeconv.o)
- .debug_loc     0x0000000000044398      0x179 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
- .debug_loc     0x0000000000044511       0xfa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-lseekr.o)
- .debug_loc     0x000000000004460b      0x1a6 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mbtowc_r.o)
- .debug_loc     0x00000000000447b1      0x1b3 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memchr.o)
- .debug_loc     0x0000000000044964      0x3c7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memmove.o)
- .debug_loc     0x0000000000044d2b     0x2300 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
- .debug_loc     0x000000000004702b       0xfa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-readr.o)
- .debug_loc     0x0000000000047125     0x16a2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reallocr.o)
- .debug_loc     0x00000000000487c7     0x1373 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
- .debug_loc     0x0000000000049b3a      0x2d4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wcrtomb.o)
- .debug_loc     0x0000000000049e0e       0xff /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wctomb_r.o)
- .debug_loc     0x0000000000049f0d      0x27a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-callocr.o)
- .debug_loc     0x000000000004a187      0xb67 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_udivdi3.o)
- .debug_loc     0x000000000004acee      0xb57 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_umoddi3.o)
+ .debug_loc     0x0000000000000015     0x1a5c main.o
+ .debug_loc     0x0000000000001a71      0x447 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .debug_loc     0x0000000000001eb8     0x248c /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+ .debug_loc     0x0000000000004344      0x337 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+ .debug_loc     0x000000000000467b      0x29d /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
+ .debug_loc     0x0000000000004918      0x355 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
+ .debug_loc     0x0000000000004c6d      0x11e /usr/local/xenon/usr/lib/libxenon.a(time.o)
+ .debug_loc     0x0000000000004d8b      0x3ba /usr/local/xenon/usr/lib/libxenon.a(usbmain.o)
+ .debug_loc     0x0000000000005145     0x51c2 /usr/local/xenon/usr/lib/libxenon.a(tinyehci.o)
+ .debug_loc     0x000000000000a307      0x2e0 /usr/local/xenon/usr/lib/libxenon.a(debug.o)
+ .debug_loc     0x000000000000a5e7      0x6e3 /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
+ .debug_loc     0x000000000000acca      0xbde /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
+ .debug_loc     0x000000000000b8a8       0x7a /usr/local/xenon/usr/lib/libxenon.a(xenon_uart.o)
+ .debug_loc     0x000000000000b922       0x68 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
+ .debug_loc     0x000000000000b98a      0xdbf /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+ .debug_loc     0x000000000000c749     0x4bd6 /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ .debug_loc     0x000000000001131f     0x4775 /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+ .debug_loc     0x0000000000015a94      0x5e9 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
+ .debug_loc     0x000000000001607d      0xdcd /usr/local/xenon/usr/lib/libxenon.a(enet.o)
+ .debug_loc     0x0000000000016e4a      0xc75 /usr/local/xenon/usr/lib/libxenon.a(xb360.o)
+ .debug_loc     0x0000000000017abf      0x4a0 /usr/local/xenon/usr/lib/libxenon.a(lib_malloc.o)
+ .debug_loc     0x0000000000017f5f     0x2b9e /usr/local/xenon/usr/lib/libxenon.a(ohci.o)
+ .debug_loc     0x000000000001aafd     0x15b7 /usr/local/xenon/usr/lib/libxenon.a(usbd.o)
+ .debug_loc     0x000000000001c0b4      0x187 /usr/local/xenon/usr/lib/libxenon.a(usbdevs.o)
+ .debug_loc     0x000000000001c23b      0x365 /usr/local/xenon/usr/lib/libxenon.a(usbhid.o)
+ .debug_loc     0x000000000001c5a0      0xba8 /usr/local/xenon/usr/lib/libxenon.a(usbhub.o)
+ .debug_loc     0x000000000001d148      0x226 /usr/local/xenon/usr/lib/libxenon.a(usb_os.o)
+ .debug_loc     0x000000000001d36e      0x159 /usr/local/xenon/usr/lib/libxenon.a(xenon_gpio.o)
+ .debug_loc     0x000000000001d4c7       0x25 /usr/local/xenon/usr/lib/libxenon.a(xenon_secotp.o)
+ .debug_loc     0x000000000001d4ec     0x1510 /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
+ .debug_loc     0x000000000001e9fc      0x62d /usr/local/xenon/usr/lib/libxenon.a(mem.o)
+ .debug_loc     0x000000000001f029     0x1908 /usr/local/xenon/usr/lib/libxenon.a(pbuf.o)
+ .debug_loc     0x0000000000020931     0x185c /usr/local/xenon/usr/lib/libxenon.a(tcp.o)
+ .debug_loc     0x000000000002218d      0xa19 /usr/local/xenon/usr/lib/libxenon.a(ip.o)
+ .debug_loc     0x0000000000022ba6      0xe07 /usr/local/xenon/usr/lib/libxenon.a(ip_frag.o)
+ .debug_loc     0x00000000000239ad     0x1a52 /usr/local/xenon/usr/lib/libxenon.a(tcp_out.o)
+ .debug_loc     0x00000000000253ff      0xb1a /usr/local/xenon/usr/lib/libxenon.a(udp.o)
+ .debug_loc     0x0000000000025f19     0x16f9 /usr/local/xenon/usr/lib/libxenon.a(etharp.o)
+ .debug_loc     0x0000000000027612     0x1d91 /usr/local/xenon/usr/lib/libxenon.a(dhcp.o)
+ .debug_loc     0x00000000000293a3      0x381 /usr/local/xenon/usr/lib/libxenon.a(raw.o)
+ .debug_loc     0x0000000000029724      0x532 /usr/local/xenon/usr/lib/libxenon.a(hmac_sha1.o)
+ .debug_loc     0x0000000000029c56      0x1b9 /usr/local/xenon/usr/lib/libxenon.a(rc4.o)
+ .debug_loc     0x0000000000029e0f      0xc87 /usr/local/xenon/usr/lib/libxenon.a(sha1.o)
+ .debug_loc     0x000000000002aa96      0x1de /usr/local/xenon/usr/lib/libxenon.a(lib_queue.o)
+ .debug_loc     0x000000000002ac74       0x4a /usr/local/xenon/usr/lib/libxenon.a(dummy.o)
+ .debug_loc     0x000000000002acbe      0x993 /usr/local/xenon/usr/lib/libxenon.a(usbctrl.o)
+ .debug_loc     0x000000000002b651      0x543 /usr/local/xenon/usr/lib/libxenon.a(usbdebug.o)
+ .debug_loc     0x000000000002bb94      0xcb0 /usr/local/xenon/usr/lib/libxenon.a(tcp_in.o)
+ .debug_loc     0x000000000002c844      0x93b /usr/local/xenon/usr/lib/libxenon.a(inet_chksum.o)
+ .debug_loc     0x000000000002d17f      0x164 /usr/local/xenon/usr/lib/libxenon.a(memp.o)
+ .debug_loc     0x000000000002d2e3      0x4e0 /usr/local/xenon/usr/lib/libxenon.a(netif.o)
+ .debug_loc     0x000000000002d7c3      0x59e /usr/local/xenon/usr/lib/libxenon.a(ip_addr.o)
+ .debug_loc     0x000000000002dd61      0x354 /usr/local/xenon/usr/lib/libxenon.a(icmp.o)
+ .debug_loc     0x000000000002e0b5      0x15c /usr/local/xenon/usr/lib/libxenon.a(input.o)
+ .debug_loc     0x000000000002e211       0x9a /usr/local/xenon/xenon/lib/32/libm.a(lib_a-wf_sincos.o)
+ .debug_loc     0x000000000002e2ab      0x193 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_cos.o)
+ .debug_loc     0x000000000002e43e      0x193 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_sin.o)
+ .debug_loc     0x000000000002e5d1      0x75c /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
+ .debug_loc     0x000000000002ed2d      0x294 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_cos.o)
+ .debug_loc     0x000000000002efc1      0xca3 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
+ .debug_loc     0x000000000002fc64      0x1b4 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_sin.o)
+ .debug_loc     0x000000000002fe18       0x78 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_fabs.o)
+ .debug_loc     0x000000000002fe90      0x1c4 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_floor.o)
+ .debug_loc     0x0000000000030054      0x3db /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_scalbn.o)
+ .debug_loc     0x000000000003042f     0x2ab9 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
+ .debug_loc     0x0000000000032ee8      0x188 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-assert.o)
+ .debug_loc     0x0000000000033070       0x22 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-exit.o)
+ .debug_loc     0x0000000000033092      0x1ea /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fclose.o)
+ .debug_loc     0x000000000003327c      0x522 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fflush.o)
+ .debug_loc     0x000000000003379e      0x328 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-findfp.o)
+ .debug_loc     0x0000000000033ac6       0xfd /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fiprintf.o)
+ .debug_loc     0x0000000000033bc3      0x249 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fopen.o)
+ .debug_loc     0x0000000000033e0c      0x651 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fread.o)
+ .debug_loc     0x000000000003445d      0x731 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-freer.o)
+ .debug_loc     0x0000000000034b8e      0x1c0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseek.o)
+ .debug_loc     0x0000000000034d4e      0x486 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseeko.o)
+ .debug_loc     0x00000000000351d4       0xc8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fstatr.o)
+ .debug_loc     0x000000000003529c       0xae /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftell.o)
+ .debug_loc     0x000000000003534a      0x1d0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftello.o)
+ .debug_loc     0x000000000003551a      0x223 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fwalk.o)
+ .debug_loc     0x000000000003573d      0x3bf /usr/local/xenon/xenon/lib/32/libc.a(lib_a-makebuf.o)
+ .debug_loc     0x0000000000035afc       0x64 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malign.o)
+ .debug_loc     0x0000000000035b60      0x3b1 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malignr.o)
+ .debug_loc     0x0000000000035f11       0x64 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malloc.o)
+ .debug_loc     0x0000000000035f75      0xf58 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
+ .debug_loc     0x0000000000036ecd      0x13f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcmp.o)
+ .debug_loc     0x000000000003700c      0x2dc /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcpy.o)
+ .debug_loc     0x00000000000372e8      0x20f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memset.o)
+ .debug_loc     0x00000000000374f7       0xfa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-openr.o)
+ .debug_loc     0x00000000000375f1       0xc8 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-printf.o)
+ .debug_loc     0x00000000000376b9       0x91 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putchar.o)
+ .debug_loc     0x000000000003774a      0x3c9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putc.o)
+ .debug_loc     0x0000000000037b13      0x142 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-puts.o)
+ .debug_loc     0x0000000000037c55      0x148 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reent.o)
+ .debug_loc     0x0000000000037d9d      0x1b9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-refill.o)
+ .debug_loc     0x0000000000037f56       0x89 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sbrkr.o)
+ .debug_loc     0x0000000000037fdf      0x11e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sprintf.o)
+ .debug_loc     0x00000000000380fd      0x48a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-stdio.o)
+ .debug_loc     0x0000000000038587       0xd0 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcat.o)
+ .debug_loc     0x0000000000038657      0x1f1 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strchr.o)
+ .debug_loc     0x0000000000038848      0x102 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcmp.o)
+ .debug_loc     0x000000000003894a      0x142 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcpy.o)
+ .debug_loc     0x0000000000038a8c       0xca /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strlen.o)
+ .debug_loc     0x0000000000038b56      0x131 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncmp.o)
+ .debug_loc     0x0000000000038c87      0x15b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncpy.o)
+ .debug_loc     0x0000000000038de2       0x6b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strnlen.o)
+ .debug_loc     0x0000000000038e4d       0xf5 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strrchr.o)
+ .debug_loc     0x0000000000038f42     0x288d /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
+ .debug_loc     0x000000000003b7cf     0x1ea2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
+ .debug_loc     0x000000000003d671     0x2af2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
+ .debug_loc     0x0000000000040163      0x102 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vprintf.o)
+ .debug_loc     0x0000000000040265      0x14c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vsprintf.o)
+ .debug_loc     0x00000000000403b1      0x1e7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wbuf.o)
+ .debug_loc     0x0000000000040598       0xfa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-writer.o)
+ .debug_loc     0x0000000000040692       0xba /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wsetup.o)
+ .debug_loc     0x000000000004074c      0x1ba /usr/local/xenon/xenon/lib/32/libc.a(lib_a-__call_atexit.o)
+ .debug_loc     0x0000000000040906       0x89 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-closer.o)
+ .debug_loc     0x000000000004098f     0x2bce /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
+ .debug_loc     0x000000000004355d      0x12c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-flags.o)
+ .debug_loc     0x0000000000043689      0x4b6 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fputwc.o)
+ .debug_loc     0x0000000000043b3f      0x76e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fvwrite.o)
+ .debug_loc     0x00000000000442ad       0x89 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-isattyr.o)
+ .debug_loc     0x0000000000044336       0x6f /usr/local/xenon/xenon/lib/32/libc.a(lib_a-localeconv.o)
+ .debug_loc     0x00000000000443a5      0x179 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
+ .debug_loc     0x000000000004451e       0xfa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-lseekr.o)
+ .debug_loc     0x0000000000044618      0x1a6 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mbtowc_r.o)
+ .debug_loc     0x00000000000447be      0x1b3 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memchr.o)
+ .debug_loc     0x0000000000044971      0x3c7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memmove.o)
+ .debug_loc     0x0000000000044d38     0x2300 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
+ .debug_loc     0x0000000000047038       0xfa /usr/local/xenon/xenon/lib/32/libc.a(lib_a-readr.o)
+ .debug_loc     0x0000000000047132     0x16a2 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reallocr.o)
+ .debug_loc     0x00000000000487d4     0x1373 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
+ .debug_loc     0x0000000000049b47      0x2d4 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wcrtomb.o)
+ .debug_loc     0x0000000000049e1b       0xff /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wctomb_r.o)
+ .debug_loc     0x0000000000049f1a      0x27a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-callocr.o)
+ .debug_loc     0x000000000004a194      0xb67 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_udivdi3.o)
+ .debug_loc     0x000000000004acfb      0xb57 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_umoddi3.o)
 
 .debug_aranges  0x0000000000000000     0x2850
  .debug_aranges
@@ -4944,299 +4945,299 @@ OUTPUT(/mnt/d/claude/fable/xenos-toolchain/app/glslgallery/glslgallery.elf elf32
  .debug_line    0x000000000004176a      0x3d7 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_udivdi3.o)
  .debug_line    0x0000000000041b41      0x415 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_umoddi3.o)
 
-.debug_str      0x0000000000000000    0x13700
+.debug_str      0x0000000000000000    0x1370f
  .debug_str     0x0000000000000000      0x19a /usr/local/xenon/lib/gcc/xenon/9.2.0/../../../../xenon/lib/../lib/crt1.o
                                         0x1d4 (size before relaxing)
- .debug_str     0x000000000000019a      0xb6f main.o
-                                        0xd86 (size before relaxing)
- .debug_str     0x0000000000000d09       0x1b /usr/local/xenon/usr/lib/libxenon.a(argv.o)
+ .debug_str     0x000000000000019a      0xb7e main.o
+                                        0xd95 (size before relaxing)
+ .debug_str     0x0000000000000d18       0x1b /usr/local/xenon/usr/lib/libxenon.a(argv.o)
                                         0x161 (size before relaxing)
- .debug_str     0x0000000000000d24      0x246 /usr/local/xenon/usr/lib/libxenon.a(console.o)
+ .debug_str     0x0000000000000d33      0x246 /usr/local/xenon/usr/lib/libxenon.a(console.o)
                                         0x84c (size before relaxing)
- .debug_str     0x0000000000000f6a      0x852 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
+ .debug_str     0x0000000000000f79      0x852 /usr/local/xenon/usr/lib/libxenon.a(newlib.o)
                                         0xf9f (size before relaxing)
- .debug_str     0x00000000000017bc      0x1e6 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
+ .debug_str     0x00000000000017cb      0x1e6 /usr/local/xenon/usr/lib/libxenon.a(xenon_syscalls.o)
                                         0xb91 (size before relaxing)
- .debug_str     0x00000000000019a2       0xb1 /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
+ .debug_str     0x00000000000019b1       0xb1 /usr/local/xenon/usr/lib/libxenon.a(c_except.o)
                                         0x6d2 (size before relaxing)
- .debug_str     0x0000000000001a53      0x113 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
+ .debug_str     0x0000000000001a62      0x113 /usr/local/xenon/usr/lib/libxenon.a(vm.o)
                                         0x6ec (size before relaxing)
- .debug_str     0x0000000000001b66       0x2f /usr/local/xenon/usr/lib/libxenon.a(time.o)
+ .debug_str     0x0000000000001b75       0x2f /usr/local/xenon/usr/lib/libxenon.a(time.o)
                                         0x164 (size before relaxing)
- .debug_str     0x0000000000001b95      0x5ba /usr/local/xenon/usr/lib/libxenon.a(usbmain.o)
+ .debug_str     0x0000000000001ba4      0x5ba /usr/local/xenon/usr/lib/libxenon.a(usbmain.o)
                                         0xbde (size before relaxing)
- .debug_str     0x000000000000214f      0xe6b /usr/local/xenon/usr/lib/libxenon.a(tinyehci.o)
+ .debug_str     0x000000000000215e      0xe6b /usr/local/xenon/usr/lib/libxenon.a(tinyehci.o)
                                        0x1751 (size before relaxing)
- .debug_str     0x0000000000002fba       0x73 /usr/local/xenon/usr/lib/libxenon.a(debug.o)
+ .debug_str     0x0000000000002fc9       0x73 /usr/local/xenon/usr/lib/libxenon.a(debug.o)
                                         0x5c7 (size before relaxing)
- .debug_str     0x000000000000302d      0x20b /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
+ .debug_str     0x000000000000303c      0x20b /usr/local/xenon/usr/lib/libxenon.a(xenon_smc.o)
                                         0x805 (size before relaxing)
- .debug_str     0x0000000000003238      0x199 /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
+ .debug_str     0x0000000000003247      0x199 /usr/local/xenon/usr/lib/libxenon.a(xenon_power.o)
                                         0x7af (size before relaxing)
- .debug_str     0x00000000000033d1       0x2c /usr/local/xenon/usr/lib/libxenon.a(xenon_uart.o)
+ .debug_str     0x00000000000033e0       0x2c /usr/local/xenon/usr/lib/libxenon.a(xenon_uart.o)
                                         0x15f (size before relaxing)
- .debug_str     0x00000000000033fd      0x2c0 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
+ .debug_str     0x000000000000340c      0x2c0 /usr/local/xenon/usr/lib/libxenon.a(xenon_config.o)
                                         0x89f (size before relaxing)
- .debug_str     0x00000000000036bd      0x1f9 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
+ .debug_str     0x00000000000036cc      0x1f9 /usr/local/xenon/usr/lib/libxenon.a(edram.o)
                                         0xb60 (size before relaxing)
- .debug_str     0x00000000000038b6      0xa3e /usr/local/xenon/usr/lib/libxenon.a(xe.o)
+ .debug_str     0x00000000000038c5      0xa3e /usr/local/xenon/usr/lib/libxenon.a(xe.o)
                                        0x1794 (size before relaxing)
- .debug_str     0x00000000000042f4      0x7cd /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
+ .debug_str     0x0000000000004303      0x7cd /usr/local/xenon/usr/lib/libxenon.a(xenos.o)
                                         0xf3c (size before relaxing)
- .debug_str     0x0000000000004ac1       0xd1 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
+ .debug_str     0x0000000000004ad0       0xd1 /usr/local/xenon/usr/lib/libxenon.a(xenos_edid.o)
                                         0xa7f (size before relaxing)
- .debug_str     0x0000000000004b92      0x450 /usr/local/xenon/usr/lib/libxenon.a(enet.o)
+ .debug_str     0x0000000000004ba1      0x450 /usr/local/xenon/usr/lib/libxenon.a(enet.o)
                                         0xb36 (size before relaxing)
- .debug_str     0x0000000000004fe2      0x3d1 /usr/local/xenon/usr/lib/libxenon.a(xb360.o)
+ .debug_str     0x0000000000004ff1      0x3d1 /usr/local/xenon/usr/lib/libxenon.a(xb360.o)
                                         0xe5b (size before relaxing)
- .debug_str     0x00000000000053b3      0x134 /usr/local/xenon/usr/lib/libxenon.a(lib_malloc.o)
+ .debug_str     0x00000000000053c2      0x134 /usr/local/xenon/usr/lib/libxenon.a(lib_malloc.o)
                                         0x75c (size before relaxing)
- .debug_str     0x00000000000054e7      0x77a /usr/local/xenon/usr/lib/libxenon.a(ohci.o)
+ .debug_str     0x00000000000054f6      0x77a /usr/local/xenon/usr/lib/libxenon.a(ohci.o)
                                        0x1398 (size before relaxing)
- .debug_str     0x0000000000005c61      0x33d /usr/local/xenon/usr/lib/libxenon.a(usbd.o)
+ .debug_str     0x0000000000005c70      0x33d /usr/local/xenon/usr/lib/libxenon.a(usbd.o)
                                         0xf99 (size before relaxing)
- .debug_str     0x0000000000005f9e      0x110 /usr/local/xenon/usr/lib/libxenon.a(usbdevs.o)
+ .debug_str     0x0000000000005fad      0x110 /usr/local/xenon/usr/lib/libxenon.a(usbdevs.o)
                                         0xc70 (size before relaxing)
- .debug_str     0x00000000000060ae      0x172 /usr/local/xenon/usr/lib/libxenon.a(usbhid.o)
+ .debug_str     0x00000000000060bd      0x172 /usr/local/xenon/usr/lib/libxenon.a(usbhid.o)
                                         0xdbf (size before relaxing)
- .debug_str     0x0000000000006220      0x2b2 /usr/local/xenon/usr/lib/libxenon.a(usbhub.o)
+ .debug_str     0x000000000000622f      0x2b2 /usr/local/xenon/usr/lib/libxenon.a(usbhub.o)
                                        0x114a (size before relaxing)
- .debug_str     0x00000000000064d2       0x5b /usr/local/xenon/usr/lib/libxenon.a(usb_os.o)
+ .debug_str     0x00000000000064e1       0x5b /usr/local/xenon/usr/lib/libxenon.a(usb_os.o)
                                         0x721 (size before relaxing)
- .debug_str     0x000000000000652d       0x25 /usr/local/xenon/usr/lib/libxenon.a(xenon_gpio.o)
+ .debug_str     0x000000000000653c       0x25 /usr/local/xenon/usr/lib/libxenon.a(xenon_gpio.o)
                                         0x192 (size before relaxing)
- .debug_str     0x0000000000006552       0x27 /usr/local/xenon/usr/lib/libxenon.a(xenon_secotp.o)
+ .debug_str     0x0000000000006561       0x27 /usr/local/xenon/usr/lib/libxenon.a(xenon_secotp.o)
                                         0x18b (size before relaxing)
- .debug_str     0x0000000000006579      0x244 /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
+ .debug_str     0x0000000000006588      0x244 /usr/local/xenon/usr/lib/libxenon.a(xenon_sfcx.o)
                                         0xb2a (size before relaxing)
- .debug_str     0x00000000000067bd       0x1c /usr/local/xenon/usr/lib/libxenon.a(ucode.o)
+ .debug_str     0x00000000000067cc       0x1c /usr/local/xenon/usr/lib/libxenon.a(ucode.o)
                                         0x183 (size before relaxing)
- .debug_str     0x00000000000067d9       0x8e /usr/local/xenon/usr/lib/libxenon.a(mem.o)
+ .debug_str     0x00000000000067e8       0x8e /usr/local/xenon/usr/lib/libxenon.a(mem.o)
                                         0x731 (size before relaxing)
- .debug_str     0x0000000000006867      0x516 /usr/local/xenon/usr/lib/libxenon.a(pbuf.o)
+ .debug_str     0x0000000000006876      0x516 /usr/local/xenon/usr/lib/libxenon.a(pbuf.o)
                                         0xea9 (size before relaxing)
- .debug_str     0x0000000000006d7d       0x2b /usr/local/xenon/usr/lib/libxenon.a(stats.o)
+ .debug_str     0x0000000000006d8c       0x2b /usr/local/xenon/usr/lib/libxenon.a(stats.o)
                                         0x681 (size before relaxing)
- .debug_str     0x0000000000006da8      0x3e5 /usr/local/xenon/usr/lib/libxenon.a(tcp.o)
+ .debug_str     0x0000000000006db7      0x3e5 /usr/local/xenon/usr/lib/libxenon.a(tcp.o)
                                         0xfd7 (size before relaxing)
- .debug_str     0x000000000000718d      0x26c /usr/local/xenon/usr/lib/libxenon.a(ip.o)
+ .debug_str     0x000000000000719c      0x26c /usr/local/xenon/usr/lib/libxenon.a(ip.o)
                                         0xe50 (size before relaxing)
- .debug_str     0x00000000000073f9      0x28d /usr/local/xenon/usr/lib/libxenon.a(ip_frag.o)
+ .debug_str     0x0000000000007408      0x28d /usr/local/xenon/usr/lib/libxenon.a(ip_frag.o)
                                         0xbf1 (size before relaxing)
- .debug_str     0x0000000000007686      0x172 /usr/local/xenon/usr/lib/libxenon.a(tcp_out.o)
+ .debug_str     0x0000000000007695      0x172 /usr/local/xenon/usr/lib/libxenon.a(tcp_out.o)
                                         0xe90 (size before relaxing)
- .debug_str     0x00000000000077f8       0xdb /usr/local/xenon/usr/lib/libxenon.a(udp.o)
+ .debug_str     0x0000000000007807       0xdb /usr/local/xenon/usr/lib/libxenon.a(udp.o)
                                         0xc22 (size before relaxing)
- .debug_str     0x00000000000078d3      0x301 /usr/local/xenon/usr/lib/libxenon.a(etharp.o)
+ .debug_str     0x00000000000078e2      0x301 /usr/local/xenon/usr/lib/libxenon.a(etharp.o)
                                         0xde7 (size before relaxing)
- .debug_str     0x0000000000007bd4      0x380 /usr/local/xenon/usr/lib/libxenon.a(dhcp.o)
+ .debug_str     0x0000000000007be3      0x380 /usr/local/xenon/usr/lib/libxenon.a(dhcp.o)
                                         0xe93 (size before relaxing)
- .debug_str     0x0000000000007f54       0x86 /usr/local/xenon/usr/lib/libxenon.a(raw.o)
+ .debug_str     0x0000000000007f63       0x86 /usr/local/xenon/usr/lib/libxenon.a(raw.o)
                                         0x9b2 (size before relaxing)
- .debug_str     0x0000000000007fda       0x21 /usr/local/xenon/usr/lib/libxenon.a(timers.o)
+ .debug_str     0x0000000000007fe9       0x21 /usr/local/xenon/usr/lib/libxenon.a(timers.o)
                                         0xa56 (size before relaxing)
- .debug_str     0x0000000000007ffb       0x3e /usr/local/xenon/usr/lib/libxenon.a(hmac_sha1.o)
+ .debug_str     0x000000000000800a       0x3e /usr/local/xenon/usr/lib/libxenon.a(hmac_sha1.o)
                                         0x69c (size before relaxing)
- .debug_str     0x0000000000008039       0x1a /usr/local/xenon/usr/lib/libxenon.a(rc4.o)
+ .debug_str     0x0000000000008048       0x1a /usr/local/xenon/usr/lib/libxenon.a(rc4.o)
                                          0xdf (size before relaxing)
- .debug_str     0x0000000000008053       0x4a /usr/local/xenon/usr/lib/libxenon.a(sha1.o)
+ .debug_str     0x0000000000008062       0x4a /usr/local/xenon/usr/lib/libxenon.a(sha1.o)
                                         0x604 (size before relaxing)
- .debug_str     0x000000000000809d       0x4a /usr/local/xenon/usr/lib/libxenon.a(lib_queue.o)
+ .debug_str     0x00000000000080ac       0x4a /usr/local/xenon/usr/lib/libxenon.a(lib_queue.o)
                                         0x5c0 (size before relaxing)
- .debug_str     0x00000000000080e7       0x34 /usr/local/xenon/usr/lib/libxenon.a(dummy.o)
+ .debug_str     0x00000000000080f6       0x34 /usr/local/xenon/usr/lib/libxenon.a(dummy.o)
                                         0xa9f (size before relaxing)
- .debug_str     0x000000000000811b      0x1d2 /usr/local/xenon/usr/lib/libxenon.a(usbctrl.o)
+ .debug_str     0x000000000000812a      0x1d2 /usr/local/xenon/usr/lib/libxenon.a(usbctrl.o)
                                         0xeca (size before relaxing)
- .debug_str     0x00000000000082ed       0xef /usr/local/xenon/usr/lib/libxenon.a(usbdebug.o)
+ .debug_str     0x00000000000082fc       0xef /usr/local/xenon/usr/lib/libxenon.a(usbdebug.o)
                                         0xe91 (size before relaxing)
- .debug_str     0x00000000000083dc      0x121 /usr/local/xenon/usr/lib/libxenon.a(tcp_in.o)
+ .debug_str     0x00000000000083eb      0x121 /usr/local/xenon/usr/lib/libxenon.a(tcp_in.o)
                                         0xe2e (size before relaxing)
- .debug_str     0x00000000000084fd       0x90 /usr/local/xenon/usr/lib/libxenon.a(inet_chksum.o)
+ .debug_str     0x000000000000850c       0x90 /usr/local/xenon/usr/lib/libxenon.a(inet_chksum.o)
                                         0x669 (size before relaxing)
- .debug_str     0x000000000000858d       0x59 /usr/local/xenon/usr/lib/libxenon.a(memp.o)
+ .debug_str     0x000000000000859c       0x59 /usr/local/xenon/usr/lib/libxenon.a(memp.o)
                                         0xc26 (size before relaxing)
- .debug_str     0x00000000000085e6       0xb5 /usr/local/xenon/usr/lib/libxenon.a(netif.o)
+ .debug_str     0x00000000000085f5       0xb5 /usr/local/xenon/usr/lib/libxenon.a(netif.o)
                                         0xe2d (size before relaxing)
- .debug_str     0x000000000000869b       0x83 /usr/local/xenon/usr/lib/libxenon.a(ip_addr.o)
+ .debug_str     0x00000000000086aa       0x83 /usr/local/xenon/usr/lib/libxenon.a(ip_addr.o)
                                         0x6f6 (size before relaxing)
- .debug_str     0x000000000000871e       0x5c /usr/local/xenon/usr/lib/libxenon.a(icmp.o)
+ .debug_str     0x000000000000872d       0x5c /usr/local/xenon/usr/lib/libxenon.a(icmp.o)
                                         0x974 (size before relaxing)
- .debug_str     0x000000000000877a       0x46 /usr/local/xenon/usr/lib/libxenon.a(input.o)
+ .debug_str     0x0000000000008789       0x46 /usr/local/xenon/usr/lib/libxenon.a(input.o)
                                         0x1f9 (size before relaxing)
- .debug_str     0x00000000000087c0       0xb2 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-wf_sincos.o)
+ .debug_str     0x00000000000087cf       0xb2 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-wf_sincos.o)
                                         0x5b7 (size before relaxing)
- .debug_str     0x0000000000008872       0x84 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_cos.o)
+ .debug_str     0x0000000000008881       0x84 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_cos.o)
                                         0x5f1 (size before relaxing)
- .debug_str     0x00000000000088f6       0x39 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_sin.o)
+ .debug_str     0x0000000000008905       0x39 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_sin.o)
                                         0x5f1 (size before relaxing)
- .debug_str     0x000000000000892f       0xb5 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
+ .debug_str     0x000000000000893e       0xb5 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-ef_rem_pio2.o)
                                         0x651 (size before relaxing)
- .debug_str     0x00000000000089e4       0x39 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_cos.o)
+ .debug_str     0x00000000000089f3       0x39 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_cos.o)
                                         0x5cf (size before relaxing)
- .debug_str     0x0000000000008a1d       0x76 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
+ .debug_str     0x0000000000008a2c       0x76 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_rem_pio2.o)
                                         0x5ea (size before relaxing)
- .debug_str     0x0000000000008a93       0x39 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_sin.o)
+ .debug_str     0x0000000000008aa2       0x39 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-kf_sin.o)
                                         0x5cf (size before relaxing)
- .debug_str     0x0000000000008acc       0x3a /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_fabs.o)
+ .debug_str     0x0000000000008adb       0x3a /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_fabs.o)
                                         0x5be (size before relaxing)
- .debug_str     0x0000000000008b06       0x40 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_floor.o)
+ .debug_str     0x0000000000008b15       0x40 /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_floor.o)
                                         0x5cf (size before relaxing)
- .debug_str     0x0000000000008b46       0xcb /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_scalbn.o)
+ .debug_str     0x0000000000008b55       0xcb /usr/local/xenon/xenon/lib/32/libm.a(lib_a-sf_scalbn.o)
                                         0x5f4 (size before relaxing)
- .debug_str     0x0000000000008c11       0x73 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtsavgpr.o)
- .debug_str     0x0000000000008c84       0x38 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtresxgpr.o)
+ .debug_str     0x0000000000008c20       0x73 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtsavgpr.o)
+ .debug_str     0x0000000000008c93       0x38 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(crtresxgpr.o)
                                          0x74 (size before relaxing)
- .debug_str     0x0000000000008cbc     0x894d /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
+ .debug_str     0x0000000000008ccb     0x894d /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(unwind-dw2-fde-dip.o)
                                        0x8ad3 (size before relaxing)
- .debug_str     0x0000000000011609       0x8b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-assert.o)
+ .debug_str     0x0000000000011618       0x8b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-assert.o)
                                         0x567 (size before relaxing)
- .debug_str     0x0000000000011694      0x2c7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ctype_.o)
+ .debug_str     0x00000000000116a3      0x2c7 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ctype_.o)
                                         0x83f (size before relaxing)
- .debug_str     0x000000000001195b       0x74 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-errno.o)
+ .debug_str     0x000000000001196a       0x74 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-errno.o)
                                         0x539 (size before relaxing)
- .debug_str     0x00000000000119cf       0x4a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-exit.o)
+ .debug_str     0x00000000000119de       0x4a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-exit.o)
                                         0x573 (size before relaxing)
- .debug_str     0x0000000000011a19      0x1ca /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fclose.o)
+ .debug_str     0x0000000000011a28      0x1ca /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fclose.o)
                                         0x6c2 (size before relaxing)
- .debug_str     0x0000000000011be3       0x69 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fflush.o)
+ .debug_str     0x0000000000011bf2       0x69 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fflush.o)
                                         0x6d9 (size before relaxing)
- .debug_str     0x0000000000011c4c      0x134 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-findfp.o)
+ .debug_str     0x0000000000011c5b      0x134 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-findfp.o)
                                         0x7e9 (size before relaxing)
- .debug_str     0x0000000000011d80       0x55 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fiprintf.o)
+ .debug_str     0x0000000000011d8f       0x55 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fiprintf.o)
                                         0x5a4 (size before relaxing)
- .debug_str     0x0000000000011dd5       0x63 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fopen.o)
+ .debug_str     0x0000000000011de4       0x63 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fopen.o)
                                         0x6dd (size before relaxing)
- .debug_str     0x0000000000011e38       0x70 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fread.o)
+ .debug_str     0x0000000000011e47       0x70 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fread.o)
                                         0x6dc (size before relaxing)
- .debug_str     0x0000000000011ea8      0x184 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-freer.o)
+ .debug_str     0x0000000000011eb7      0x184 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-freer.o)
                                         0x708 (size before relaxing)
- .debug_str     0x000000000001202c       0x4a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseek.o)
+ .debug_str     0x000000000001203b       0x4a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseek.o)
                                         0x698 (size before relaxing)
- .debug_str     0x0000000000012076       0x72 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseeko.o)
+ .debug_str     0x0000000000012085       0x72 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fseeko.o)
                                         0x877 (size before relaxing)
- .debug_str     0x00000000000120e8       0x7b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fstatr.o)
+ .debug_str     0x00000000000120f7       0x7b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fstatr.o)
                                         0x6cd (size before relaxing)
- .debug_str     0x0000000000012163       0x4c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftell.o)
+ .debug_str     0x0000000000012172       0x4c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftell.o)
                                         0x68a (size before relaxing)
- .debug_str     0x00000000000121af       0x41 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftello.o)
+ .debug_str     0x00000000000121be       0x41 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-ftello.o)
                                         0x69b (size before relaxing)
- .debug_str     0x00000000000121f0       0x48 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fwalk.o)
+ .debug_str     0x00000000000121ff       0x48 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fwalk.o)
                                         0x69d (size before relaxing)
- .debug_str     0x0000000000012238       0x46 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-impure.o)
+ .debug_str     0x0000000000012247       0x46 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-impure.o)
                                         0x527 (size before relaxing)
- .debug_str     0x000000000001227e       0x6a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-makebuf.o)
+ .debug_str     0x000000000001228d       0x6a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-makebuf.o)
                                         0x827 (size before relaxing)
- .debug_str     0x00000000000122e8       0x4e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malign.o)
+ .debug_str     0x00000000000122f7       0x4e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malign.o)
                                         0x550 (size before relaxing)
- .debug_str     0x0000000000012336       0x31 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malignr.o)
+ .debug_str     0x0000000000012345       0x31 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malignr.o)
                                         0x704 (size before relaxing)
- .debug_str     0x0000000000012367       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malloc.o)
+ .debug_str     0x0000000000012376       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-malloc.o)
                                         0x558 (size before relaxing)
- .debug_str     0x00000000000123a2       0x91 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
+ .debug_str     0x00000000000123b1       0x91 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mallocr.o)
                                         0x78f (size before relaxing)
- .debug_str     0x0000000000012433       0x77 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcmp.o)
+ .debug_str     0x0000000000012442       0x77 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcmp.o)
                                         0x52b (size before relaxing)
- .debug_str     0x00000000000124aa       0x62 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcpy.o)
+ .debug_str     0x00000000000124b9       0x62 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memcpy.o)
                                         0x867 (size before relaxing)
- .debug_str     0x000000000001250c       0x48 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memset.o)
+ .debug_str     0x000000000001251b       0x48 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memset.o)
                                         0x854 (size before relaxing)
- .debug_str     0x0000000000012554       0x39 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-openr.o)
+ .debug_str     0x0000000000012563       0x39 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-openr.o)
                                         0x586 (size before relaxing)
- .debug_str     0x000000000001258d       0x50 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-printf.o)
+ .debug_str     0x000000000001259c       0x50 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-printf.o)
                                         0x6d3 (size before relaxing)
- .debug_str     0x00000000000125dd       0x4e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putchar.o)
+ .debug_str     0x00000000000125ec       0x4e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putchar.o)
                                         0x678 (size before relaxing)
- .debug_str     0x000000000001262b       0x51 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putc.o)
+ .debug_str     0x000000000001263a       0x51 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-putc.o)
                                         0x6a4 (size before relaxing)
- .debug_str     0x000000000001267c       0x89 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-puts.o)
+ .debug_str     0x000000000001268b       0x89 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-puts.o)
                                         0x6dc (size before relaxing)
- .debug_str     0x0000000000012705       0x65 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reent.o)
+ .debug_str     0x0000000000012714       0x65 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reent.o)
                                         0x563 (size before relaxing)
- .debug_str     0x000000000001276a       0x4c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-refill.o)
+ .debug_str     0x0000000000012779       0x4c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-refill.o)
                                         0x6e0 (size before relaxing)
- .debug_str     0x00000000000127b6       0x39 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sbrkr.o)
+ .debug_str     0x00000000000127c5       0x39 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sbrkr.o)
                                         0x569 (size before relaxing)
- .debug_str     0x00000000000127ef       0x53 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sprintf.o)
+ .debug_str     0x00000000000127fe       0x53 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-sprintf.o)
                                         0x6dc (size before relaxing)
- .debug_str     0x0000000000012842       0x89 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-stdio.o)
+ .debug_str     0x0000000000012851       0x89 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-stdio.o)
                                         0x6f1 (size before relaxing)
- .debug_str     0x00000000000128cb       0x46 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcat.o)
+ .debug_str     0x00000000000128da       0x46 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcat.o)
                                         0x536 (size before relaxing)
- .debug_str     0x0000000000012911       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strchr.o)
+ .debug_str     0x0000000000012920       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strchr.o)
                                         0x536 (size before relaxing)
- .debug_str     0x000000000001294c       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcmp.o)
+ .debug_str     0x000000000001295b       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcmp.o)
                                         0x524 (size before relaxing)
- .debug_str     0x0000000000012987       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcpy.o)
+ .debug_str     0x0000000000012996       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strcpy.o)
                                         0x546 (size before relaxing)
- .debug_str     0x00000000000129c2       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strlen.o)
+ .debug_str     0x00000000000129d1       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strlen.o)
                                         0x53e (size before relaxing)
- .debug_str     0x00000000000129fd       0x3c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncmp.o)
+ .debug_str     0x0000000000012a0c       0x3c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncmp.o)
                                         0x52d (size before relaxing)
- .debug_str     0x0000000000012a39       0x3c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncpy.o)
+ .debug_str     0x0000000000012a48       0x3c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strncpy.o)
                                         0x555 (size before relaxing)
- .debug_str     0x0000000000012a75       0x3c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strnlen.o)
+ .debug_str     0x0000000000012a84       0x3c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strnlen.o)
                                         0x533 (size before relaxing)
- .debug_str     0x0000000000012ab1       0x3c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strrchr.o)
+ .debug_str     0x0000000000012ac0       0x3c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-strrchr.o)
                                         0x532 (size before relaxing)
- .debug_str     0x0000000000012aed      0x16c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
+ .debug_str     0x0000000000012afc      0x16c /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfprintf.o)
                                         0xc20 (size before relaxing)
- .debug_str     0x0000000000012c59       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
+ .debug_str     0x0000000000012c68       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfiprintf.o)
                                         0xbcf (size before relaxing)
- .debug_str     0x0000000000012c94        0x9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
+ .debug_str     0x0000000000012ca3        0x9 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vfprintf.o)
                                         0xc67 (size before relaxing)
- .debug_str     0x0000000000012c9d       0x46 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vprintf.o)
+ .debug_str     0x0000000000012cac       0x46 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vprintf.o)
                                         0x6b3 (size before relaxing)
- .debug_str     0x0000000000012ce3       0x48 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vsprintf.o)
+ .debug_str     0x0000000000012cf2       0x48 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-vsprintf.o)
                                         0x6b6 (size before relaxing)
- .debug_str     0x0000000000012d2b       0x40 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wbuf.o)
+ .debug_str     0x0000000000012d3a       0x40 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wbuf.o)
                                         0x6b0 (size before relaxing)
- .debug_str     0x0000000000012d6b       0x3a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-writer.o)
+ .debug_str     0x0000000000012d7a       0x3a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-writer.o)
                                         0x56d (size before relaxing)
- .debug_str     0x0000000000012da5       0x3a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wsetup.o)
+ .debug_str     0x0000000000012db4       0x3a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wsetup.o)
                                         0x6ab (size before relaxing)
- .debug_str     0x0000000000012ddf       0x69 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-__call_atexit.o)
+ .debug_str     0x0000000000012dee       0x69 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-__call_atexit.o)
                                         0x570 (size before relaxing)
- .debug_str     0x0000000000012e48       0x3a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-closer.o)
+ .debug_str     0x0000000000012e57       0x3a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-closer.o)
                                         0x55d (size before relaxing)
- .debug_str     0x0000000000012e82      0x165 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
+ .debug_str     0x0000000000012e91      0x165 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-dtoa.o)
                                         0xa2d (size before relaxing)
- .debug_str     0x0000000000012fe7       0x3e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-flags.o)
+ .debug_str     0x0000000000012ff6       0x3e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-flags.o)
                                         0x560 (size before relaxing)
- .debug_str     0x0000000000013025       0x62 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fputwc.o)
+ .debug_str     0x0000000000013034       0x62 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fputwc.o)
                                         0x6f1 (size before relaxing)
- .debug_str     0x0000000000013087       0x64 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fvwrite.o)
+ .debug_str     0x0000000000013096       0x64 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-fvwrite.o)
                                         0x72a (size before relaxing)
- .debug_str     0x00000000000130eb       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-isattyr.o)
+ .debug_str     0x00000000000130fa       0x3b /usr/local/xenon/xenon/lib/32/libc.a(lib_a-isattyr.o)
                                         0x560 (size before relaxing)
- .debug_str     0x0000000000013126       0xdd /usr/local/xenon/xenon/lib/32/libc.a(lib_a-localeconv.o)
+ .debug_str     0x0000000000013135       0xdd /usr/local/xenon/xenon/lib/32/libc.a(lib_a-localeconv.o)
                                         0x8b9 (size before relaxing)
- .debug_str     0x0000000000013203       0x67 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
+ .debug_str     0x0000000000013212       0x67 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-locale.o)
                                         0x8f9 (size before relaxing)
- .debug_str     0x000000000001326a       0x3a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-lseekr.o)
+ .debug_str     0x0000000000013279       0x3a /usr/local/xenon/xenon/lib/32/libc.a(lib_a-lseekr.o)
                                         0x564 (size before relaxing)
- .debug_str     0x00000000000132a4       0x56 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mbtowc_r.o)
+ .debug_str     0x00000000000132b3       0x56 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mbtowc_r.o)
                                         0x8ca (size before relaxing)
- .debug_str     0x00000000000132fa       0x49 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memchr.o)
+ .debug_str     0x0000000000013309       0x49 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memchr.o)
                                         0x545 (size before relaxing)
- .debug_str     0x0000000000013343       0x45 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memmove.o)
+ .debug_str     0x0000000000013352       0x45 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-memmove.o)
                                         0x873 (size before relaxing)
- .debug_str     0x0000000000013388       0x94 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
+ .debug_str     0x0000000000013397       0x94 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-mprec.o)
                                         0x9d6 (size before relaxing)
- .debug_str     0x000000000001341c       0x39 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-readr.o)
+ .debug_str     0x000000000001342b       0x39 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-readr.o)
                                         0x56a (size before relaxing)
- .debug_str     0x0000000000013455       0x3e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reallocr.o)
+ .debug_str     0x0000000000013464       0x3e /usr/local/xenon/xenon/lib/32/libc.a(lib_a-reallocr.o)
                                         0x746 (size before relaxing)
- .debug_str     0x0000000000013493        0xe /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
+ .debug_str     0x00000000000134a2        0xe /usr/local/xenon/xenon/lib/32/libc.a(lib_a-svfiprintf.o)
                                         0xba1 (size before relaxing)
- .debug_str     0x00000000000134a1       0x44 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wcrtomb.o)
+ .debug_str     0x00000000000134b0       0x44 /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wcrtomb.o)
                                         0x8c4 (size before relaxing)
- .debug_str     0x00000000000134e5       0x5d /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wctomb_r.o)
+ .debug_str     0x00000000000134f4       0x5d /usr/local/xenon/xenon/lib/32/libc.a(lib_a-wctomb_r.o)
                                         0x8d1 (size before relaxing)
- .debug_str     0x0000000000013542        0xf /usr/local/xenon/xenon/lib/32/libc.a(lib_a-callocr.o)
+ .debug_str     0x0000000000013551        0xf /usr/local/xenon/xenon/lib/32/libc.a(lib_a-callocr.o)
                                         0x6b3 (size before relaxing)
- .debug_str     0x0000000000013551      0x1a5 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_udivdi3.o)
+ .debug_str     0x0000000000013560      0x1a5 /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_udivdi3.o)
                                         0x5ec (size before relaxing)
- .debug_str     0x00000000000136f6        0xa /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_umoddi3.o)
+ .debug_str     0x0000000000013705        0xa /usr/local/xenon/lib/gcc/xenon/9.2.0/32/libgcc.a(_umoddi3.o)
                                         0x5ec (size before relaxing)
 
 .comment        0x0000000000000000       0x11

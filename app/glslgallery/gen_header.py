@@ -34,11 +34,13 @@ GALLERY = [
     ("SWIZ", "sw_swizzle.frag"),     # tex.bgra * color
     ("CLAMP", "clamprange.frag"),    # clamp(tex*color, 0.2, 0.8)
     ("FLRABS", "floorabs.frag"),     # abs(tex-color)+floor(color)
+    ("GAMMA", "gamma.frag"),         # pow(tex, gamma) — scalar pipe log2/exp2
 ]
 
 # extra (non-literal) uniform values to upload per shader: {stem: [(reg, 4f)]}
 EXTRA = {
     "cf_if.frag": [(0, (0.5, 0.5, 0.5, 0.5))],   # u_threshold = 0.5
+    "gamma.frag": [(0, (0.45, 0.45, 0.45, 1.0))],  # u_gamma = 0.45 (brighten)
 }
 
 
