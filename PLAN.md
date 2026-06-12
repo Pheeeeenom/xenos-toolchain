@@ -51,6 +51,28 @@ is what we replace.
             Xenia shader_interpreter exec                  (libxenon, unmodified)
 ```
 
+## Phase 3 — the high-level language frontend (DECIDED 2026-06-11)
+
+**Strategy: SPIR-V translation, not Mesa surgery.** glslang (Khronos
+reference compiler, open source) handles GLSL parsing/semantics/optimization
+and emits SPIR-V; we write `xsc/` — a SPIR-V → Xenos translator in Python
+feeding the proven Program builder + container emitter. Xenia's
+spirv_shader_translator (ucode→SPIR-V, the reverse direction) is the
+semantic crib for every opcode mapping. Mesa/NIR (freedreno a2xx lineage)
+stays on the books as the someday optimizing/runtime compiler; the runtime
+use-case is already served by xcomb.
+
+Phase 3a scope (GLSL ES-flavored subset):
+  vertex + fragment; attributes/varyings/uniforms (float/vec2-4/mat4);
+  arithmetic incl. mat4*vec4, dot, mix, clamp; texture2D; NO control flow
+  in v1 (cjmp/predication exist in the encoder for v2).
+Pipeline: glslang --target-env vulkan1.0 -> SPIR-V binary -> xsc reader
+  (def-use over SSA ids) -> vec4-granular linear-scan register allocation ->
+  Program builder -> container.
+Exit gate 3a: the spincube VS and a combiner-style FS written in real GLSL
+  compile through the pipeline and render on console; XenosRecomp oracle
+  agrees with intended semantics on the whole test set.
+
 ## Phases
 
 ### Phase 0 — Disassembler + golden corpus  *(decoder first: learn by reading)*
