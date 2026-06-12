@@ -87,6 +87,16 @@ def main():
             print(f"  PASS tint.frag: .rgb swizzle + vec4(rgb,a) construct "
                   f"-> masked exports ({len(tint)} B)")
 
+    # VectorTimesScalar: modulate by a scalar uniform (.xxxx broadcast)
+    bright = compile_glsl("bright.frag")
+    bhl = oracle_hlsl(bright, "bright_frag")
+    if bhl is None or "u_brightness.xxxx" not in bhl:
+        ok = False
+        print("  FAIL bright.frag: VectorTimesScalar broadcast wrong")
+    else:
+        print(f"  PASS bright.frag: vec * scalar uniform (.xxxx) "
+              f"({len(bright)} B)")
+
     # vertex: oracle-equivalent to the mvp transform
     vert = compile_glsl("spincube.vert")
     hlsl = oracle_hlsl(vert, "spincube_vert")

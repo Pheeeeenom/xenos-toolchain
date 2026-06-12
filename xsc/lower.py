@@ -257,6 +257,8 @@ def lower_fragment(m: spirv.Module) -> bytes:
                 raise LowerError(f"non-identity swizzle {idxs} (v1)")
         elif op in (129, 130, 133):               # FAdd FSub FMul
             res = ("reg", _binop(op, ins.operands[0], ins.operands[1]))
+        elif op == 142:                           # VectorTimesScalar
+            res = ("reg", _vts(ins.operands[0], ins.operands[1]))
         elif op == 12:                            # ExtInst
             res = ("reg", _extinst(ins))
         else:
@@ -337,6 +339,19 @@ def lower_fragment(m: spirv.Module) -> bytes:
             _emit(_V.kAdd, {1: (oa, False), 2: (ob, True)}, dst, export)
         return dst
 
+    # broadcast swizzle: every component reads source component x (.xxxx)
+    _BCAST_X = sum(((0 - p) & 3) << (2 * p) for p in range(4))
+
+    def _vts(vec, scal, dst=None, export=False):
+        """VectorTimesScalar: vec * scalar, scalar broadcast from its .x.
+        (host uploads a scalar uniform in the register's x component)."""
+        ov, os = operand(vec), operand(scal)
+        if dst is None:
+            dst = fresh()
+        _emit(_V.kMul, {1: (ov, False), 2: (os, False, _BCAST_X)},
+              dst, export)
+        return dst
+
     def _extinst(ins, dst=None, export=False):
         inst = ins.operands[1]
         args = ins.operands[2:]
@@ -364,6 +379,8 @@ def lower_fragment(m: spirv.Module) -> bytes:
     elif root_ins.opcode in (129, 130, 133):
         _binop(root_ins.opcode, root_ins.operands[0], root_ins.operands[1],
                dst=0, export=True)
+    elif root_ins.opcode == 142:
+        _vts(root_ins.operands[0], root_ins.operands[1], dst=0, export=True)
     elif root_ins.opcode == 12:
         _extinst(root_ins, dst=0, export=True)
     else:                                         # plain value -> oC0
