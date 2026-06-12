@@ -8,7 +8,16 @@ engineering.
 
 ---
 
-## Phase 3b — GLSL frontend: control flow + completeness
+## Phase 3b — GLSL frontend: control flow + completeness  ✅ DONE
+**Status (2026-06-12):** control flow (`if/else` → branch-free cnd select,
+hardware-verified G5), swizzles, arbitrary clamp, floor/abs/dot, and the
+scalar-pipe transcendentals (normalize/length/distance/sqrt/inversesqrt/
+exp/log/exp2/log2/pow/reflect/sin/cos) all implemented + oracle-validated.
+15 xsc shaders + full regression green. docs/xsc.md is the capability table.
+Remaining tail is the standard hard cases (documented in docs/xsc.md):
+sin/cos range reduction, tan/inverse-trig (polynomial approx), sign,
+for-loops. — Original goal text below.
+
 **Goal:** xsc compiles "real" shaders, not just straight-line ones.
 - **Control flow** (the headline rock): `if`/`else` → predication or
   `cjmp` (encoders + `feat_*` shaders already staged); `for` with constant
