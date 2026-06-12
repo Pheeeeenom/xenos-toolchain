@@ -131,12 +131,15 @@ class _Program:
             for ci, chunk in enumerate(chunks):
                 is_last = (si == n_stages - 1 and ci == len(chunks) - 1)
                 seq = 0
-                has_fetch = False
+                n_fetch = 0
                 for k, ins in enumerate(chunk):
                     if ins.is_fetch:
                         seq |= 0b01 << (2 * k)
-                        has_fetch = True
-                vc = 15 if (has_fetch and self.shader_type == "vertex") else 0
+                        n_fetch += 1
+                # XDK convention: vc_hi = per-fetch-count mask (VS only);
+                # corpus: 4 fetches -> 0xF, 3 -> 0x7 (cube_vs)
+                vc = ((1 << min(n_fetch, 4)) - 1) if (
+                    n_fetch and self.shader_type == "vertex") else 0
                 cf.append(enc.build_cf_exec(
                     opcode=K.kExecEnd if is_last else K.kExec,
                     address=chunk[0].slot, count=len(chunk),

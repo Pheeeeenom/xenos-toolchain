@@ -1,0 +1,10 @@
+.pixel
+.interpolator 0 texcoord
+.interpolator 1 color
+.sampler tex0 0
+      exec
+   tfetch2D r2, r0.xy, tf0
+      alloc colors
+      exece
+   mul oC0, r2, r1
+      cnop

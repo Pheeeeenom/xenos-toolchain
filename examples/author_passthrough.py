@@ -119,7 +119,7 @@ def author_vs(vs) -> bytes:
     ]
     cf = [
         enc.build_cf_exec(opcode=K.kExec, address=3, count=2, is_yield=False,
-                          sequence=0b0101, vc_hi=15, vc_lo=0,
+                          sequence=0b0101, vc_hi=0b11, vc_lo=0,
                           is_predicate_clean=True, addressing_mode=0),
         enc.build_cf_alloc(opcode=K.kAlloc, size=0, is_unserialized=False,
                            alloc_type=1),
