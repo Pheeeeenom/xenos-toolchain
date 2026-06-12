@@ -244,10 +244,38 @@ def lower_fragment(m: spirv.Module) -> bytes:
                 gather(w)
 
     out_var = si.color_out[0][0].vid
-    if out_var not in stores:
-        raise LowerError("o_color never written")
-    out_val = stores[out_var]
-    gather(out_val)
+
+    # control flow: a single structured if/else that assigns o_color in both
+    # arms lowers branch-free to a Xenos cnd* select (no jumps in v1).
+    brc = next((i for i in m.instrs if i.opcode == 250), None)
+    cf = None
+    if brc is not None:
+        cond_ssa, t_lbl, f_lbl = brc.operands
+
+        def _branch_value(label):
+            inb, val = False, None
+            for ins in m.instrs:
+                if ins.opcode == 248 and ins.result_id == label:
+                    inb = True
+                    continue
+                if inb:
+                    if ins.opcode in (249, 250, 253):
+                        break
+                    if ins.opcode == 62 and ins.operands[0] == out_var:
+                        val = ins.operands[1]
+            return val
+        cmp = m.by_result[cond_ssa]
+        cf_t, cf_f = _branch_value(t_lbl), _branch_value(f_lbl)
+        if cf_t is None or cf_f is None:
+            raise LowerError("if/else must assign o_color in both arms")
+        cf = (cmp, cf_t, cf_f)
+        for s in (cf_t, cf_f, cmp.operands[0], cmp.operands[1]):
+            gather(s)
+    else:
+        if out_var not in stores:
+            raise LowerError("o_color never written")
+        out_val = stores[out_var]
+        gather(out_val)
 
     # phase 2 (after alloc_colors): arithmetic, operand-typed.
     p.alloc_colors()
@@ -363,6 +391,9 @@ def lower_fragment(m: spirv.Module) -> bytes:
                     return operand(local_store[base]), comp
                 if base in interp_reg:
                     return ("reg", interp_reg[base]), comp
+                role = si.roles.get(base)         # uniform component access
+                if role and role[0] == "constant":
+                    return ("const", role[1][0]), comp
             if src in local_store:                # local holding a scalar val
                 return operand(local_store[src]), "B"
         if ins.opcode in (148, 43):               # Dot / OpConstant scalar
@@ -466,20 +497,54 @@ def lower_fragment(m: spirv.Module) -> bytes:
             raise LowerError("v1 clamp supports only [0,1] (saturate)")
         raise LowerError(f"v1 fragment: unhandled GLSL.std.450 #{inst}")
 
-    # emit the output expression with its final op fused to the oC0 export
-    root_ins = m.by_result[out_val]
-    if root_ins.opcode == 80:                     # CompositeConstruct
-        emit_construct(root_ins, 0)
-    elif root_ins.opcode in (129, 130, 133):
-        _binop(root_ins.opcode, root_ins.operands[0], root_ins.operands[1],
-               dst=0, export=True)
-    elif root_ins.opcode == 142:
-        _vts(root_ins.operands[0], root_ins.operands[1], dst=0, export=True)
-    elif root_ins.opcode == 12:
-        _extinst(root_ins, dst=0, export=True)
-    else:                                         # plain value -> oC0
-        r = operand(out_val)
-        _emit(_V.kMax, {1: (r, False), 2: (r, False)}, 0, True)
+    # comparison opcode -> (cnd vector op, swap operands, swap branches)
+    _CMP = {
+        186: (_V.kCndGt, False, False),   # a >  b : cndgt(a-b)
+        184: (_V.kCndGt, True, False),    # a <  b : cndgt(b-a)
+        190: (_V.kCndGe, False, False),   # a >= b : cndge(a-b)
+        188: (_V.kCndGe, True, False),    # a <= b : cndge(b-a)
+        180: (_V.kCndEq, False, False),   # a == b : cndeq(a-b)
+        182: (_V.kCndEq, False, True),    # a != b : cndeq(a-b), swap arms
+    }
+
+    def _bsw(c):
+        return 0 if c == "B" else \
+            sum(((c - p) & 3) << (2 * p) for p in range(4))
+
+    if cf is not None:
+        # if(a CMP b) oC0=T else oC0=F  ->  d=(a-b); oC0 = cnd(d>0?T:F)
+        cmp, cf_t, cf_f = cf
+        if cmp.opcode not in _CMP:
+            raise LowerError(f"v1: unsupported comparison {cmp.name}")
+        cndop, swap_ops, swap_br = _CMP[cmp.opcode]
+        oa, ca = scalar_origin(cmp.operands[0])
+        ob, cb = scalar_origin(cmp.operands[1])
+        if swap_ops:
+            (oa, ca), (ob, cb) = (ob, cb), (oa, ca)
+        d = fresh()
+        _emit(_V.kAdd, {1: (oa, False, _bsw(ca)), 2: (ob, True, _bsw(cb))},
+              d, False)
+        tv, fv = operand(cf_t), operand(cf_f)
+        if swap_br:
+            tv, fv = fv, tv
+        _emit(cndop, {1: (("reg", d), False), 2: (tv, False),
+                      3: (fv, False)}, 0, True)
+    else:
+        # emit the output expression, final op fused to the oC0 export
+        root_ins = m.by_result[out_val]
+        if root_ins.opcode == 80:                 # CompositeConstruct
+            emit_construct(root_ins, 0)
+        elif root_ins.opcode in (129, 130, 133):
+            _binop(root_ins.opcode, root_ins.operands[0],
+                   root_ins.operands[1], dst=0, export=True)
+        elif root_ins.opcode == 142:
+            _vts(root_ins.operands[0], root_ins.operands[1], dst=0,
+                 export=True)
+        elif root_ins.opcode == 12:
+            _extinst(root_ins, dst=0, export=True)
+        else:                                     # plain value -> oC0
+            r = operand(out_val)
+            _emit(_V.kMax, {1: (r, False), 2: (r, False)}, 0, True)
 
     constants = []
     for slot in sorted(used_samplers):

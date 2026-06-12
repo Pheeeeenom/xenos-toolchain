@@ -40,8 +40,13 @@ OP = {
     133: "FMul", 136: "FDiv", 142: "VectorTimesScalar",
     144: "VectorTimesMatrix", 145: "MatrixTimesVector",
     146: "MatrixTimesMatrix", 148: "Dot",
-    248: "Label", 249: "Branch", 252: "Kill", 253: "Return",
-    254: "ReturnValue",
+    169: "Select",
+    180: "FOrdEqual", 182: "FOrdNotEqual", 184: "FOrdLessThan",
+    186: "FOrdGreaterThan", 188: "FOrdLessThanEqual",
+    190: "FOrdGreaterThanEqual",
+    246: "LoopMerge", 247: "SelectionMerge",
+    248: "Label", 249: "Branch", 250: "BranchConditional",
+    252: "Kill", 253: "Return", 254: "ReturnValue",
 }
 
 # Opcodes that carry (result_type_id, result_id) as their first two operands:
@@ -50,6 +55,7 @@ OP = {
 _HAS_TYPE_AND_RESULT = {
     12, 43, 44, 54, 55, 57, 59, 61, 65, 79, 80, 81, 87, 88, 124, 127,
     129, 130, 133, 136, 142, 144, 145, 146, 148,
+    169, 180, 182, 184, 186, 188, 190,        # OpSelect + FOrd comparisons
 }
 # Opcodes that carry only result_id (no result type): every Type* op plus
 # ExtInstImport and Label.

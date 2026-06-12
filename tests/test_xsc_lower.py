@@ -101,6 +101,16 @@ def main():
         print(f"  PASS blend50.frag: literal 0.5 -> pooled const c0, "
               f"manifest {manifest} ({len(bl50)} B)")
 
+    # control flow: if/else select -> branch-free cnd op (no jumps)
+    cfif = compile_glsl("cf_if.frag")
+    chl = oracle_hlsl(cfif, "cf_if_frag")
+    if chl is None or "select(r3.xyzw > 0.0, r1.xyzw, r2.xyzw)" not in chl:
+        ok = False
+        print("  FAIL cf_if.frag: if/else cnd select wrong")
+    else:
+        print(f"  PASS cf_if.frag: if(a>b) A else B -> cndgt select, "
+              f"branch-free ({len(cfif)} B)")
+
     # dot(): luminance desaturation (vec3 dot -> dp3, broadcast scalar)
     gray = compile_glsl("gray.frag")
     ghl = oracle_hlsl(gray, "gray_frag")
