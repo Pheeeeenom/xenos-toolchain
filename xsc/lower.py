@@ -163,6 +163,27 @@ def lower_fragment(m: spirv.Module) -> bytes:
     sample_reg = {}       # ImageSample ssa-id -> register (phase 1)
     used_samplers = set()
 
+    # literal constant pool: GLSL literals (0.5, vec4(...)) have no ALU
+    # immediate on Xenos, so each lands in a constant register the host must
+    # upload (the manifest). Pool starts after uniform-declared constants.
+    lit_base = [max((cs.reg + cs.regs for cs in si.constants), default=0)]
+    lit_pool = {}         # value4 -> constant register
+    lit_manifest = []     # [(reg, (f0,f1,f2,f3))]
+
+    def _scalar_const(ssa):
+        bits = m.by_result[ssa].operands[0]
+        return struct.unpack("<f", struct.pack("<I", bits))[0]
+
+    def _literal_reg(value4):
+        key = tuple(round(x, 9) for x in value4)
+        if key in lit_pool:
+            return lit_pool[key]
+        reg = lit_base[0]
+        lit_base[0] += 1
+        lit_pool[key] = reg
+        lit_manifest.append((reg, tuple(value4)))
+        return reg
+
     # Function-local variables (vec4 tmp = ...): store-forward in branch-free
     local_store = {ins.operands[0]: None for ins in m.instrs
                    if ins.opcode == 59 and ins.operands[0] == 7}
@@ -259,6 +280,22 @@ def lower_fragment(m: spirv.Module) -> bytes:
             res = ("reg", _binop(op, ins.operands[0], ins.operands[1]))
         elif op == 142:                           # VectorTimesScalar
             res = ("reg", _vts(ins.operands[0], ins.operands[1]))
+        elif op == 43:                            # OpConstant (scalar lit)
+            v = _scalar_const(ssa_id)
+            res = ("const", _literal_reg((v, v, v, v)))
+        elif op == 44:                            # OpConstantComposite
+            comps = [_scalar_const(c) for c in ins.operands]
+            comps = (comps + [0.0, 0.0, 0.0, 0.0])[:4]
+            res = ("const", _literal_reg(tuple(comps)))
+        elif op == 80:                            # CompositeConstruct value
+            parts = ins.operands
+            if len(set(parts)) == 1 and \
+                    m.by_result[parts[0]].opcode == 43:   # broadcast scalar
+                v = _scalar_const(parts[0])
+                res = ("const", _literal_reg((v, v, v, v)))
+            else:
+                raise LowerError("v1: only broadcast-constant "
+                                 "CompositeConstruct usable as a value")
         elif op == 12:                            # ExtInst
             res = ("reg", _extinst(ins))
         else:
@@ -396,12 +433,26 @@ def lower_fragment(m: spirv.Module) -> bytes:
         constants.append(ce.Constant(cs.name, ce.RS_FLOAT4, cs.reg, cs.regs,
                                      ce.CLASS_VECTOR, ce.TYPE_FLOAT,
                                      rows=1, columns=4))
-    return p.finish(constants=constants)
+    # compiler-allocated literal constants (host uploads per lit_manifest)
+    for reg, _val in lit_manifest:
+        constants.append(ce.Constant(f"_lit{reg}", ce.RS_FLOAT4, reg, 1,
+                                     ce.CLASS_VECTOR, ce.TYPE_FLOAT,
+                                     rows=1, columns=4))
+    return p.finish(constants=constants), lit_manifest
+
+
+def lower_ex(m: spirv.Module):
+    """Returns (container_bytes, literal_manifest). The manifest is
+    [(constant_register, (f0,f1,f2,f3))] the host must upload for any GLSL
+    literals the shader used (empty for vertex / literal-free shaders)."""
+    stage = "vertex" if m.entry_points[0][0] == 0 else "pixel"
+    if stage == "vertex":
+        return lower_vertex(m), []
+    return lower_fragment(m)
 
 
 def lower(m: spirv.Module) -> bytes:
-    stage = "vertex" if m.entry_points[0][0] == 0 else "pixel"
-    return lower_vertex(m) if stage == "vertex" else lower_fragment(m)
+    return lower_ex(m)[0]
 
 
 def main():

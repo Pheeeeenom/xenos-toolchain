@@ -87,6 +87,20 @@ def main():
             print(f"  PASS tint.frag: .rgb swizzle + vec4(rgb,a) construct "
                   f"-> masked exports ({len(tint)} B)")
 
+    # literal constant: mix(tex, color, 0.5) -> 0.5 in a pooled constant reg
+    from xsc.lower import lower_ex
+    bl50, manifest = lower_ex(spirv.Module.parse(
+        (TD / "blend50.frag.spv").read_bytes()))
+    b50hl = oracle_hlsl(bl50, "blend50_frag")
+    want_man = [(0, (0.5, 0.5, 0.5, 0.5))]
+    if b50hl is None or "_lit0.xyzw + r2.xyzw" not in b50hl or \
+            manifest != want_man:
+        ok = False
+        print(f"  FAIL blend50.frag: literal pool wrong (manifest {manifest})")
+    else:
+        print(f"  PASS blend50.frag: literal 0.5 -> pooled const c0, "
+              f"manifest {manifest} ({len(bl50)} B)")
+
     # VectorTimesScalar: modulate by a scalar uniform (.xxxx broadcast)
     bright = compile_glsl("bright.frag")
     bhl = oracle_hlsl(bright, "bright_frag")
