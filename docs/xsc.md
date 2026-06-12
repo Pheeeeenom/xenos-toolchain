@@ -22,19 +22,25 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 | passthrough varyings | interpolator exports (max o*N*) |
 | `texture()` (ImageSampleImplicitLod) | `tfetch2D` |
 | `*` `+` `-` (FMul/FAdd/FSub) | mul / add / add-neg |
+| `/` (FDiv) | `a · rcp(b)`; scalar-pipe `rcp` per component (scalar divisor: once + broadcast) |
+| `mod()` (OpFMod) | `a − b·floor(a/b)` |
 | `vec * float` (VectorTimesScalar) | mul, scalar `.xxxx` broadcast |
-| `dot()` (OpDot) | `dp3`/`dp4`, result broadcast to all components |
+| `dot()` / `cross()` | `dp3`/`dp4` broadcast / yzx·zxy mad |
 | `mix` / `max` / `min` / `clamp(x,0,1)` (GLSL.std.450) | sub+mad / max / min / `_sat` modifier (free) |
+| `step` / `smoothstep` | `kSge` / `t·t·(3−2t)`, `t=sat((x−e0)/(e1−e0))` |
 | `normalize` / `length` / `distance` | dp3·rsq·mul / dp+sqrt / sub+dp+sqrt (scalar pipe) |
 | `sqrt` `inversesqrt` `exp2` `log2` `exp` `log` | scalar-pipe `kSqrt`/`kRsq`/`kExp`/`kLog` (+const for natural) |
 | `pow(x,y)` | per-component `exp2(y·log2 x)` (scalar pipe) |
 | `reflect(i,n)` | `i - 2·dot(n,i)·n` (dp + mad) |
-| `sin` / `cos` | scalar `kSin`/`kCos` — **range-limited ~[-π,π]** (see below) |
-| `.rgb` `.xy` (identity VectorShuffle) / `.bgra` (reorder) | same regs / swizzled mov |
-| `v.x` (CompositeExtract), `vec4(a,b)` (CompositeConstruct) | masked exports |
-| `floor()` / `abs()` | `kFloor` / `max(x,-x)` |
+| `sin` / `cos` / `tan` | scalar `kSin`/`kCos`; `tan = sin·rcp(cos)` — **range-limited ~[-π,π]** (see below) |
+| `asin` / `acos` / `atan` | polynomial approx (A-S sqrt form / π/2−asin / odd poly); ~7e-5 over [-1,1], atan range [-1,1] (see below) |
+| `.rgb` `.xy` (identity) / `.bgra` (reorder) / two-source `vec4(a.xy,b.zw)` | same regs / swizzled mov / per-component masked movs |
+| `v.x` (CompositeExtract), `vec4(a,b,c,d)` (CompositeConstruct) | masked exports |
+| `floor` / `ceil` / `trunc` / `round` / `fract` | `kFloor` / `-floor(-x)` / `kTrunc` / `floor(x+.5)` / `kFrc` |
+| `abs()` / `sign()` | `max(x,-x)` / `sgt(x,0)−sgt(0,x)` (pooled `0.0`) |
+| `radians` / `degrees` | mul by pooled `π/180` / `180/π` |
 | `clamp(x, lo, hi)` arbitrary | `min(max(x,lo),hi)`, lo/hi pooled literals |
-| **`if/else`** that assigns the output | branch-free `cndgt`/`cndge`/`cndeq` select |
+| **`if/else`**, incl. **nested**, assigning the output | branch-free chained `cndgt`/`cndge`/`cndeq` selects |
 | `vec4 t = ...;` (function-local) | store-forwarding |
 | uniforms (block + bare), samplers | constant regs / fetch consts |
 | float / vec literals (0.5, vec4(...)) | constant pool (see below) |
@@ -69,17 +75,37 @@ half reads one component of src3 and broadcasts its result. `normalize`,
 subexpression elimination yet, so `normalize(v)` + `length(v)` recomputes
 `dot(v,v)` twice — correct, slightly redundant.
 
-## Not yet (honest scope)
-- **`for` loops** — `if/else` works (cnd select); general loops are v2.
-- **`sin`/`cos` range reduction** — the bare hardware op is accurate only
-  near [-π,π]; a `frac`-based prologue for arbitrary arguments is a refinement
-  (math in `docs/builtin-lowering.md`).
-- **`tan`/`asin`/`acos`/`atan`** — need polynomial approximations (a small
-  approx library; deferred).
-- **`sign`** — derivable (cnd-based) but fiddly with the ≤1-const rule;
-  deferred.
-- Two-source `VectorShuffle`, integer ops, folding 0.0/1.0 literals into the
-  free source-select swizzle (they currently use a pooled constant register).
+## Approximate builtins (documented accuracy / range)
+- **`sin`/`cos`/`tan`** — the bare hardware `kSin`/`kCos` are accurate only
+  near `[-π,π]`; arbitrary arguments need a `frac`-based range-reduction
+  prologue (math in `docs/builtin-lowering.md`). `tan = sin·rcp(cos)`.
+- **`asin`/`acos`** — Abramowitz-Stegun sqrt form, max error ~7e-5 over
+  `[-1,1]`. `acos = π/2 − asin`.
+- **`atan`** — odd polynomial, accurate on `[-1,1]` (no range reduction for
+  `|x|>1` yet; `atan2`/wide-range is a refinement).
+
+## Register budget (16 GPRs)
+
+Xenos pixel shaders have a hard **16-GPR budget** (r0..r15) — exceeding it is a
+silent GPU **hang** on hardware (oracle can't see this). `xasm/program.py` runs
+a **linear-scan register allocator** in `PixelProgram.finish()` whenever a
+shader needs >16 registers: it recycles dead temporaries (live range = first
+def → last use), pins the read-only interpolator inputs, and packs everything
+into the minimum register count (e.g. `invtrig` 33→6, `mathfns` 20→6). Shaders
+already within budget are left byte-for-byte unchanged. A self-check asserts no
+two simultaneously-live temps share a register.
+
+## Not yet (the frontier)
+- **`for`/`while` loops** — glslang emits `OpLoopMerge` (it does *not* unroll).
+  Two paths: (a) a `spirv-opt --loop-unroll` pre-pass so xsc sees straight-line
+  code (cleanest for constant trip counts), or (b) real Xenos loop control-flow
+  (`kLoopStart`/`kLoopEnd`, encoded in xost but **unproven on hardware**). v2.
+- **Integer ops** (`int`/`uint` arithmetic, bit ops) — Xenos ALU is float-
+  centric; awkward, rarely needed in fragment work.
+- **Matrix math beyond `mvp*pos`** — `mat*mat`, `vec*mat`, `inverse`,
+  `determinant`.
+- Folding `0.0`/`1.0` literals into the free source-select swizzle (they
+  currently use a pooled constant register).
 
 ## Validation
 Every test shader is checked by the XenosRecomp oracle (which does the

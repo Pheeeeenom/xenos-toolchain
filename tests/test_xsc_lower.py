@@ -126,6 +126,17 @@ def main():
         print(f"  PASS cf_if.frag: if(a>b) A else B -> cndgt select, "
               f"branch-free ({len(cfif)} B)")
 
+    # nested if/else -> chained cnd selects (inner select feeds the outer)
+    nif = compile_glsl("nested_if.frag")
+    nhl = oracle_hlsl(nif, "nested_if_frag")
+    if nhl is None or "r4.xyzw = select(r5" not in nhl or \
+            "oC0.xyzw = select(r3" not in nhl:
+        ok = False
+        print("  FAIL nested_if.frag: nested if/else chained-select wrong")
+    else:
+        print(f"  PASS nested_if.frag: nested if/else -> chained cnd selects, "
+              f"branch-free ({len(nif)} B)")
+
     # non-identity swizzle (.bgra) + arbitrary clamp + floor/abs
     for name, needle, desc in [
         ("sw_swizzle", "max(r2.zyxw", "non-identity swizzle .bgra"),
@@ -138,6 +149,49 @@ def main():
         if h is None or needle not in h:
             ok = False
             print(f"  FAIL {name}.frag: {desc}")
+        else:
+            print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
+
+    # phase-3b breadth: float division, sign(), tan()
+    for name, needles, desc in [
+        ("divide", ["rcp(u_denom.x)", "rcp(u_denom.w)"],
+         "vec/vec division -> per-component rcp + mul"),
+        ("absign", ["max(u_offset.xyzw, -u_offset.xyzw)", "> _lit1.xyzw"],
+         "abs()=max(x,-x), sign()=sgt(x,0)-sgt(0,x)"),
+        ("tangent", ["sin(u_phase.x)", "cos(u_phase.x)"],
+         "tan(x)=sin(x)*rcp(cos(x))"),
+    ]:
+        blob = compile_glsl(f"{name}.frag")
+        h = oracle_hlsl(blob, f"{name}_frag")
+        miss = [s for s in needles if not h or s not in h]
+        if h is None or miss:
+            ok = False
+            print(f"  FAIL {name}.frag: {desc} (missing {miss})")
+        else:
+            print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
+
+    # phase-3b breadth II: rounding family, angles, step/smoothstep, mod, cross,
+    # two-source vector assembly
+    for name, needles, desc in [
+        ("rounding", ["frac(", "trunc(", "floor(-"],
+         "fract/trunc/ceil=-floor(-x)/round=floor(x+.5)"),
+        ("angles", ["* _lit0.xyzw", "* _lit1.xyzw"],
+         "radians/degrees -> mul by pooled const"),
+        ("stepsmooth", [">= _lit", "saturate("],
+         "step (kSge) + smoothstep (clamp + hermite t*t*(3-2t))"),
+        ("modcross", [".zxyw *", "-u_period.xyzw *"],
+         "cross (yzx/zxy mad) + mod (x - y*floor(x/y))"),
+        ("shuffle2", ["oC0.xy = max(r2", "oC0.z = max(r3"],
+         "two-source vec assembly (t.xy + color.zw)"),
+        ("invtrig", ["sqrt(", "> _lit"],
+         "asin (A-S sqrt form) / acos=pi/2-asin / atan (odd poly)"),
+    ]:
+        blob = compile_glsl(f"{name}.frag")
+        h = oracle_hlsl(blob, f"{name}_frag")
+        miss = [s for s in needles if not h or s not in h]
+        if h is None or miss:
+            ok = False
+            print(f"  FAIL {name}.frag: {desc} (missing {miss})")
         else:
             print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
 

@@ -246,32 +246,54 @@ def lower_fragment(m: spirv.Module) -> bytes:
 
     out_var = si.color_out[0][0].vid
 
-    # control flow: a single structured if/else that assigns o_color in both
-    # arms lowers branch-free to a Xenos cnd* select (no jumps in v1).
-    brc = next((i for i in m.instrs if i.opcode == 250), None)
-    cf = None
-    if brc is not None:
-        cond_ssa, t_lbl, f_lbl = brc.operands
+    # control flow: structured if/else, possibly NESTED, that assigns o_color
+    # in every arm lowers branch-free to chained Xenos cnd* selects (no jumps).
+    def _block(label):
+        """Basic block starting at `label`: instrs after the Label through the
+        terminator (Branch / BranchConditional / Kill / Return)."""
+        out, inb = [], False
+        for ins in m.instrs:
+            if ins.opcode == 248 and ins.result_id == label:
+                inb = True
+                continue
+            if inb:
+                out.append(ins)
+                if ins.opcode in (249, 250, 252, 253, 254):
+                    break
+        return out
 
-        def _branch_value(label):
-            inb, val = False, None
-            for ins in m.instrs:
-                if ins.opcode == 248 and ins.result_id == label:
-                    inb = True
-                    continue
-                if inb:
-                    if ins.opcode in (249, 250, 253):
-                        break
-                    if ins.opcode == 62 and ins.operands[0] == out_var:
-                        val = ins.operands[1]
-            return val
-        cmp = m.by_result[cond_ssa]
-        cf_t, cf_f = _branch_value(t_lbl), _branch_value(f_lbl)
-        if cf_t is None or cf_f is None:
-            raise LowerError("if/else must assign o_color in both arms")
-        cf = (cmp, cf_t, cf_f)
-        for s in (cf_t, cf_f, cmp.operands[0], cmp.operands[1]):
-            gather(s)
+    def _region(label):
+        """A structured region -> ('val', ssa) leaf, or
+        ('sel', cmp_instr, true_region, false_region) for a nested if/else."""
+        blk = _block(label)
+        brc = next((i for i in blk if i.opcode == 250), None)
+        if brc is not None:                       # nested selection header
+            cond, t_lbl, f_lbl = brc.operands
+            return ("sel", m.by_result[cond], _region(t_lbl), _region(f_lbl))
+        val = None
+        for i in blk:
+            if i.opcode == 62 and i.operands[0] == out_var:
+                val = i.operands[1]
+        if val is None:
+            raise LowerError("if/else arm does not assign o_color")
+        return ("val", val)
+
+    def _gather_region(region):
+        if region[0] == "val":
+            gather(region[1])
+        else:
+            gather(region[1].operands[0])
+            gather(region[1].operands[1])
+            _gather_region(region[2])
+            _gather_region(region[3])
+
+    top_brc = next((i for i in m.instrs if i.opcode == 250), None)
+    region = None
+    out_val = None
+    if top_brc is not None:
+        cond_ssa, t_lbl, f_lbl = top_brc.operands
+        region = ("sel", m.by_result[cond_ssa], _region(t_lbl), _region(f_lbl))
+        _gather_region(region)
     else:
         if out_var not in stores:
             raise LowerError("o_color never written")
@@ -292,7 +314,16 @@ def lower_fragment(m: spirv.Module) -> bytes:
         op = ins.opcode
         if op == 61:                              # Load
             src = ins.operands[0]
-            if src in interp_reg:
+            ptr = m.by_result.get(src)
+            if ptr is not None and ptr.opcode == 65:  # Load of AccessChain: v.x
+                o, comp = scalar_origin(ssa_id)   # a scalar component -> bcast
+                bsw = 0 if comp == "B" else \
+                    sum(((comp - p) & 3) << (2 * p) for p in range(4))
+                r = fresh()
+                _emit(_V.kMax, {1: (o, False, bsw), 2: (o, False, bsw)},
+                      r, False)
+                res = ("reg", r)
+            elif src in interp_reg:
                 res = ("reg", interp_reg[src])
             elif src in local_store:
                 res = operand(local_store[src])
@@ -324,6 +355,10 @@ def lower_fragment(m: spirv.Module) -> bytes:
             res = ("reg", _vts(ins.operands[0], ins.operands[1]))
         elif op == 148:                           # OpDot
             res = ("reg", _dot(ins.operands[0], ins.operands[1]))
+        elif op == 136:                           # OpFDiv: a * rcp(b)
+            res = ("reg", _fdiv(ins.operands[0], ins.operands[1]))
+        elif op == 141:                           # OpFMod: a - b*floor(a/b)
+            res = ("reg", _fmod(ins.operands[0], ins.operands[1]))
         elif op == 43:                            # OpConstant (scalar lit)
             v = _scalar_const(ssa_id)
             res = ("const", _literal_reg((v, v, v, v)))
@@ -339,9 +374,10 @@ def lower_fragment(m: spirv.Module) -> bytes:
                     res = ("const", _literal_reg((v, v, v, v)))
                 else:                             # e.g. vec3(u_gamma)
                     res = operand(parts[0])       # consumer broadcasts (.xxxx)
-            else:
-                raise LowerError("v1: only broadcast CompositeConstruct "
-                                 "usable as a value")
+            else:                                 # general vec(a,b,c,d) -> temp
+                r = fresh()
+                emit_construct(ins, r, export=False)
+                res = ("reg", r)
         elif op == 12:                            # ExtInst
             res = ("reg", _extinst(ins))
         else:
@@ -407,11 +443,19 @@ def lower_fragment(m: spirv.Module) -> bytes:
                     return ("const", role[1][0]), comp
             if src in local_store:                # local holding a scalar val
                 return operand(local_store[src]), "B"
+            role = si.roles.get(src)              # bare scalar uniform -> .x
+            if role and role[0] == "constant":
+                return ("const", role[1][0]), 0
+            if src in interp_reg:                 # bare scalar interpolator .x
+                return ("reg", interp_reg[src]), 0
         if ins.opcode in (148, 43):               # Dot / OpConstant scalar
+            return operand(ssa_id), "B"
+        if ins.opcode in (129, 131, 133, 136, 141, 12):
+            # computed scalar (FMul/FAdd/FSub/FDiv/FMod/ExtInst) -> broadcast
             return operand(ssa_id), "B"
         raise LowerError(f"cannot resolve scalar %{ssa_id}")
 
-    def emit_construct(ins, export_reg):
+    def emit_construct(ins, dst_reg, export=True):
         origins = [scalar_origin(part) for part in ins.operands]
         n = len(origins)
         j = 0
@@ -424,13 +468,13 @@ def lower_fragment(m: spirv.Module) -> bytes:
             if k > j:
                 mask = sum(1 << t for t in range(j, k))
                 _emit(_V.kMax, {1: (op_j, False), 2: (op_j, False)},
-                      export_reg, True, mask=mask)
+                      dst_reg, export, mask=mask)
                 j = k
             else:                                 # singleton: route comp->j
                 op, comp = origins[j]
                 swz = 0 if comp == "B" else ((comp - j) & 3) << (2 * j)
                 _emit(_V.kMax, {1: (op, False, swz), 2: (op, False, swz)},
-                      export_reg, True, mask=(1 << j))
+                      dst_reg, export, mask=(1 << j))
                 j += 1
 
     def _binop(op, a, b, dst=None, export=False, clamp=False):
@@ -504,6 +548,69 @@ def lower_fragment(m: spirv.Module) -> bytes:
               d, False, mask=0xF)
         return d
 
+    def _fdiv(a, b, dst=None, export=False):
+        """a / b = a * rcp(b). Xenos has no vector reciprocal, so rcp runs in
+        the scalar pipe per component; a scalar/broadcast divisor reciprocates
+        once and broadcast-multiplies."""
+        oa, ob = operand(a), operand(b)
+        bi = m.by_result.get(b)
+        scalar_b = (bi is not None and bi.opcode == 80 and
+                    len(set(bi.operands)) == 1 and
+                    m.by_result[bi.operands[0]].opcode != 43)
+        if dst is None:
+            dst = fresh()
+        n = max(vec_size(a), vec_size(b), 1)
+        if scalar_b or n == 1:                    # scalar divisor: rcp once,
+            rb = _emit_scalar(_S.kRcp, fresh(), ob, src_comp=0)  # broadcast-mul
+            _emit(_V.kMul, {1: (oa, False), 2: (("reg", rb), False)},
+                  dst, export)                    # mask 0xF -> all components
+        else:                                     # per-component reciprocal
+            for i in range(n):
+                rb = _emit_scalar(_S.kRcp, fresh(), ob, src_comp=i)
+                _emit(_V.kMul, {1: (oa, False), 2: (("reg", rb), False)},
+                      dst, export, mask=(1 << i))
+        return dst
+
+    def _to_reg(opnd):
+        """Materialize a constant operand into a register so a following op
+        can pair it with another constant under the <=1-const-per-ALU rule."""
+        if opnd[0] == "reg":
+            return opnd
+        r = fresh()
+        _emit(_V.kMax, {1: (opnd, False), 2: (opnd, False)}, r, False)
+        return ("reg", r)
+
+    def _swz(idxs):
+        """Source-swizzle delta reading input component idxs[p] into output p."""
+        return sum(((idxs[p] - p) & 3) << (2 * p) for p in range(len(idxs)))
+
+    def _recip(opnd, n):
+        """Per-component reciprocal of a vector operand -> a register. A scalar
+        (n==1) reciprocates once and stays broadcast (all components valid)."""
+        if n == 1:
+            return _emit_scalar(_S.kRcp, fresh(), opnd, src_comp=0)
+        r = fresh()
+        for i in range(n):
+            ri = _emit_scalar(_S.kRcp, fresh(), opnd, src_comp=i)
+            _emit(_V.kMax, {1: (("reg", ri), False), 2: (("reg", ri), False)},
+                  r, False, mask=(1 << i))
+        return r
+
+    def _fmod(a, b, dst=None, export=False):
+        """mod(a,b) = a - b*floor(a/b)."""
+        oa, ob = operand(a), operand(b)
+        q = _fdiv(a, b)
+        fq = fresh()
+        _emit(_V.kFloor, {1: (("reg", q), False), 2: (("reg", q), False)},
+              fq, False)
+        if dst is None:
+            dst = fresh()
+        if oa[0] == "const" and ob[0] == "const":
+            oa = _to_reg(oa)
+        _emit(_V.kMad, {1: (ob, True), 2: (("reg", fq), False), 3: (oa, False)},
+              dst, export)
+        return dst
+
     def _extinst(ins, dst=None, export=False):
         inst = ins.operands[1]
         args = ins.operands[2:]
@@ -567,6 +674,60 @@ def lower_fragment(m: spirv.Module) -> bytes:
             o, c = scalar_origin(ssa)
             return o, (0 if c == "B" else _sbcast(c)), (3 if c == "B" else c)
 
+        def _bcast(ssa):                          # scalar arg -> broadcast reg
+            o, sw, c = _scalar_src(ssa)
+            r = fresh()
+            _emit(_V.kMax, {1: (o, False, sw), 2: (o, False, sw)}, r, False)
+            return ("reg", r)
+
+        def _horner(xop, coeffs):                 # coeffs high-degree first
+            # accumulate in-place (mad p = x*p + c, dst==src) to keep register
+            # pressure low — the Xenos PS GPR budget is 16 (index 0..15).
+            p = _to_reg(("const", _literal_reg((coeffs[0],) * 4)))
+            pr = p[1]
+            for ck in coeffs[1:]:
+                ckop = ("const", _literal_reg((ck,) * 4))
+                _emit(_V.kMad, {1: (xop, False), 2: (("reg", pr), False),
+                                3: (ckop, False)}, pr, False)
+            return ("reg", pr)
+
+        def _asin_reg(ssa):                       # Abramowitz-Stegun asin
+            xr = _bcast(ssa)
+            ax = fresh()
+            _emit(_V.kMax, {1: (xr, False), 2: (xr, True)}, ax, False)  # |x|
+            p = _horner(("reg", ax),              # P(|x|), cubic
+                        [-0.0187293, 0.0742610, -0.2121144, 1.5707288])
+            one = ("const", _literal_reg((1.0,) * 4))
+            om = fresh()
+            _emit(_V.kAdd, {1: (one, False), 2: (("reg", ax), True)}, om, False)
+            s = _emit_scalar(_S.kSqrt, fresh(), ("reg", om))   # sqrt(1-|x|)
+            halfpi = ("const", _literal_reg((1.5707963,) * 4))
+            inner = fresh()                       # pi/2 - sqrt(1-|x|)*P
+            _emit(_V.kMad, {1: (("reg", s), True), 2: (p, False),
+                            3: (halfpi, False)}, inner, False)
+            zero = ("const", _literal_reg((0.0,) * 4))         # sign(x)
+            gt = fresh()
+            _emit(_V.kSgt, {1: (xr, False), 2: (zero, False)}, gt, False)
+            lt = fresh()
+            _emit(_V.kSgt, {1: (zero, False), 2: (xr, False)}, lt, False)
+            sgn = fresh()
+            _emit(_V.kAdd, {1: (("reg", gt), False), 2: (("reg", lt), True)},
+                  sgn, False)
+            out = fresh()
+            _emit(_V.kMul, {1: (("reg", sgn), False),
+                            2: (("reg", inner), False)}, out, False)
+            return out
+
+        def _atan_reg(ssa):                       # x*poly(x^2), |x|<=1
+            xr = _bcast(ssa)
+            x2 = fresh()
+            _emit(_V.kMul, {1: (xr, False), 2: (xr, False)}, x2, False)
+            p = _horner(("reg", x2), [0.0208351, -0.0851330, 0.1801410,
+                                      -0.3302995, 0.9998660])
+            out = fresh()
+            _emit(_V.kMul, {1: (xr, False), 2: (p, False)}, out, False)
+            return out
+
         if inst == 27:                            # Exp = exp2(x*log2 e)
             o, sw, c = _scalar_src(args[0])
             ck = ("const", _literal_reg((1.4426950408,) * 4))
@@ -613,6 +774,97 @@ def lower_fragment(m: spirv.Module) -> bytes:
             ox = operand(args[0])
             _emit(_V.kMax, {1: (ox, False), 2: (ox, True)}, dst, export)
             return dst
+        if inst == 6:                             # FSign = sgt(x,0)-sgt(0,x)
+            ox = operand(args[0])
+            if ox[0] == "const":                  # sgt allows <=1 const/op:
+                xr = fresh()                      # copy a uniform x to a reg
+                _emit(_V.kMax, {1: (ox, False), 2: (ox, False)}, xr, False)
+                ox = ("reg", xr)
+            zero = ("const", _literal_reg((0.0, 0.0, 0.0, 0.0)))
+            gt = fresh()
+            _emit(_V.kSgt, {1: (ox, False), 2: (zero, False)}, gt, False)
+            lt = fresh()
+            _emit(_V.kSgt, {1: (zero, False), 2: (ox, False)}, lt, False)
+            _emit(_V.kAdd, {1: (("reg", gt), False), 2: (("reg", lt), True)},
+                  dst, export)
+            return dst
+        if inst == 15:                            # Tan(x)=sin(x)*rcp(cos(x))
+            o, sw, c = _scalar_src(args[0])
+            s = _emit_scalar(_S.kSin, fresh(), o, src_comp=c)
+            co = _emit_scalar(_S.kCos, fresh(), o, src_comp=c)
+            rc = _emit_scalar(_S.kRcp, fresh(), ("reg", co))
+            _emit(_V.kMul, {1: (("reg", s), False), 2: (("reg", rc), False)},
+                  dst, export)
+            return dst
+        if inst == 10:                            # Fract -> kFrc (native)
+            ox = operand(args[0])
+            _emit(_V.kFrc, {1: (ox, False), 2: (ox, False)}, dst, export)
+            return dst
+        if inst == 3:                             # Trunc -> kTrunc (native)
+            ox = operand(args[0])
+            _emit(_V.kTrunc, {1: (ox, False), 2: (ox, False)}, dst, export)
+            return dst
+        if inst == 9:                             # Ceil(x) = -floor(-x)
+            ox = operand(args[0])
+            tf = fresh()
+            _emit(_V.kFloor, {1: (ox, True), 2: (ox, True)}, tf, False)
+            _emit(_V.kMax, {1: (("reg", tf), True), 2: (("reg", tf), True)},
+                  dst, export)
+            return dst
+        if inst in (1, 2):                        # Round/RoundEven=floor(x+.5)
+            ox = _to_reg(operand(args[0]))
+            half = ("const", _literal_reg((0.5, 0.5, 0.5, 0.5)))
+            s = fresh()
+            _emit(_V.kAdd, {1: (ox, False), 2: (half, False)}, s, False)
+            _emit(_V.kFloor, {1: (("reg", s), False), 2: (("reg", s), False)},
+                  dst, export)
+            return dst
+        if inst in (11, 12):                      # Radians/Degrees = x*const
+            ox = _to_reg(operand(args[0]))
+            k = 0.0174532925 if inst == 11 else 57.2957795
+            ck = ("const", _literal_reg((k, k, k, k)))
+            _emit(_V.kMul, {1: (ox, False), 2: (ck, False)}, dst, export)
+            return dst
+        if inst == 48:                            # Step(edge,x) = (x>=edge)
+            oe = operand(args[0])
+            ox = _to_reg(operand(args[1]))
+            _emit(_V.kSge, {1: (ox, False), 2: (oe, False)}, dst, export)
+            return dst
+        if inst == 49:                            # SmoothStep(e0,e1,x)
+            oe0, oe1, ox = (operand(args[0]), operand(args[1]),
+                            operand(args[2]))
+            e0r = _to_reg(oe0)
+            n = max(vec_size(args[2]), 1)
+            num = fresh()
+            _emit(_V.kAdd, {1: (ox, False), 2: (e0r, True)}, num, False)
+            den = fresh()
+            _emit(_V.kAdd, {1: (oe1, False), 2: (e0r, True)}, den, False)
+            rden = _recip(("reg", den), n)
+            tt = fresh()                          # t = sat((x-e0)/(e1-e0))
+            _emit(_V.kMul, {1: (("reg", num), False),
+                            2: (("reg", rden), False)}, tt, False, clamp=True)
+            two_t = fresh()
+            _emit(_V.kAdd, {1: (("reg", tt), False), 2: (("reg", tt), False)},
+                  two_t, False)
+            three = ("const", _literal_reg((3.0, 3.0, 3.0, 3.0)))
+            h = fresh()                           # h = 3 - 2t
+            _emit(_V.kAdd, {1: (three, False), 2: (("reg", two_t), True)},
+                  h, False)
+            t2 = fresh()                          # t*t
+            _emit(_V.kMul, {1: (("reg", tt), False), 2: (("reg", tt), False)},
+                  t2, False)
+            _emit(_V.kMul, {1: (("reg", t2), False), 2: (("reg", h), False)},
+                  dst, export)                    # t*t*(3-2t)
+            return dst
+        if inst == 68:                            # Cross(a,b)
+            oa, ob = operand(args[0]), operand(args[1])
+            yzx, zxy = _swz([1, 2, 0]), _swz([2, 0, 1])
+            tc = fresh()
+            _emit(_V.kMul, {1: (oa, False, zxy), 2: (ob, False, yzx)},
+                  tc, False)                      # a.zxy * b.yzx
+            _emit(_V.kMad, {1: (oa, False, yzx), 2: (ob, False, zxy),
+                            3: (("reg", tc), True)}, dst, export)
+            return dst
         if inst == 43:                            # FClamp(x, lo, hi)
             lo, hi = _const_scalar(args[1]), _const_scalar(args[2])
             if lo == 0.0 and hi == 1.0:           # saturate -> free modifier
@@ -624,6 +876,23 @@ def lower_fragment(m: spirv.Module) -> bytes:
             t = fresh()
             _emit(_V.kMax, {1: (ox, False), 2: (lo_op, False)}, t, False)
             _emit(_V.kMin, {1: (("reg", t), False), 2: (hi_op, False)},
+                  dst, export)
+            return dst
+        if inst == 16:                            # Asin
+            r = _asin_reg(args[0])
+            _emit(_V.kMax, {1: (("reg", r), False), 2: (("reg", r), False)},
+                  dst, export)
+            return dst
+        if inst == 17:                            # Acos = pi/2 - asin(x)
+            r = _asin_reg(args[0])
+            halfpi = ("const", _literal_reg((1.5707963, 1.5707963,
+                                             1.5707963, 1.5707963)))
+            _emit(_V.kAdd, {1: (halfpi, False), 2: (("reg", r), True)},
+                  dst, export)
+            return dst
+        if inst == 18:                            # Atan
+            r = _atan_reg(args[0])
+            _emit(_V.kMax, {1: (("reg", r), False), 2: (("reg", r), False)},
                   dst, export)
             return dst
         raise LowerError(f"v1 fragment: unhandled GLSL.std.450 #{inst}")
@@ -642,9 +911,48 @@ def lower_fragment(m: spirv.Module) -> bytes:
         return 0 if c == "B" else \
             sum(((c - p) & 3) << (2 * p) for p in range(4))
 
-    if cf is not None:
-        # if(a CMP b) oC0=T else oC0=F  ->  d=(a-b); oC0 = cnd(d>0?T:F)
-        cmp, cf_t, cf_f = cf
+    def _emit_value(ssa, dst, export):
+        """Emit a value expression to `dst` (export-fused when export)."""
+        vi = m.by_result[ssa]
+        if vi.opcode == 80:                       # CompositeConstruct
+            emit_construct(vi, dst, export)
+        elif vi.opcode in (129, 131, 133):        # FAdd/FSub/FMul
+            _binop(vi.opcode, vi.operands[0], vi.operands[1], dst=dst,
+                   export=export)
+        elif vi.opcode == 142:                    # VectorTimesScalar
+            _vts(vi.operands[0], vi.operands[1], dst=dst, export=export)
+        elif vi.opcode == 136:                    # FDiv
+            _fdiv(vi.operands[0], vi.operands[1], dst=dst, export=export)
+        elif vi.opcode == 141:                    # FMod
+            _fmod(vi.operands[0], vi.operands[1], dst=dst, export=export)
+        elif vi.opcode == 12:                     # ExtInst
+            _extinst(vi, dst=dst, export=export)
+        else:                                     # plain value -> dst
+            r = operand(ssa)
+            _emit(_V.kMax, {1: (r, False), 2: (r, False)}, dst, export)
+
+    def _region_value(region):
+        """Operand holding a region's value: a leaf resolves through operand()
+        directly (no extra mov); a nested select / general construct spills to
+        a temp."""
+        if region[0] == "sel":
+            r = fresh()
+            _emit_region(region, r, False)
+            return ("reg", r)
+        try:
+            return operand(region[1])
+        except LowerError:                        # e.g. general construct
+            r = fresh()
+            _emit_value(region[1], r, False)
+            return ("reg", r)
+
+    def _emit_region(region, dst, export):
+        """Emit a region tree: a leaf value, or chained cnd* selects for
+        nested if/else."""
+        if region[0] == "val":
+            _emit_value(region[1], dst, export)
+            return
+        _, cmp, treg, freg = region
         if cmp.opcode not in _CMP:
             raise LowerError(f"v1: unsupported comparison {cmp.name}")
         cndop, swap_ops, swap_br = _CMP[cmp.opcode]
@@ -652,30 +960,22 @@ def lower_fragment(m: spirv.Module) -> bytes:
         ob, cb = scalar_origin(cmp.operands[1])
         if swap_ops:
             (oa, ca), (ob, cb) = (ob, cb), (oa, ca)
-        d = fresh()
+        if swap_br:
+            treg, freg = freg, treg
+        d = fresh()                               # d = a - b
         _emit(_V.kAdd, {1: (oa, False, _bsw(ca)), 2: (ob, True, _bsw(cb))},
               d, False)
-        tv, fv = operand(cf_t), operand(cf_f)
-        if swap_br:
-            tv, fv = fv, tv
+        tv = _region_value(treg)
+        fv = _region_value(freg)
+        if tv[0] == "const" and fv[0] == "const":
+            fv = _to_reg(fv)                      # cnd allows <=1 const/op
         _emit(cndop, {1: (("reg", d), False), 2: (tv, False),
-                      3: (fv, False)}, 0, True)
+                      3: (fv, False)}, dst, export)
+
+    if region is not None:
+        _emit_region(region, 0, True)
     else:
-        # emit the output expression, final op fused to the oC0 export
-        root_ins = m.by_result[out_val]
-        if root_ins.opcode == 80:                 # CompositeConstruct
-            emit_construct(root_ins, 0)
-        elif root_ins.opcode in (129, 131, 133):
-            _binop(root_ins.opcode, root_ins.operands[0],
-                   root_ins.operands[1], dst=0, export=True)
-        elif root_ins.opcode == 142:
-            _vts(root_ins.operands[0], root_ins.operands[1], dst=0,
-                 export=True)
-        elif root_ins.opcode == 12:
-            _extinst(root_ins, dst=0, export=True)
-        else:                                     # plain value -> oC0
-            r = operand(out_val)
-            _emit(_V.kMax, {1: (r, False), 2: (r, False)}, 0, True)
+        _emit_value(out_val, 0, True)
 
     constants = []
     for slot in sorted(used_samplers):

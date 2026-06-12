@@ -86,6 +86,11 @@ class _Program:
                 self._max_reg = max(self._max_reg, fields[key])
         if "vector_dest" in fields and not fields.get("is_export"):
             self._max_reg = max(self._max_reg, fields["vector_dest"])
+        # scalar-pipe destination (rcp/sqrt/sin/cos/...) — a real register
+        # write that must count toward the declared GPR total, else the GPU
+        # reads/writes out of bounds (hang or garbage).
+        if fields.get("scalar_write_mask") and not fields.get("is_export"):
+            self._max_reg = max(self._max_reg, fields.get("scalar_dest", 0))
         for i in (1, 2, 3):
             if fields.get(f"src{i}_is_temp"):
                 self._max_reg = max(self._max_reg, fields[f"src{i}_reg"])
@@ -93,6 +98,7 @@ class _Program:
     def alu(self, **fields) -> _Instr:
         self._track_regs(fields)
         ins = _Instr("alu", enc.build_alu(**fields), is_fetch=False)
+        ins.fields = dict(fields)
         self._stages[-1].append(ins)
         return ins
 
@@ -162,6 +168,100 @@ class _Program:
                 dwords.extend(ins.triple)
         assert len(dwords) == total_slots * 3
         return struct.pack(f">{len(dwords)}I", *dwords)
+
+    @staticmethod
+    def _defs_uses(ins):
+        """Temp registers an instruction writes (defs) and reads (uses).
+        Constants, the oC export, and read-only inputs are excluded from defs;
+        only is_temp sources count as uses."""
+        f = ins.fields
+        d, u = [], []
+        if ins.kind == "alu":
+            if not f.get("is_export") and f.get("vector_write_mask", 0):
+                d.append(f["vector_dest"])
+            if f.get("scalar_write_mask", 0) and not f.get("is_export"):
+                d.append(f.get("scalar_dest", 0))
+            for i in (1, 2, 3):
+                if f.get(f"src{i}_is_temp"):
+                    u.append(f[f"src{i}_reg"])
+        else:                                         # tfetch / vfetch
+            d.append(f["dest"])
+            u.append(f["src"])
+        return d, u
+
+    def _allocate_registers(self):
+        """Linear-scan register allocation: recycle dead temporaries so the
+        shader fits the GPR budget. Read-but-never-written registers (the
+        interpolator inputs) stay pinned to r0..; every written register is a
+        'temp' whose live range [first def, last use] is packed into the
+        smallest pool of physical registers. Pixel-shader only (clean
+        input/temp split; a VS's r0 is both vertex-index and a fetch dest)."""
+        import heapq
+        instrs = [ins for stage in self._stages for ins in stage]
+
+        first_def, last_use = {}, {}
+        for idx, ins in enumerate(instrs):
+            d, u = self._defs_uses(ins)
+            for r in u:
+                last_use[r] = idx
+            for r in d:
+                first_def.setdefault(r, idx)
+                last_use[r] = max(last_use.get(r, idx), idx)
+
+        inputs = [r for r in last_use if r not in first_def]
+        ninput = (max(inputs) + 1) if inputs else 0
+        temps = list(first_def)
+
+        intervals = sorted((first_def[r], last_use[r], r) for r in temps)
+        free = list(range(ninput, ninput + len(temps) + 1))
+        heapq.heapify(free)
+        active, mapping = [], {}
+        for start, end, r in intervals:
+            keep = []
+            for e, ph, vr in active:
+                if e < start:                         # dead -> recycle its reg
+                    heapq.heappush(free, ph)
+                else:
+                    keep.append((e, ph, vr))
+            active = keep
+            ph = heapq.heappop(free)
+            mapping[r] = ph
+            active.append((end, ph, r))
+
+        # self-check: temps sharing a physical reg must have disjoint live
+        # ranges (the correctness invariant of the allocation).
+        share = {}
+        for r, ph in mapping.items():
+            share.setdefault(ph, []).append(r)
+        for ph, vrs in share.items():
+            vrs.sort(key=lambda r: first_def[r])
+            for a, b in zip(vrs, vrs[1:]):
+                assert last_use[a] < first_def[b], \
+                    f"register-allocation conflict on physical r{ph}"
+
+        for ins in instrs:                            # remap + re-encode
+            f = dict(ins.fields)
+            if ins.kind == "alu":
+                if not f.get("is_export") and f.get("vector_write_mask", 0):
+                    f["vector_dest"] = mapping.get(f["vector_dest"],
+                                                   f["vector_dest"])
+                if f.get("scalar_write_mask", 0) and not f.get("is_export"):
+                    f["scalar_dest"] = mapping.get(f.get("scalar_dest", 0),
+                                                   f.get("scalar_dest", 0))
+                for i in (1, 2, 3):
+                    if f.get(f"src{i}_is_temp"):
+                        f[f"src{i}_reg"] = mapping.get(f[f"src{i}_reg"],
+                                                       f[f"src{i}_reg"])
+                ins.triple = tuple(enc.build_alu(**f))
+            else:
+                f["dest"] = mapping.get(f["dest"], f["dest"])
+                f["src"] = mapping.get(f["src"], f["src"])
+                ins.triple = tuple(enc.build_tfetch(**f)
+                                   if ins.kind == "tfetch"
+                                   else enc.build_vfetch_full(**f))
+            ins.fields = f
+
+        self._max_reg = max([ninput - 1] + list(mapping.values()))
 
 
 class VertexProgram(_Program):
@@ -237,13 +337,28 @@ class PixelProgram(_Program):
         fields = dict(template, dest=dest, src=src)
         self._track_regs(fields)
         ins = _Instr("tfetch", enc.build_tfetch(**fields), is_fetch=True)
+        ins.fields = dict(fields)
         self._stages[-1].append(ins)
         return ins
 
     def alloc_colors(self):
         self._alloc(2)
 
+    # Xenos pixel-shader GPR budget: 16 registers (r0..r15). Exceeding it is a
+    # silent GPU hang on hardware (observed: r16 hangs, r15 runs), so fail at
+    # compile time instead. Proper fix for large shaders is a register
+    # allocator that recycles dead temps (see docs/xsc.md "the frontier").
+    PS_GPR_MAX = 15
+
     def finish(self, constants: list) -> bytes:
+        if self._max_reg > self.PS_GPR_MAX:
+            self._allocate_registers()                # recycle dead temps
+        if self._max_reg > self.PS_GPR_MAX:
+            import sys
+            print(f"xsc warning: pixel shader still needs {self._max_reg + 1} "
+                  f"GPRs (r0..r{self._max_reg}) > Xenos budget "
+                  f"{self.PS_GPR_MAX + 1} after allocation; will HANG on "
+                  f"hardware.", file=sys.stderr)
         ucode = self._build_ucode()
         return ce.build_container(
             "pixel", ucode, constants=constants,

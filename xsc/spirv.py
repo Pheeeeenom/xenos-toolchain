@@ -54,7 +54,7 @@ OP = {
 # whose result *is* the type and have no result-type word).
 _HAS_TYPE_AND_RESULT = {
     12, 43, 44, 54, 55, 57, 59, 61, 65, 79, 80, 81, 87, 88, 124, 127,
-    129, 130, 131, 133, 136, 142, 144, 145, 146, 148,
+    129, 130, 131, 133, 136, 141, 142, 144, 145, 146, 148,
     169, 180, 182, 184, 186, 188, 190,        # OpSelect + FOrd comparisons
 }
 # Opcodes that carry only result_id (no result type): every Type* op plus
