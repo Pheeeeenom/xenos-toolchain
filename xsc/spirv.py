@@ -44,14 +44,17 @@ OP = {
     254: "ReturnValue",
 }
 
-# Opcodes that carry (result_type_id, result_id) as their first two operands.
+# Opcodes that carry (result_type_id, result_id) as their first two operands:
+# value computations + Constant/Variable/Function (NOT type-defining ops,
+# whose result *is* the type and have no result-type word).
 _HAS_TYPE_AND_RESULT = {
-    12, 21, 22, 23, 24, 25, 27, 28, 30, 32, 33, 43, 44, 59, 61, 65,
-    79, 80, 81, 87, 88, 124, 127, 129, 130, 133, 136, 142, 144, 145,
-    146, 148, 55, 57, 54,
+    12, 43, 44, 54, 55, 57, 59, 61, 65, 79, 80, 81, 87, 88, 124, 127,
+    129, 130, 133, 136, 142, 144, 145, 146, 148,
 }
-# Opcodes that carry only result_id (no result type) as first operand.
-_HAS_RESULT_ONLY = {11, 19, 20, 26, 248}
+# Opcodes that carry only result_id (no result type): every Type* op plus
+# ExtInstImport and Label.
+_HAS_RESULT_ONLY = {11, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 32,
+                    33, 248}
 
 
 @dataclass
