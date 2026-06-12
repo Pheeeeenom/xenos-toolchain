@@ -195,6 +195,30 @@ def main():
         else:
             print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
 
+    # loops: constant-trip for/while unrolled to branch-free SSA (xsc.unroll),
+    # then lowered + oracle-validated. Assert the loop was eliminated and the
+    # body replicated the right number of times (the induction var is folded).
+    from xsc.unroll import unroll as _unroll
+    for name, want_adds, desc in [
+        ("loop_accum", 4, "for i<4: s+=uv.x -> 4x unrolled accumulate"),
+        ("loop_weight", 4, "for i<4: s+=uv.x*float(i) -> induction folded"),
+        ("loop_while", 4, "while i<4 (increment in body) -> 4x unroll"),
+        ("loop_nested", 9, "nested for 3x3 -> 9x (innermost-first)"),
+        ("loop_stair", 5, "5x step() staircase + post-loop *0.2 (mem2reg RMW)"),
+    ]:
+        mu = spirv.Module.parse((TD / f"{name}.frag.spv").read_bytes())
+        _unroll(mu)
+        n_loop = sum(1 for i in mu.instrs if i.opcode == 246)  # OpLoopMerge
+        n_add = sum(1 for i in mu.instrs if i.opcode == 129)   # OpFAdd
+        blob = compile_glsl(f"{name}.frag")
+        h = oracle_hlsl(blob, f"{name}_frag")
+        if h is None or n_loop != 0 or n_add != want_adds:
+            ok = False
+            print(f"  FAIL {name}.frag: {desc} (loops={n_loop} adds={n_add} "
+                  f"want {want_adds}, oracle={'ok' if h else 'REJECT'})")
+        else:
+            print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
+
     # dot(): luminance desaturation (vec3 dot -> dp3, broadcast scalar)
     gray = compile_glsl("gray.frag")
     ghl = oracle_hlsl(gray, "gray_frag")

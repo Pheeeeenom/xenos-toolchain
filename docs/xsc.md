@@ -41,6 +41,7 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 | `radians` / `degrees` | mul by pooled `π/180` / `180/π` |
 | `clamp(x, lo, hi)` arbitrary | `min(max(x,lo),hi)`, lo/hi pooled literals |
 | **`if/else`**, incl. **nested**, assigning the output | branch-free chained `cndgt`/`cndge`/`cndeq` selects |
+| **`for`/`while`** with a compile-time trip count, incl. **nested** | unrolled to branch-free SSA; induction variable constant-folded (see below) |
 | `vec4 t = ...;` (function-local) | store-forwarding |
 | uniforms (block + bare), samplers | constant regs / fetch consts |
 | float / vec literals (0.5, vec4(...)) | constant pool (see below) |
@@ -95,11 +96,40 @@ into the minimum register count (e.g. `invtrig` 33→6, `mathfns` 20→6). Shade
 already within budget are left byte-for-byte unchanged. A self-check asserts no
 two simultaneously-live temps share a register.
 
+## Loops (unrolling + mem2reg)
+
+glslang (`-G --target-env opengl`) lowers `for`/`while` to mutable-memory form:
+an `OpLoopMerge` header, loop-carried values held in Function-storage
+`OpVariable`s mutated by `OpStore`, and an integer induction variable. xsc's
+`unroll.py` runs as a pre-pass **whenever a module contains a loop** and rewrites
+the whole function body into flat, branch-free SSA by symbolically executing the
+structured CFG:
+
+- **Trip count** is recovered from the induction variable's constant
+  init / comparison / step and the body is replicated that many times. The
+  induction variable is **constant-folded**, so `float(i)`, `i*k`,
+  `float(i)*0.2`, etc. become literals (no integer ALU reaches the GPU).
+- **mem2reg**: every Function-local variable is threaded through an environment,
+  so loop-carried accumulation *and* post-loop read-modify-write (`c *= k;`)
+  resolve to SSA values — the lowering's single-store-per-variable model never
+  sees the multiple stores.
+- **Nested** loops expand innermost-first; **`while`** (increment in the body)
+  and **`for`** (increment in the continue block) are both handled.
+
+Because the pass is a no-op when there is no loop, loop-free shaders still lower
+byte-for-byte as before. Unrolled shaders then go through the normal pipeline,
+including the 16-GPR register allocator (e.g. `loop_stair` 17→3 GPRs). See
+`loop_*` in `xsc/testdata/` and the `LOOP` gallery slot.
+
+**Still the frontier:**
+- **Data-dependent loops** — a non-constant trip count (uniform/variable bound)
+  can't be unrolled; `unroll.py` raises `UnrollError` rather than miscompile.
+  These need real Xenos loop control-flow (`kLoopStart`/`kLoopEnd`, encoded in
+  xost but **unproven on hardware**), or a `[[unroll]]`-style bounded fallback.
+- **`if/else` inside a loop body** — branchy loop bodies aren't unrolled yet
+  (the body must be straight-line); also rejected with `UnrollError`.
+
 ## Not yet (the frontier)
-- **`for`/`while` loops** — glslang emits `OpLoopMerge` (it does *not* unroll).
-  Two paths: (a) a `spirv-opt --loop-unroll` pre-pass so xsc sees straight-line
-  code (cleanest for constant trip counts), or (b) real Xenos loop control-flow
-  (`kLoopStart`/`kLoopEnd`, encoded in xost but **unproven on hardware**). v2.
 - **Integer ops** (`int`/`uint` arithmetic, bit ops) — Xenos ALU is float-
   centric; awkward, rarely needed in fragment work.
 - **Matrix math beyond `mvp*pos`** — `mat*mat`, `vec*mat`, `inverse`,

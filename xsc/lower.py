@@ -24,6 +24,7 @@ import xdis.container as container  # noqa: E402
 import xdis.container_emit as ce  # noqa: E402
 import xdis.xenos_ucode as xu  # noqa: E402
 import xsc.spirv as spirv  # noqa: E402
+from xsc.unroll import unroll  # noqa: E402
 from xsc.resolve import resolve_interface, resolve_types  # noqa: E402
 from xasm.program import VertexProgram, PixelProgram  # noqa: E402
 from author_passthrough import alu_fields, vf_fields, corpus_records  # noqa: E402
@@ -998,6 +999,7 @@ def lower_ex(m: spirv.Module):
     """Returns (container_bytes, literal_manifest). The manifest is
     [(constant_register, (f0,f1,f2,f3))] the host must upload for any GLSL
     literals the shader used (empty for vertex / literal-free shaders)."""
+    unroll(m)  # expand constant-trip loops to straight-line SPIR-V (no-op if none)
     stage = "vertex" if m.entry_points[0][0] == 0 else "pixel"
     if stage == "vertex":
         return lower_vertex(m), []

@@ -36,11 +36,17 @@ OP = {
     65: "AccessChain", 71: "Decorate", 72: "MemberDecorate",
     79: "VectorShuffle", 80: "CompositeConstruct", 81: "CompositeExtract",
     87: "ImageSampleImplicitLod", 88: "ImageSampleExplicitLod",
-    124: "Bitcast", 127: "FNegate", 129: "FAdd", 130: "ISub",
-    131: "FSub", 133: "FMul", 136: "FDiv", 142: "VectorTimesScalar",
+    110: "ConvertFToS", 111: "ConvertSToF",
+    124: "Bitcast", 127: "FNegate", 128: "IAdd", 129: "FAdd", 130: "ISub",
+    131: "FSub", 132: "IMul", 133: "FMul", 135: "SDiv", 136: "FDiv",
+    142: "VectorTimesScalar",
     144: "VectorTimesMatrix", 145: "MatrixTimesVector",
     146: "MatrixTimesMatrix", 148: "Dot",
     169: "Select",
+    170: "IEqual", 171: "INotEqual", 172: "UGreaterThan",
+    173: "SGreaterThan", 174: "UGreaterThanEqual", 175: "SGreaterThanEqual",
+    176: "ULessThan", 177: "SLessThan", 178: "ULessThanEqual",
+    179: "SLessThanEqual",
     180: "FOrdEqual", 182: "FOrdNotEqual", 184: "FOrdLessThan",
     186: "FOrdGreaterThan", 188: "FOrdLessThanEqual",
     190: "FOrdGreaterThanEqual",
@@ -56,6 +62,8 @@ _HAS_TYPE_AND_RESULT = {
     12, 43, 44, 54, 55, 57, 59, 61, 65, 79, 80, 81, 87, 88, 124, 127,
     129, 130, 131, 133, 136, 141, 142, 144, 145, 146, 148,
     169, 180, 182, 184, 186, 188, 190,        # OpSelect + FOrd comparisons
+    110, 111, 128, 132, 135,                  # int arith + S<->F convert (loops)
+    170, 171, 172, 173, 174, 175, 176, 177, 178, 179,  # int comparisons
 }
 # Opcodes that carry only result_id (no result type): every Type* op plus
 # ExtInstImport and Label.
