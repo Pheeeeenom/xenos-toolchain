@@ -90,14 +90,13 @@ GLSL frontend. Renders a real app: mupen64-360's shaders go through it.
 
 Measured by compiling representative shaders through glslang→xsc:
 
-1. **Vertex frontend — the biggest gap, and mostly a refactor.** The VS path
-   (`lower_vertex`) only handles `mvp*pos` + passthrough. It fails on:
-   - **chained matrices** (`model*pos` then `viewproj*world`) — it can only
-     multiply a matrix by a *raw vfetch input*, not a computed vector;
-   - **any VS arithmetic** (normalize/dot/sin/component-writes).
-   The fragment path already has all this machinery (`lower.py` `_emit`,
-   builtins, operand resolution). Highest leverage = share that value-lowering
-   with the VS path instead of the minimal `lower_vertex`.
+1. **Vertex frontend — still the biggest remaining gap.** `lower_vertex` now
+   handles chained mat4 x vec4 transforms (`model*pos` then
+   `viewproj*world`) and basic ALU values (`+`, `-`, `*`, `vec*scalar`,
+   `dot`, swizzled temps) feeding position or interpolator exports. Remaining
+   high-value work is the larger fragment/value-lowering refactor for VS:
+   normalize/sqrt/sin/cos/etc., general component writes/constructs, and
+   broader matrix forms (`mat*mat`, `vec*mat`, inverse/determinant).
 
 2. **Fragment control-flow generality:**
    - **`discard`** (→ the `kill` instruction) is unhandled.

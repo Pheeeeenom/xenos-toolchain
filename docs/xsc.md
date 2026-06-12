@@ -19,6 +19,8 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 | GLSL / SPIR-V | Xenos lowering |
 |---|---|
 | vertex `mvp * pos` (MatrixTimesVector) | 4× `dp4` → oPos |
+| vertex chained `mat4 * (mat4 * pos)` | first mat4 x vec4 into a temp, second mat4 x vec4 -> oPos |
+| vertex `+` `-` `*`, `vec * scalar`, `dot()`, swizzled temps | same ALU lowering subset as fragment, feeding position or interpolator exports |
 | passthrough varyings | interpolator exports (max o*N*) |
 | `texture()` (ImageSampleImplicitLod) | `tfetch2D` |
 | `*` `+` `-` (FMul/FAdd/FSub) | mul / add / add-neg |
@@ -132,8 +134,8 @@ including the 16-GPR register allocator (e.g. `loop_stair` 17→3 GPRs). See
 ## Not yet (the frontier)
 - **Integer ops** (`int`/`uint` arithmetic, bit ops) — Xenos ALU is float-
   centric; awkward, rarely needed in fragment work.
-- **Matrix math beyond `mvp*pos`** — `mat*mat`, `vec*mat`, `inverse`,
-  `determinant`.
+- **Matrix math beyond mat4 x vec4 chains** — `mat*mat`, `vec*mat`,
+  `inverse`, `determinant`.
 - Folding `0.0`/`1.0` literals into the free source-select swizzle (they
   currently use a pooled constant register).
 

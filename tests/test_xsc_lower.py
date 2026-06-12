@@ -267,6 +267,43 @@ def main():
             print(f"  PASS spincube.vert oracle = mvp dp4 transform + "
                   f"passthrough ({len(vert)} B)")
 
+    # vertex: chained matrix transforms (computed vector feeds mat4*vec4)
+    chain = compile_glsl("chainmat.vert")
+    chlsl = oracle_hlsl(chain, "chainmat_vert")
+    if chlsl is None:
+        ok = False
+        print("  FAIL chainmat.vert: XenosRecomp rejected it")
+    else:
+        need = ["dot(r0.wzxy, u_model(0)", "r3.w = dot(r0.wzxy, u_model(3)",
+                "dot(r3.wzxy, u_viewproj(0)",
+                "dot(r3.wzxy, u_viewproj(3)", "oTexCoord0", "oColor0"]
+        miss = [s for s in need if s not in chlsl]
+        if miss:
+            ok = False
+            print(f"  FAIL chainmat.vert HLSL missing {miss}")
+        else:
+            print(f"  PASS chainmat.vert: u_viewproj * (u_model * pos) "
+                  f"-> temp dp4 chain + passthrough ({len(chain)} B)")
+
+    # vertex: arithmetic values can feed both position and interpolators
+    varith = compile_glsl("vtx_arith.vert")
+    vahl = oracle_hlsl(varith, "vtx_arith_vert")
+    if vahl is None:
+        ok = False
+        print("  FAIL vtx_arith.vert: XenosRecomp rejected it")
+    else:
+        need = ["r3.xyzw = r0.xyzw + u_offset.xyzw",
+                "dot(r3.wzxy, u_mvp(0)", "dot(r3.wzxy, u_mvp(3)",
+                "r4.xyzw = r1.xyzw * u_tint.xyzw",
+                "oColor0.xyzw = max(r4.xyzw, r4.xyzw)"]
+        miss = [s for s in need if s not in vahl]
+        if miss:
+            ok = False
+            print(f"  FAIL vtx_arith.vert HLSL missing {miss}")
+        else:
+            print(f"  PASS vtx_arith.vert: VS add/mul feed position + "
+                  f"varying exports ({len(varith)} B)")
+
     sys.exit(0 if ok else 1)
 
 
