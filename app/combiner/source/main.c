@@ -211,9 +211,9 @@ int main(void)
 	Xe_InstantiateShader(xe, vs_tex, 0);
 	Xe_ShaderApplyVFetchPatches(xe, vs_tex, 0, &vbf_tex);
 
-	struct XenosShader *bank[6];
+	struct XenosShader *bank[COMB_BANK_SIZE];
 	int i;
-	for (i = 0; i < 6; i++) {
+	for (i = 0; i < COMB_BANK_SIZE; i++) {
 		bank[i] = Xe_LoadShaderFromMemory(xe, comb_bank[i]);
 		Xe_InstantiateShader(xe, bank[i], 0);
 	}
@@ -252,6 +252,19 @@ int main(void)
 	}
 	Xe_Surface_Unlock(xe, tex);
 
+	/* second texture for TEXEL1 modes: diagonal stripes */
+	struct XenosSurface *tex1 =
+		Xe_CreateTexture(xe, 64, 64, 1, XE_FMT_8888 | XE_FMT_ARGB, 0);
+	unsigned char *tp1 = Xe_Surface_LockRect(xe, tex1, 0, 0, 0, 0,
+						 XE_LOCK_WRITE);
+	for (yy = 0; yy < 64; yy++) {
+		unsigned int *row = (unsigned int *)(tp1 + yy * tex1->wpitch);
+		for (xx = 0; xx < 64; xx++)
+			row[xx] = (((xx + yy) >> 4) & 1)
+				? 0xFFFFE080 : 0xFF6080FF;
+	}
+	Xe_Surface_Unlock(xe, tex1);
+
 	edram_init(xe);
 	printf("rendering...\n");
 	console_close();
@@ -273,7 +286,7 @@ int main(void)
 		uint64_t fstart = mftb();
 		float t = (float)((double)(fstart - t0) /
 				  (double)PPC_TIMEBASE_FREQ);
-		int mode = ((int)(t / 4.0f)) % 6;
+		int mode = ((int)(t / 4.0f)) % COMB_BANK_SIZE;
 
 		Xe_InvalidateState(xe);
 		Xe_SetCullMode(xe, 0);
@@ -316,6 +329,7 @@ int main(void)
 		Xe_SetShader(xe, SHADER_TYPE_PIXEL, bank[mode], 0);
 		Xe_SetShader(xe, SHADER_TYPE_VERTEX, vs_tex, 0);
 		Xe_SetTexture(xe, 0, tex);
+		Xe_SetTexture(xe, 1, tex1);
 		Xe_SetStreamSource(xe, 0, vb, 0, 10);
 		Xe_SetIndices(xe, ib);
 		Xe_DrawIndexedPrimitive(xe, XE_PRIMTYPE_TRIANGLELIST,

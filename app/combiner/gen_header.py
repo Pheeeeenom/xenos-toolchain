@@ -7,7 +7,8 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 OUT = Path(__file__).resolve().parent / "source" / "xost_shaders.h"
 
 BANK = ["comb_0_modulate", "comb_1_tex_prim", "comb_2_lerp_pe_t",
-        "comb_3_decal", "comb_4_shade", "comb_5_inv_tex_p"]
+        "comb_3_decal", "comb_4_shade", "comb_5_inv_tex_p",
+        "comb_6_multitex", "comb_7_lerp2_p", "comb_8_add_glow"]
 
 
 def c_array(name: str, data: bytes) -> str:
@@ -29,7 +30,9 @@ def main():
         parts.append(c_array(cname, data))
         parts.append("")
     bank = ", ".join(n for n in names if n.startswith("comb"))
-    parts.append(f"static unsigned char *comb_bank[6] = {{ {bank} }};")
+    parts.append(f"#define COMB_BANK_SIZE {len(BANK)}")
+    parts.append(
+        f"static unsigned char *comb_bank[{len(BANK)}] = {{ {bank} }};")
     parts.append("")
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(parts))
