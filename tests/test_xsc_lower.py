@@ -101,6 +101,27 @@ def main():
         print(f"  PASS blend50.frag: literal 0.5 -> pooled const c0, "
               f"manifest {manifest} ({len(bl50)} B)")
 
+    # dot(): luminance desaturation (vec3 dot -> dp3, broadcast scalar)
+    gray = compile_glsl("gray.frag")
+    ghl = oracle_hlsl(gray, "gray_frag")
+    if ghl is None or "dot(r2.xyz, _lit0.xyz)" not in ghl or \
+            "oC0.xyz = max(r3.xyz" not in ghl:
+        ok = False
+        print("  FAIL gray.frag: dot()/dp3 desaturation wrong")
+    else:
+        print(f"  PASS gray.frag: dot(rgb, luma) -> dp3 broadcast, "
+              f"vec4(lum,lum,lum,a) ({len(gray)} B)")
+
+    # clamp(x,0,1) -> free saturate modifier (no extra instruction)
+    sat = compile_glsl("sat.frag")
+    shl = oracle_hlsl(sat, "sat_frag")
+    if shl is None or "saturate(r2.xyzw + r1.xyzw)" not in shl:
+        ok = False
+        print("  FAIL sat.frag: clamp->saturate wrong")
+    else:
+        print(f"  PASS sat.frag: clamp(x,0,1) -> add_sat fused, free "
+              f"({len(sat)} B)")
+
     # VectorTimesScalar: modulate by a scalar uniform (.xxxx broadcast)
     bright = compile_glsl("bright.frag")
     bhl = oracle_hlsl(bright, "bright_frag")

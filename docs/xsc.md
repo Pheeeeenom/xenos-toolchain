@@ -23,7 +23,8 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 | `texture()` (ImageSampleImplicitLod) | `tfetch2D` |
 | `*` `+` `-` (FMul/FAdd/FSub) | mul / add / add-neg |
 | `vec * float` (VectorTimesScalar) | mul, scalar `.xxxx` broadcast |
-| `mix` / `max` / `min` (GLSL.std.450) | sub+mad / max / min |
+| `dot()` (OpDot) | `dp3`/`dp4`, result broadcast to all components |
+| `mix` / `max` / `min` / `clamp(x,0,1)` (GLSL.std.450) | sub+mad / max / min / `_sat` modifier (free) |
 | `.rgb` `.xy` (identity-prefix VectorShuffle) | same registers |
 | `v.x` (CompositeExtract), `vec4(a,b)` (CompositeConstruct) | masked exports |
 | `vec4 t = ...;` (function-local) | store-forwarding |
@@ -54,8 +55,9 @@ ALU source-select swizzle, which is free and needs no register.)
 ## Not yet (honest scope)
 - Control flow (`if`/`for`) — the cjmp/predication encoders exist
   (examples/author_features.py), structured-CF lowering is v2.
-- `dot()`, `clamp`→saturate, non-identity swizzles (`.bgr`), general
-  mid-expression CompositeConstruct, integer ops.
+- Non-identity swizzles (`.bgr`), general mid-expression CompositeConstruct,
+  integer ops, arbitrary (non-[0,1]) clamp, folding 0.0/1.0 literals into the
+  source-select swizzle (currently they use a pooled constant register).
 
 ## Validation
 Every test shader is checked by the XenosRecomp oracle (which does the

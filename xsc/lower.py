@@ -24,7 +24,7 @@ import xdis.container as container  # noqa: E402
 import xdis.container_emit as ce  # noqa: E402
 import xdis.xenos_ucode as xu  # noqa: E402
 import xsc.spirv as spirv  # noqa: E402
-from xsc.resolve import resolve_interface  # noqa: E402
+from xsc.resolve import resolve_interface, resolve_types  # noqa: E402
 from xasm.program import VertexProgram, PixelProgram  # noqa: E402
 from author_passthrough import alu_fields, vf_fields, corpus_records  # noqa: E402
 from author_textured import tf_fields  # noqa: E402
@@ -150,8 +150,13 @@ def lower_fragment(m: spirv.Module) -> bytes:
     if si.stage != "pixel":
         raise LowerError("lower_fragment called on non-pixel module")
     T = _templates()
+    types = resolve_types(m)
     stores = _store_map(m)
     p = PixelProgram()
+
+    def vec_size(ssa):
+        t = types.get(m.by_result[ssa].result_type)
+        return t.count if t and t.kind == "vector" else 1
 
     interp_reg = {}
     maxr = -1
@@ -280,6 +285,8 @@ def lower_fragment(m: spirv.Module) -> bytes:
             res = ("reg", _binop(op, ins.operands[0], ins.operands[1]))
         elif op == 142:                           # VectorTimesScalar
             res = ("reg", _vts(ins.operands[0], ins.operands[1]))
+        elif op == 148:                           # OpDot
+            res = ("reg", _dot(ins.operands[0], ins.operands[1]))
         elif op == 43:                            # OpConstant (scalar lit)
             v = _scalar_const(ssa_id)
             res = ("const", _literal_reg((v, v, v, v)))
@@ -310,17 +317,29 @@ def lower_fragment(m: spirv.Module) -> bytes:
         fields[f"src{n}_swizzle"] = swizzle
         fields[f"src{n}_negate"] = negate
 
-    def _emit(opcode, ops, dst, export, mask=0xF):
+    def _emit(opcode, ops, dst, export, mask=0xF, clamp=False):
         n_const = sum(1 for v in ops.values() if v[0][0] == "const")
         if n_const > 1:
             raise LowerError(">1 constant operand (v1 cannot split here)")
         f = dict(T["mov"], vector_opcode=opcode, vector_dest=dst,
-                 is_export=export, vector_write_mask=mask)
+                 is_export=export, vector_write_mask=mask,
+                 vector_clamp=clamp)
         for n, v in ops.items():
             opnd, neg = v[0], v[1]
             swz = v[2] if len(v) > 2 else 0
             _src(f, n, opnd, neg, swz)
         p.alu(**f)
+
+    def _const_scalar(ssa):
+        """A scalar constant value, possibly wrapped in a broadcast
+        CompositeConstruct; returns the float or raises."""
+        ins = m.by_result[ssa]
+        if ins.opcode == 43:
+            return _scalar_const(ssa)
+        if ins.opcode == 80 and len(set(ins.operands)) == 1 and \
+                m.by_result[ins.operands[0]].opcode == 43:
+            return _scalar_const(ins.operands[0])
+        raise LowerError(f"%{ssa} is not a constant scalar")
 
     def _const_val(ssa_id):
         c = m.by_result.get(ssa_id)
@@ -329,18 +348,25 @@ def lower_fragment(m: spirv.Module) -> bytes:
         return c.operands[0]
 
     def scalar_origin(ssa_id):
-        """Resolve a scalar SSA to (vector_operand, source_component)."""
+        """Resolve a scalar SSA to (vector_operand, component). The component
+        is an int, or "B" when the value is broadcast across all components
+        (a dp3/dp4 result or a scalar constant)."""
         ins = m.by_result[ssa_id]
         if ins.opcode == 81:                      # CompositeExtract(v, idx)
             return operand(ins.operands[0]), ins.operands[1]
-        if ins.opcode == 61:                      # Load of AccessChain comp
-            ptr = m.by_result.get(ins.operands[0])
+        if ins.opcode == 61:                      # Load
+            src = ins.operands[0]
+            ptr = m.by_result.get(src)
             if ptr is not None and ptr.opcode == 65:  # AccessChain base idx
                 base, comp = ptr.operands[0], _const_val(ptr.operands[1])
                 if base in local_store:
                     return operand(local_store[base]), comp
                 if base in interp_reg:
                     return ("reg", interp_reg[base]), comp
+            if src in local_store:                # local holding a scalar val
+                return operand(local_store[src]), "B"
+        if ins.opcode in (148, 43):               # Dot / OpConstant scalar
+            return operand(ssa_id), "B"
         raise LowerError(f"cannot resolve scalar %{ssa_id}")
 
     def emit_construct(ins, export_reg):
@@ -349,31 +375,47 @@ def lower_fragment(m: spirv.Module) -> bytes:
         j = 0
         while j < n:
             op_j = origins[j][0]
-            k = j
-            while k < n and origins[k][0] == op_j and origins[k][1] == k:
+            k = j                                 # run: same reg, identity
+            while k < n and origins[k][0] == op_j and \
+                    origins[k][1] in (k, "B"):    # broadcast fits any slot
                 k += 1
-            if k > j:                             # identity run [j, k)
+            if k > j:
                 mask = sum(1 << t for t in range(j, k))
                 _emit(_V.kMax, {1: (op_j, False), 2: (op_j, False)},
                       export_reg, True, mask=mask)
                 j = k
-            else:                                 # route comp -> position j
+            else:                                 # singleton: route comp->j
                 op, comp = origins[j]
-                swz = ((comp - j) & 3) << (2 * j)
+                swz = 0 if comp == "B" else ((comp - j) & 3) << (2 * j)
                 _emit(_V.kMax, {1: (op, False, swz), 2: (op, False, swz)},
                       export_reg, True, mask=(1 << j))
                 j += 1
 
-    def _binop(op, a, b, dst=None, export=False):
+    def _binop(op, a, b, dst=None, export=False, clamp=False):
         oa, ob = operand(a), operand(b)
         if dst is None:
             dst = fresh()
         if op == 133:                             # FMul
-            _emit(_V.kMul, {1: (oa, False), 2: (ob, False)}, dst, export)
+            _emit(_V.kMul, {1: (oa, False), 2: (ob, False)}, dst, export,
+                  clamp=clamp)
         elif op == 129:                           # FAdd
-            _emit(_V.kAdd, {1: (oa, False), 2: (ob, False)}, dst, export)
+            _emit(_V.kAdd, {1: (oa, False), 2: (ob, False)}, dst, export,
+                  clamp=clamp)
         else:                                     # FSub: a + (-b)
-            _emit(_V.kAdd, {1: (oa, False), 2: (ob, True)}, dst, export)
+            _emit(_V.kAdd, {1: (oa, False), 2: (ob, True)}, dst, export,
+                  clamp=clamp)
+        return dst
+
+    def _emit_clamped(ssa, dst, export):
+        """Lower a value with the saturate (clamp-to-[0,1]) modifier on its
+        final instruction."""
+        vi = m.by_result[ssa]
+        if vi.opcode in (129, 130, 133):
+            return _binop(vi.opcode, vi.operands[0], vi.operands[1],
+                          dst=dst, export=export, clamp=True)
+        r = operand(ssa)
+        _emit(_V.kMax, {1: (r, False), 2: (r, False)}, dst, export,
+              clamp=True)
         return dst
 
     # broadcast swizzle: every component reads source component x (.xxxx)
@@ -387,6 +429,16 @@ def lower_fragment(m: spirv.Module) -> bytes:
             dst = fresh()
         _emit(_V.kMul, {1: (ov, False), 2: (os, False, _BCAST_X)},
               dst, export)
+        return dst
+
+    def _dot(a, b, dst=None, export=False):
+        """dot(a,b): dp3 (vec3) or dp4 (vec4); result broadcast to all
+        components (write mask 0xF) so downstream reads any component."""
+        oa, ob = operand(a), operand(b)
+        opcode = _V.kDp3 if vec_size(a) == 3 else _V.kDp4
+        if dst is None:
+            dst = fresh()
+        _emit(opcode, {1: (oa, False), 2: (ob, False)}, dst, export, mask=0xF)
         return dst
 
     def _extinst(ins, dst=None, export=False):
@@ -407,6 +459,11 @@ def lower_fragment(m: spirv.Module) -> bytes:
                   {1: (operand(args[0]), False),
                    2: (operand(args[1]), False)}, dst, export)
             return dst
+        if inst == 43:                            # FClamp(x, lo, hi)
+            lo, hi = _const_scalar(args[1]), _const_scalar(args[2])
+            if lo == 0.0 and hi == 1.0:           # saturate -> free modifier
+                return _emit_clamped(args[0], dst, export)
+            raise LowerError("v1 clamp supports only [0,1] (saturate)")
         raise LowerError(f"v1 fragment: unhandled GLSL.std.450 #{inst}")
 
     # emit the output expression with its final op fused to the oC0 export
