@@ -25,8 +25,11 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 | `vec * float` (VectorTimesScalar) | mul, scalar `.xxxx` broadcast |
 | `dot()` (OpDot) | `dp3`/`dp4`, result broadcast to all components |
 | `mix` / `max` / `min` / `clamp(x,0,1)` (GLSL.std.450) | sub+mad / max / min / `_sat` modifier (free) |
-| `.rgb` `.xy` (identity-prefix VectorShuffle) | same registers |
+| `.rgb` `.xy` (identity VectorShuffle) / `.bgra` (reorder) | same regs / swizzled mov |
 | `v.x` (CompositeExtract), `vec4(a,b)` (CompositeConstruct) | masked exports |
+| `floor()` / `abs()` | `kFloor` / `max(x,-x)` |
+| `clamp(x, lo, hi)` arbitrary | `min(max(x,lo),hi)`, lo/hi pooled literals |
+| **`if/else`** that assigns the output | branch-free `cndgt`/`cndge`/`cndeq` select |
 | `vec4 t = ...;` (function-local) | store-forwarding |
 | uniforms (block + bare), samplers | constant regs / fetch consts |
 | float / vec literals (0.5, vec4(...)) | constant pool (see below) |

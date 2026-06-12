@@ -111,6 +111,21 @@ def main():
         print(f"  PASS cf_if.frag: if(a>b) A else B -> cndgt select, "
               f"branch-free ({len(cfif)} B)")
 
+    # non-identity swizzle (.bgra) + arbitrary clamp + floor/abs
+    for name, needle, desc in [
+        ("sw_swizzle", "max(r2.zyxw", "non-identity swizzle .bgra"),
+        ("clamprange", "min(r4.xyzw, _lit1.xyzw)",
+         "clamp(x,0.2,0.8) -> max/min + pooled literals"),
+        ("floorabs", "floor(r1.xyzw)", "floor() + abs() as max(x,-x)"),
+    ]:
+        blob = compile_glsl(f"{name}.frag")
+        h = oracle_hlsl(blob, f"{name}_frag")
+        if h is None or needle not in h:
+            ok = False
+            print(f"  FAIL {name}.frag: {desc}")
+        else:
+            print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
+
     # dot(): luminance desaturation (vec3 dot -> dp3, broadcast scalar)
     gray = compile_glsl("gray.frag")
     ghl = oracle_hlsl(gray, "gray_frag")

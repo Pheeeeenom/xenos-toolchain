@@ -307,9 +307,17 @@ def lower_fragment(m: spirv.Module) -> bytes:
             idxs = list(ins.operands[2:])
             if idxs == list(range(len(idxs))):    # identity prefix (.rgb/.xy)
                 res = operand(ins.operands[0])
+            elif all(i < 4 for i in idxs):        # single-source reorder
+                base = operand(ins.operands[0])
+                swz = sum(((idxs[pp] - pp) & 3) << (2 * pp)
+                          for pp in range(len(idxs)))
+                r = fresh()
+                _emit(_V.kMax, {1: (base, False, swz), 2: (base, False, swz)},
+                      r, False)
+                res = ("reg", r)
             else:
-                raise LowerError(f"non-identity swizzle {idxs} (v1)")
-        elif op in (129, 130, 133):               # FAdd FSub FMul
+                raise LowerError(f"two-source swizzle {idxs} (v1)")
+        elif op in (129, 131, 133):               # FAdd FSub FMul
             res = ("reg", _binop(op, ins.operands[0], ins.operands[1]))
         elif op == 142:                           # VectorTimesScalar
             res = ("reg", _vts(ins.operands[0], ins.operands[1]))
@@ -441,7 +449,7 @@ def lower_fragment(m: spirv.Module) -> bytes:
         """Lower a value with the saturate (clamp-to-[0,1]) modifier on its
         final instruction."""
         vi = m.by_result[ssa]
-        if vi.opcode in (129, 130, 133):
+        if vi.opcode in (129, 131, 133):
             return _binop(vi.opcode, vi.operands[0], vi.operands[1],
                           dst=dst, export=export, clamp=True)
         r = operand(ssa)
@@ -490,11 +498,27 @@ def lower_fragment(m: spirv.Module) -> bytes:
                   {1: (operand(args[0]), False),
                    2: (operand(args[1]), False)}, dst, export)
             return dst
+        if inst == 8:                             # Floor
+            _emit(_V.kFloor, {1: (operand(args[0]), False),
+                              2: (operand(args[0]), False)}, dst, export)
+            return dst
+        if inst == 4:                             # FAbs -> max(x, -x)
+            ox = operand(args[0])
+            _emit(_V.kMax, {1: (ox, False), 2: (ox, True)}, dst, export)
+            return dst
         if inst == 43:                            # FClamp(x, lo, hi)
             lo, hi = _const_scalar(args[1]), _const_scalar(args[2])
             if lo == 0.0 and hi == 1.0:           # saturate -> free modifier
                 return _emit_clamped(args[0], dst, export)
-            raise LowerError("v1 clamp supports only [0,1] (saturate)")
+            # general clamp = min(max(x, lo), hi); lo/hi pooled literals
+            ox = operand(args[0])
+            lo_op = ("const", _literal_reg((lo, lo, lo, lo)))
+            hi_op = ("const", _literal_reg((hi, hi, hi, hi)))
+            t = fresh()
+            _emit(_V.kMax, {1: (ox, False), 2: (lo_op, False)}, t, False)
+            _emit(_V.kMin, {1: (("reg", t), False), 2: (hi_op, False)},
+                  dst, export)
+            return dst
         raise LowerError(f"v1 fragment: unhandled GLSL.std.450 #{inst}")
 
     # comparison opcode -> (cnd vector op, swap operands, swap branches)
@@ -534,7 +558,7 @@ def lower_fragment(m: spirv.Module) -> bytes:
         root_ins = m.by_result[out_val]
         if root_ins.opcode == 80:                 # CompositeConstruct
             emit_construct(root_ins, 0)
-        elif root_ins.opcode in (129, 130, 133):
+        elif root_ins.opcode in (129, 131, 133):
             _binop(root_ins.opcode, root_ins.operands[0],
                    root_ins.operands[1], dst=0, export=True)
         elif root_ins.opcode == 142:

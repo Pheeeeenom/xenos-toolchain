@@ -36,8 +36,8 @@ OP = {
     65: "AccessChain", 71: "Decorate", 72: "MemberDecorate",
     79: "VectorShuffle", 80: "CompositeConstruct", 81: "CompositeExtract",
     87: "ImageSampleImplicitLod", 88: "ImageSampleExplicitLod",
-    124: "Bitcast", 127: "FNegate", 129: "FAdd", 130: "FSub",
-    133: "FMul", 136: "FDiv", 142: "VectorTimesScalar",
+    124: "Bitcast", 127: "FNegate", 129: "FAdd", 130: "ISub",
+    131: "FSub", 133: "FMul", 136: "FDiv", 142: "VectorTimesScalar",
     144: "VectorTimesMatrix", 145: "MatrixTimesVector",
     146: "MatrixTimesMatrix", 148: "Dot",
     169: "Select",
@@ -54,7 +54,7 @@ OP = {
 # whose result *is* the type and have no result-type word).
 _HAS_TYPE_AND_RESULT = {
     12, 43, 44, 54, 55, 57, 59, 61, 65, 79, 80, 81, 87, 88, 124, 127,
-    129, 130, 133, 136, 142, 144, 145, 146, 148,
+    129, 130, 131, 133, 136, 142, 144, 145, 146, 148,
     169, 180, 182, 184, 186, 188, 190,        # OpSelect + FOrd comparisons
 }
 # Opcodes that carry only result_id (no result type): every Type* op plus
