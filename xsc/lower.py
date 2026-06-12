@@ -31,6 +31,7 @@ from author_textured import tf_fields  # noqa: E402
 
 OPOS = int(xu.ExportRegister.kVSPosition)  # 62
 _V = xu.AluVectorOpcode
+_S = xu.AluScalarOpcode
 
 
 class LowerError(Exception):
@@ -332,13 +333,15 @@ def lower_fragment(m: spirv.Module) -> bytes:
             res = ("const", _literal_reg(tuple(comps)))
         elif op == 80:                            # CompositeConstruct value
             parts = ins.operands
-            if len(set(parts)) == 1 and \
-                    m.by_result[parts[0]].opcode == 43:   # broadcast scalar
-                v = _scalar_const(parts[0])
-                res = ("const", _literal_reg((v, v, v, v)))
+            if len(set(parts)) == 1:              # broadcast of one scalar
+                if m.by_result[parts[0]].opcode == 43:    # literal scalar
+                    v = _scalar_const(parts[0])
+                    res = ("const", _literal_reg((v, v, v, v)))
+                else:                             # e.g. vec3(u_gamma)
+                    res = operand(parts[0])       # consumer broadcasts (.xxxx)
             else:
-                raise LowerError("v1: only broadcast-constant "
-                                 "CompositeConstruct usable as a value")
+                raise LowerError("v1: only broadcast CompositeConstruct "
+                                 "usable as a value")
         elif op == 12:                            # ExtInst
             res = ("reg", _extinst(ins))
         else:
@@ -354,7 +357,7 @@ def lower_fragment(m: spirv.Module) -> bytes:
         fields[f"src{n}_negate"] = negate
 
     def _emit(opcode, ops, dst, export, mask=0xF, clamp=False):
-        n_const = sum(1 for v in ops.values() if v[0][0] == "const")
+        n_const = len({v[0][1] for v in ops.values() if v[0][0] == "const"})
         if n_const > 1:
             raise LowerError(">1 constant operand (v1 cannot split here)")
         f = dict(T["mov"], vector_opcode=opcode, vector_dest=dst,
@@ -480,6 +483,27 @@ def lower_fragment(m: spirv.Module) -> bytes:
         _emit(opcode, {1: (oa, False), 2: (ob, False)}, dst, export, mask=0xF)
         return dst
 
+    def _emit_scalar(sop, dst, src_op, src_comp=3, mask=0xF):
+        """A standalone scalar-pipe op (rsq/sqrt/exp/log/...): the vector half
+        is a nop (write mask 0); the scalar half reads ONE component of src3
+        and broadcasts its result to `dst`. Returns dst."""
+        kind, reg = src_op
+        swz = ((src_comp - 3) & 3) << 6           # scalar reads src3 pos-3
+        f = dict(T["mov"], vector_opcode=_V.kMax, vector_dest=0,
+                 vector_write_mask=0, vector_clamp=False,
+                 scalar_opcode=sop, scalar_dest=dst, scalar_write_mask=mask,
+                 scalar_clamp=False, is_export=False,
+                 src3_reg=reg, src3_is_temp=(kind == "reg"),
+                 src3_swizzle=swz, src3_negate=False)
+        p.alu(**f)
+        return dst
+
+    def _dotself(ov, n):                          # dot(v, v) -> broadcast reg
+        d = fresh()
+        _emit(_V.kDp3 if n == 3 else _V.kDp4, {1: (ov, False), 2: (ov, False)},
+              d, False, mask=0xF)
+        return d
+
     def _extinst(ins, dst=None, export=False):
         inst = ins.operands[1]
         args = ins.operands[2:]
@@ -498,9 +522,56 @@ def lower_fragment(m: spirv.Module) -> bytes:
                   {1: (operand(args[0]), False),
                    2: (operand(args[1]), False)}, dst, export)
             return dst
+        def _scalar_result(sop, src_op, src_comp=3):
+            if export:
+                r = _emit_scalar(sop, fresh(), src_op, src_comp)
+                _emit(_V.kMax, {1: (("reg", r), False),
+                                2: (("reg", r), False)}, dst, True)
+            else:
+                _emit_scalar(sop, dst, src_op, src_comp)
+            return dst
+
         if inst == 8:                             # Floor
             _emit(_V.kFloor, {1: (operand(args[0]), False),
                               2: (operand(args[0]), False)}, dst, export)
+            return dst
+        if inst == 69:                            # Normalize(v)= v*rsq(dot)
+            ov = operand(args[0])
+            d = _dotself(ov, vec_size(args[0]))
+            s = _emit_scalar(_S.kRsq, fresh(), ("reg", d))
+            _emit(_V.kMul, {1: (ov, False), 2: (("reg", s), False)},
+                  dst, export)
+            return dst
+        if inst == 66:                            # Length(v) = sqrt(dot(v,v))
+            ov = operand(args[0])
+            d = _dotself(ov, vec_size(args[0]))
+            return _scalar_result(_S.kSqrt, ("reg", d))
+        if inst == 67:                            # Distance(a,b)=length(a-b)
+            oa, ob = operand(args[0]), operand(args[1])
+            diff = fresh()
+            _emit(_V.kAdd, {1: (oa, False), 2: (ob, True)}, diff, False)
+            d = _dotself(("reg", diff), vec_size(args[0]))
+            return _scalar_result(_S.kSqrt, ("reg", d))
+        if inst == 31:                            # Sqrt (scalar/broadcast arg)
+            return _scalar_result(_S.kSqrt, operand(args[0]))
+        if inst == 32:                            # InverseSqrt
+            return _scalar_result(_S.kRsq, operand(args[0]))
+        if inst == 29:                            # Exp2
+            return _scalar_result(_S.kExp, operand(args[0]))
+        if inst == 30:                            # Log2
+            return _scalar_result(_S.kLog, operand(args[0]))
+        if inst == 26:                            # Pow(x,y)=exp2(y*log2 x)
+            ox, oy = operand(args[0]), operand(args[1])
+            n = max(vec_size(args[0]), 1)
+            for i in range(n):                    # per component (scalar pipe)
+                li = _emit_scalar(_S.kLog, fresh(), ox, src_comp=i)
+                mi = fresh()
+                _emit(_V.kMul, {1: (("reg", li), False),
+                                2: (oy, False, _BCAST_X)}, mi, False)
+                ri = _emit_scalar(_S.kExp, fresh(), ("reg", mi))
+                _emit(_V.kMax, {1: (("reg", ri), False),
+                                2: (("reg", ri), False)}, dst, export,
+                      mask=(1 << i))
             return dst
         if inst == 4:                             # FAbs -> max(x, -x)
             ox = operand(args[0])

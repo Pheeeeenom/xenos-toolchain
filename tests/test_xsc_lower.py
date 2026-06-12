@@ -101,6 +101,20 @@ def main():
         print(f"  PASS blend50.frag: literal 0.5 -> pooled const c0, "
               f"manifest {manifest} ({len(bl50)} B)")
 
+    # scalar pipe: normalize + length (rsq/sqrt), and the full mathfns
+    # stress shader (normalize+length+pow+floor) must compile + oracle-pass
+    for name, needle, desc in [
+        ("normlen", "rsqrt(r3.w)", "normalize (dp3+rsq) + length (dp3+sqrt)"),
+        ("mathfns", "exp2(", "normalize+length+pow(log2/exp2)+floor stress"),
+    ]:
+        blob = compile_glsl(f"{name}.frag")
+        h = oracle_hlsl(blob, f"{name}_frag")
+        if h is None or needle not in h:
+            ok = False
+            print(f"  FAIL {name}.frag: {desc}")
+        else:
+            print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
+
     # control flow: if/else select -> branch-free cnd op (no jumps)
     cfif = compile_glsl("cf_if.frag")
     chl = oracle_hlsl(cfif, "cf_if_frag")
