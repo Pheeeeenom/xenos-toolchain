@@ -30,7 +30,16 @@ GALLERY = [
     ("GRAY", "gray.frag"),           # luminance desaturate (dot/dp3 + literal)
     ("GLOW", "sat.frag"),            # clamp(tex+color,0,1) -> add_sat
     ("BLEND50", "blend50.frag"),     # mix(tex,color,0.5)  (literal pool)
+    ("IFELSE", "cf_if.frag"),        # if(tex.r>thr) color else tex  (cnd!)
+    ("SWIZ", "sw_swizzle.frag"),     # tex.bgra * color
+    ("CLAMP", "clamprange.frag"),    # clamp(tex*color, 0.2, 0.8)
+    ("FLRABS", "floorabs.frag"),     # abs(tex-color)+floor(color)
 ]
+
+# extra (non-literal) uniform values to upload per shader: {stem: [(reg, 4f)]}
+EXTRA = {
+    "cf_if.frag": [(0, (0.5, 0.5, 0.5, 0.5))],   # u_threshold = 0.5
+}
 
 
 def compile_frag(stem):
@@ -72,19 +81,20 @@ def main():
         parts.append(c_array(name, data))
         parts.append("")
 
-    # gallery fragment shaders + manifests
+    # gallery fragment shaders + manifests (literal pool + extra uniforms)
     entries = []
     for i, (label, stem) in enumerate(GALLERY):
         blob, manifest = compile_frag(stem)
+        consts = list(manifest) + EXTRA.get(stem, [])
         parts.append(c_array(f"gal_ps{i}", blob))
-        if manifest:
+        if consts:
             rows = ",\n\t".join(
                 "{ %d, { %ff, %ff, %ff, %ff } }" % (reg, *vals)
-                for reg, vals in manifest)
+                for reg, vals in consts)
             parts.append(f"static const gallery_const gal_c{i}[] = {{\n"
                          f"\t{rows}\n}};")
         parts.append("")
-        entries.append((label, i, len(manifest)))
+        entries.append((label, i, len(consts)))
 
     parts.append("#define GALLERY_N %d" % len(GALLERY))
     parts.append("static const gallery_entry gallery[GALLERY_N] = {")
