@@ -1,3 +1,4 @@
 reference/
 __pycache__/
 *.pyc
+tools/glslang/
