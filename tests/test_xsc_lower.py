@@ -106,6 +106,7 @@ def main():
     for name, needle, desc in [
         ("normlen", "rsqrt(r3.w)", "normalize (dp3+rsq) + length (dp3+sqrt)"),
         ("mathfns", "exp2(", "normalize+length+pow(log2/exp2)+floor stress"),
+        ("explog", "sin(r1.y)", "exp/log natural + reflect(mad) + sin/cos"),
     ]:
         blob = compile_glsl(f"{name}.frag")
         h = oracle_hlsl(blob, f"{name}_frag")

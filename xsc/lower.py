@@ -560,6 +560,42 @@ def lower_fragment(m: spirv.Module) -> bytes:
             return _scalar_result(_S.kExp, operand(args[0]))
         if inst == 30:                            # Log2
             return _scalar_result(_S.kLog, operand(args[0]))
+        def _sbcast(c):                           # broadcast component c
+            return sum(((c - pp) & 3) << (2 * pp) for pp in range(4))
+
+        def _scalar_src(ssa):                     # (operand, swizzle) of scalar
+            o, c = scalar_origin(ssa)
+            return o, (0 if c == "B" else _sbcast(c)), (3 if c == "B" else c)
+
+        if inst == 27:                            # Exp = exp2(x*log2 e)
+            o, sw, c = _scalar_src(args[0])
+            ck = ("const", _literal_reg((1.4426950408,) * 4))
+            mm = fresh()
+            _emit(_V.kMul, {1: (o, False, sw), 2: (ck, False)}, mm, False)
+            return _scalar_result(_S.kExp, ("reg", mm))
+        if inst == 28:                            # Log = log2(x)*ln2
+            o, sw, c = _scalar_src(args[0])
+            lg = _emit_scalar(_S.kLog, fresh(), o, src_comp=c)
+            ck = ("const", _literal_reg((0.6931471805,) * 4))
+            _emit(_V.kMul, {1: (("reg", lg), False), 2: (ck, False)},
+                  dst, export)
+            return dst
+        if inst in (13, 14):                      # Sin / Cos (range-limited)
+            o, sw, c = _scalar_src(args[0])
+            return _scalar_result(_S.kSin if inst == 13 else _S.kCos, o, c)
+        if inst == 71:                            # Reflect=i-2*dot(n,i)*n
+            oi, on = operand(args[0]), operand(args[1])
+            d = _dotself(on, vec_size(args[0])) if args[0] == args[1] else None
+            if d is None:
+                d = fresh()
+                _emit(_V.kDp3 if vec_size(args[0]) == 3 else _V.kDp4,
+                      {1: (on, False), 2: (oi, False)}, d, False, mask=0xF)
+            d2 = fresh()
+            _emit(_V.kAdd, {1: (("reg", d), False), 2: (("reg", d), False)},
+                  d2, False)
+            _emit(_V.kMad, {1: (("reg", d2), True), 2: (on, False),
+                            3: (oi, False)}, dst, export)
+            return dst
         if inst == 26:                            # Pow(x,y)=exp2(y*log2 x)
             ox, oy = operand(args[0]), operand(args[1])
             n = max(vec_size(args[0]), 1)

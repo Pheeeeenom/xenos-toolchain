@@ -25,6 +25,11 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 | `vec * float` (VectorTimesScalar) | mul, scalar `.xxxx` broadcast |
 | `dot()` (OpDot) | `dp3`/`dp4`, result broadcast to all components |
 | `mix` / `max` / `min` / `clamp(x,0,1)` (GLSL.std.450) | sub+mad / max / min / `_sat` modifier (free) |
+| `normalize` / `length` / `distance` | dp3·rsq·mul / dp+sqrt / sub+dp+sqrt (scalar pipe) |
+| `sqrt` `inversesqrt` `exp2` `log2` `exp` `log` | scalar-pipe `kSqrt`/`kRsq`/`kExp`/`kLog` (+const for natural) |
+| `pow(x,y)` | per-component `exp2(y·log2 x)` (scalar pipe) |
+| `reflect(i,n)` | `i - 2·dot(n,i)·n` (dp + mad) |
+| `sin` / `cos` | scalar `kSin`/`kCos` — **range-limited ~[-π,π]** (see below) |
 | `.rgb` `.xy` (identity VectorShuffle) / `.bgra` (reorder) | same regs / swizzled mov |
 | `v.x` (CompositeExtract), `vec4(a,b)` (CompositeConstruct) | masked exports |
 | `floor()` / `abs()` | `kFloor` / `max(x,-x)` |
@@ -55,12 +60,26 @@ sets uniforms. Example: `mix(tex, color, 0.5)` →
 `[(0, (0.5,0.5,0.5,0.5))]` — upload 0.5 to c0. (Future: fold 0.0/1.0 into the
 ALU source-select swizzle, which is free and needs no register.)
 
+## Scalar pipe (the transcendentals)
+
+Xenos `rsq`/`sqrt`/`exp2`/`log2`/`sin`/`cos` are **scalar-pipe** ops: the ALU
+instruction's vector half is a nop (`vector_write_mask=0`) and the scalar
+half reads one component of src3 and broadcasts its result. `normalize`,
+`length`, `pow`, etc. compose these with `dp3`/`dp4` and `mul`. No common-
+subexpression elimination yet, so `normalize(v)` + `length(v)` recomputes
+`dot(v,v)` twice — correct, slightly redundant.
+
 ## Not yet (honest scope)
-- Control flow (`if`/`for`) — the cjmp/predication encoders exist
-  (examples/author_features.py), structured-CF lowering is v2.
-- Non-identity swizzles (`.bgr`), general mid-expression CompositeConstruct,
-  integer ops, arbitrary (non-[0,1]) clamp, folding 0.0/1.0 literals into the
-  source-select swizzle (currently they use a pooled constant register).
+- **`for` loops** — `if/else` works (cnd select); general loops are v2.
+- **`sin`/`cos` range reduction** — the bare hardware op is accurate only
+  near [-π,π]; a `frac`-based prologue for arbitrary arguments is a refinement
+  (math in `docs/builtin-lowering.md`).
+- **`tan`/`asin`/`acos`/`atan`** — need polynomial approximations (a small
+  approx library; deferred).
+- **`sign`** — derivable (cnd-based) but fiddly with the ≤1-const rule;
+  deferred.
+- Two-source `VectorShuffle`, integer ops, folding 0.0/1.0 literals into the
+  free source-select swizzle (they currently use a pooled constant register).
 
 ## Validation
 Every test shader is checked by the XenosRecomp oracle (which does the
