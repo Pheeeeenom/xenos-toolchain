@@ -52,6 +52,24 @@ def main():
         ok = False
         print(f"  FAIL modulate.frag: {len(frag)} B vs combiner {len(gold)} B")
 
+    # novel shader (never hand-built): mix() must decompose to the lerp
+    # identity x + (y-x)*a and oracle-validate. The proof xsc *compiles*.
+    blend = compile_glsl("blend.frag")
+    bhlsl = oracle_hlsl(blend, "blend_frag")
+    if bhlsl is None:
+        ok = False
+        print("  FAIL blend.frag: XenosRecomp rejected it")
+    else:
+        need = ["r1.xyzw + -r2.xyzw", "* u_blend.xyzw + r2.xyzw"]
+        miss = [s for s in need if s not in bhlsl]
+        if miss:
+            ok = False
+            print(f"  FAIL blend.frag mix() decomposition wrong: missing "
+                  f"{miss}")
+        else:
+            print(f"  PASS blend.frag: novel mix() -> correct lerp "
+                  f"(sub+mad), oracle-validated ({len(blend)} B)")
+
     # vertex: oracle-equivalent to the mvp transform
     vert = compile_glsl("spincube.vert")
     hlsl = oracle_hlsl(vert, "spincube_vert")

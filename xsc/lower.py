@@ -163,74 +163,156 @@ def lower_fragment(m: spirv.Module) -> bytes:
     sample_reg = {}       # ImageSample ssa-id -> register (phase 1)
     used_samplers = set()
 
-    def load_reg(ssa_id: int) -> int:
+    # Function-local variables (vec4 tmp = ...): store-forward in branch-free
+    local_store = {ins.operands[0]: None for ins in m.instrs
+                   if ins.opcode == 59 and ins.operands[0] == 7}
+    # actually OpVariable storageclass is operands[0]; collect locals
+    local_vars = {ins.result_id for ins in m.instrs
+                  if ins.opcode == 59 and ins.operands[0] == 7}
+    local_store = {tgt: val for tgt, val in stores.items()
+                   if tgt in local_vars}
+
+    def fresh():
+        r = next_reg[0]
+        next_reg[0] += 1
+        return r
+
+    # phase 1 (before alloc_colors): emit a tfetch for every ImageSample
+    # reachable from the output expression (walk the whole DAG).
+    seen = set()
+
+    def gather(ssa_id: int):
+        if ssa_id in seen:
+            return
+        seen.add(ssa_id)
         ins = m.by_result.get(ssa_id)
-        if ins is None or ins.opcode != 61 or ins.operands[0] not in \
-                interp_reg:
-            raise LowerError(f"expected an interpolator Load (%{ssa_id})")
-        return interp_reg[ins.operands[0]]
+        if ins is None:
+            return
+        if ins.opcode == 87:                      # ImageSample sampler coord
+            samp = m.by_result.get(ins.operands[0])
+            srole = si.roles.get(samp.operands[0]) if samp else None
+            if not srole or srole[0] != "sampler":
+                raise LowerError("ImageSample needs a sampler")
+            coord = ins.operands[1]
+            cins = m.by_result.get(coord)
+            if not cins or cins.opcode != 61 or \
+                    cins.operands[0] not in interp_reg:
+                raise LowerError("texture coord must be an interpolator")
+            dst = fresh()
+            p.tfetch(dict(T["tf"], fetch_constant_index=srole[1]),
+                     dest=dst, src=interp_reg[cins.operands[0]])
+            sample_reg[ssa_id] = dst
+            used_samplers.add(srole[1])
+        elif ins.opcode == 61 and ins.operands[0] in local_store:
+            gather(local_store[ins.operands[0]])
+        elif ins.opcode in (129, 130, 133):       # FAdd FSub FMul
+            gather(ins.operands[0])
+            gather(ins.operands[1])
+        elif ins.opcode == 12:                    # ExtInst
+            for a in ins.operands[2:]:
+                gather(a)
 
     out_var = si.color_out[0][0].vid
     if out_var not in stores:
         raise LowerError("o_color never written")
     out_val = stores[out_var]
-
-    # phase 1 (before alloc_colors): emit a tfetch for every ImageSample
-    def gather(ssa_id: int):
-        ins = m.by_result.get(ssa_id)
-        if ins is None:
-            return
-        if ins.opcode == 87:  # ImageSampleImplicitLod sampler coord
-            samp = m.by_result.get(ins.operands[0])
-            srole = si.roles.get(samp.operands[0]) if samp else None
-            if not srole or srole[0] != "sampler":
-                raise LowerError("ImageSample needs a sampler")
-            dst = next_reg[0]
-            next_reg[0] += 1
-            p.tfetch(dict(T["tf"], fetch_constant_index=srole[1]),
-                     dest=dst, src=load_reg(ins.operands[1]))
-            sample_reg[ssa_id] = dst
-            used_samplers.add(srole[1])
-        elif ins.opcode == 133:  # FMul
-            gather(ins.operands[0])
-            gather(ins.operands[1])
     gather(out_val)
 
-    # phase 2 (after alloc_colors): arithmetic
+    # phase 2 (after alloc_colors): arithmetic, operand-typed.
     p.alloc_colors()
 
-    def evalv(ssa_id: int, target: int, export: bool) -> int:
+    def operand(ssa_id: int):
+        """Resolve an SSA value to ('reg', n) or ('const', reg), emitting
+        ops for computed values."""
         ins = m.by_result[ssa_id]
-        if ins.opcode == 61:                      # Load interpolator
-            r = interp_reg[ins.operands[0]]
-        elif ins.opcode == 87:                    # pre-fetched sample
-            r = sample_reg[ssa_id]
-        elif ins.opcode == 133:                   # FMul
-            ra = evalv(ins.operands[0], -1, False)
-            rb = evalv(ins.operands[1], -1, False)
-            dst = target if export else next_reg[0]
-            if not export:
-                next_reg[0] += 1
-            p.alu(**dict(T["mov"], vector_opcode=_V.kMul,
-                         vector_dest=dst, is_export=export,
-                         src1_reg=ra, src1_is_temp=True,
-                         src2_reg=rb, src2_is_temp=True))
-            return dst
-        else:
-            raise LowerError(f"v1 fragment: unhandled op {ins.name}")
-        if export:                                # plain value -> oC0 move
-            p.alu(**dict(T["mov"], vector_opcode=_V.kMax,
-                         vector_dest=target, is_export=True,
-                         src1_reg=r, src2_reg=r))
-            return target
-        return r
+        op = ins.opcode
+        if op == 61:                              # Load
+            src = ins.operands[0]
+            if src in interp_reg:
+                return ("reg", interp_reg[src])
+            if src in local_store:
+                return operand(local_store[src])
+            role = si.roles.get(src)
+            if role and role[0] == "constant":
+                return ("const", role[1][0])
+            raise LowerError(f"unresolved Load %{src}")
+        if op == 87:
+            return ("reg", sample_reg[ssa_id])
+        if op in (129, 130, 133):                 # FAdd FSub FMul
+            return ("reg", _binop(op, ins.operands[0], ins.operands[1]))
+        if op == 12:                              # ExtInst
+            return ("reg", _extinst(ins))
+        raise LowerError(f"v1 fragment: unhandled op {ins.name}")
 
-    evalv(out_val, 0, export=True)
+    def _src(fields, n, opnd, negate=False):
+        kind, val = opnd
+        fields[f"src{n}_reg"] = val
+        fields[f"src{n}_is_temp"] = (kind == "reg")
+        fields[f"src{n}_swizzle"] = 0
+        fields[f"src{n}_negate"] = negate
+
+    def _emit(opcode, ops, dst, export):
+        n_const = sum(1 for k, _ in ops.values() if k == "const")
+        if n_const > 1:
+            raise LowerError(">1 constant operand (v1 cannot split here)")
+        f = dict(T["mov"], vector_opcode=opcode, vector_dest=dst,
+                 is_export=export, vector_write_mask=0xF)
+        for n, (opnd, neg) in ops.items():
+            _src(f, n, opnd, neg)
+        p.alu(**f)
+
+    def _binop(op, a, b, dst=None, export=False):
+        oa, ob = operand(a), operand(b)
+        if dst is None:
+            dst = fresh()
+        if op == 133:                             # FMul
+            _emit(_V.kMul, {1: (oa, False), 2: (ob, False)}, dst, export)
+        elif op == 129:                           # FAdd
+            _emit(_V.kAdd, {1: (oa, False), 2: (ob, False)}, dst, export)
+        else:                                     # FSub: a + (-b)
+            _emit(_V.kAdd, {1: (oa, False), 2: (ob, True)}, dst, export)
+        return dst
+
+    def _extinst(ins, dst=None, export=False):
+        inst = ins.operands[1]
+        args = ins.operands[2:]
+        if dst is None:
+            dst = fresh()
+        if inst == 46:                            # FMix(x,y,a)=x+(y-x)*a
+            ox, oy, oa = (operand(args[0]), operand(args[1]),
+                          operand(args[2]))
+            tmp = fresh()
+            _emit(_V.kAdd, {1: (oy, False), 2: (ox, True)}, tmp, False)
+            _emit(_V.kMad, {1: (("reg", tmp), False), 2: (oa, False),
+                            3: (ox, False)}, dst, export)
+            return dst
+        if inst in (40, 37):                      # FMax / FMin
+            _emit(_V.kMax if inst == 40 else _V.kMin,
+                  {1: (operand(args[0]), False),
+                   2: (operand(args[1]), False)}, dst, export)
+            return dst
+        raise LowerError(f"v1 fragment: unhandled GLSL.std.450 #{inst}")
+
+    # emit the output expression with its final op fused to the oC0 export
+    root_ins = m.by_result[out_val]
+    if root_ins.opcode in (129, 130, 133):
+        _binop(root_ins.opcode, root_ins.operands[0], root_ins.operands[1],
+               dst=0, export=True)
+    elif root_ins.opcode == 12:
+        _extinst(root_ins, dst=0, export=True)
+    else:                                         # plain value -> oC0
+        r = operand(out_val)
+        _emit(_V.kMax, {1: (r, False), 2: (r, False)}, 0, True)
 
     constants = []
     for slot in sorted(used_samplers):
         constants.append(ce.Constant(f"tex{slot}", ce.RS_SAMPLER, slot, 1,
                                      ce.CLASS_OBJECT, 0xC, rows=1, columns=1))
+    # fragment uniform constants (e.g. u_blend vec4)
+    for cs in si.constants:
+        constants.append(ce.Constant(cs.name, ce.RS_FLOAT4, cs.reg, cs.regs,
+                                     ce.CLASS_VECTOR, ce.TYPE_FLOAT,
+                                     rows=1, columns=4))
     return p.finish(constants=constants)
 
 
