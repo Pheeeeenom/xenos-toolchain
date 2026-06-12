@@ -21,7 +21,8 @@
 
 #include "../source/rtcomb_table.h"
 
-#define XDIS_CMD "python ..\\..\\..\\xdis\\xdis.py"
+/* repo root: argv[1] if given, else assumes CWD = this directory */
+static const char *repo_root = "..\\..\\..";
 
 static unsigned char buf[XCOMB_MAX_CONTAINER];
 
@@ -57,9 +58,12 @@ static void rnd_cycle(xcomb_cycle *c, int allow_combined)
 	c->ac = XCOMB_ZERO; c->ad = XCOMB_ONE;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
 	int i, fails = 0;
+
+	if (argc > 1)
+		repo_root = argv[1];
 
 	/* 1. deterministic table: generate + xdis parse */
 	for (i = 0; i < RTCOMB_TABLE_LEN; i++) {
@@ -83,7 +87,8 @@ int main(void)
 			continue;
 		}
 		fclose(f);
-		sprintf(cmd, XDIS_CMD " %s > nul 2>&1", fname);
+		sprintf(cmd, "python %s\\xdis\\xdis.py %s > nul 2>&1",
+			repo_root, fname);
 		int rc = system(cmd);
 		printf("det[%d] %-10s %d-cycle: %3u bytes, xdis rc=%d%s\n",
 		       i, cfg->name, cfg->two_cycle ? 2 : 1,
