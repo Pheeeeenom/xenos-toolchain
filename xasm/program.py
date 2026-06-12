@@ -73,10 +73,12 @@ class _Program:
 
     def __init__(self):
         self._stages: list[list[_Instr]] = [[]]  # instr blocks
-        self._allocs: list[int] = []             # alloc_type between stages
+        self._alloc_after: dict = {}             # stage_idx -> alloc_type
         self._max_reg = 0
         self.interpolators: list[ce.Interpolator] = []
         self._export_stage_idx = None
+        self._loops: list[tuple] = []            # (start_stage, end_stage, loop_id)
+        self._loop_open = None
 
     # ---- declarations ----
 
@@ -103,8 +105,26 @@ class _Program:
         return ins
 
     def _alloc(self, alloc_type: int):
-        self._allocs.append(alloc_type)
+        self._alloc_after[len(self._stages) - 1] = alloc_type
         self._stages.append([])
+
+    # ---- hardware loops (LOOP_START/LOOP_END) ----
+
+    def begin_loop(self, loop_id: int = 0):
+        """Open a hardware loop around every instruction added until end_loop().
+        The trip count is taken from loop constant i[loop_id] at draw time
+        (host uploads integer_constants[8+loop_id] = count | start<<8 | step<<16;
+        aL = iteration*step + start runs the loop count times). Used for
+        data-dependent / uniform-bounded loops that can't be unrolled."""
+        if self._stages[-1]:
+            self._stages.append([])              # body starts in a fresh stage
+        self._loop_open = (len(self._stages) - 1, loop_id)
+
+    def end_loop(self):
+        start_stage, loop_id = self._loop_open
+        self._loops.append((start_stage, len(self._stages), loop_id))
+        self._stages.append([])                  # fresh stage for post-loop code
+        self._loop_open = None
 
     # ---- layout ----
 
@@ -114,9 +134,9 @@ class _Program:
             chunks = max(1, (len(stage) + MAX_EXEC_COUNT - 1)
                          // MAX_EXEC_COUNT) if stage else 0
             n += chunks
-            if i < len(self._allocs):
+            if i in self._alloc_after:
                 n += 1
-        return n
+        return n + 2 * len(self._loops)  # LOOP_START + LOOP_END per loop
 
     def _build_ucode(self) -> bytes:
         n_cf = self._cf_entry_count()
@@ -129,13 +149,27 @@ class _Program:
                 slot += 1
         total_slots = slot
 
-        cf = []
-        n_stages = len(self._stages)
+        # loop boundaries keyed by stage index
+        loop_start_at = {s0: lid for (s0, s1, lid) in self._loops}
+        loop_end_at = {s1 - 1: lid for (s0, s1, lid) in self._loops}
+        # the final non-empty exec chunk gets kExecEnd (ends the shader)
+        last_exec = None
         for si, stage in enumerate(self._stages):
+            nch = (len(stage) + MAX_EXEC_COUNT - 1) // MAX_EXEC_COUNT
+            if nch:
+                last_exec = (si, nch - 1)
+
+        cf = []            # descriptors; loop addresses patched once indices known
+        open_loops = {}    # loop_id -> LOOP_START index in cf
+        for si, stage in enumerate(self._stages):
+            if si in loop_start_at:
+                lid = loop_start_at[si]
+                open_loops[lid] = len(cf)
+                cf.append({"t": "loop_start", "loop_id": lid, "skip": None})
             chunks = [stage[i:i + MAX_EXEC_COUNT]
-                      for i in range(0, len(stage), MAX_EXEC_COUNT)] or []
+                      for i in range(0, len(stage), MAX_EXEC_COUNT)]
             for ci, chunk in enumerate(chunks):
-                is_last = (si == n_stages - 1 and ci == len(chunks) - 1)
+                is_last = (si, ci) == last_exec
                 seq = 0
                 n_fetch = 0
                 for k, ins in enumerate(chunk):
@@ -146,23 +180,48 @@ class _Program:
                 # corpus: 4 fetches -> 0xF, 3 -> 0x7 (cube_vs)
                 vc = ((1 << min(n_fetch, 4)) - 1) if (
                     n_fetch and self.shader_type == "vertex") else 0
-                cf.append(enc.build_cf_exec(
-                    opcode=K.kExecEnd if is_last else K.kExec,
-                    address=chunk[0].slot, count=len(chunk),
-                    is_yield=False, sequence=seq,
-                    vc_hi=vc, vc_lo=0,
+                cf.append({"t": "exec",
+                           "opcode": K.kExecEnd if is_last else K.kExec,
+                           "address": chunk[0].slot, "count": len(chunk),
+                           "sequence": seq, "vc_hi": vc})
+            if si in self._alloc_after:
+                cf.append({"t": "alloc", "alloc_type": self._alloc_after[si]})
+            if si in loop_end_at:
+                lid = loop_end_at[si]
+                ls = open_loops.pop(lid)
+                le = len(cf)
+                cf.append({"t": "loop_end", "loop_id": lid, "body": ls + 1})
+                cf[ls]["skip"] = le + 1          # skip past LOOP_END when done
+
+        pairs = []
+        for d in cf:
+            if d["t"] == "exec":
+                pairs.append(enc.build_cf_exec(
+                    opcode=d["opcode"], address=d["address"], count=d["count"],
+                    is_yield=False, sequence=d["sequence"],
+                    vc_hi=d["vc_hi"], vc_lo=0,
                     is_predicate_clean=True, addressing_mode=0))
-            if si < len(self._allocs):
-                cf.append(enc.build_cf_alloc(
+            elif d["t"] == "alloc":
+                pairs.append(enc.build_cf_alloc(
                     opcode=K.kAlloc, size=0, is_unserialized=False,
-                    alloc_type=self._allocs[si]))
-        while len(cf) % 2:
-            cf.append((0, 0))  # cnop
-        assert len(cf) // 2 == first_slot, "CF layout self-check failed"
+                    alloc_type=d["alloc_type"]))
+            elif d["t"] == "loop_start":
+                pairs.append(enc.build_cf_loop_start(
+                    opcode=K.kLoopStart, address=d["skip"],
+                    is_repeat=False, loop_id=d["loop_id"],
+                    addressing_mode=xu.AddressingMode.kRelative))
+            else:                                # loop_end
+                pairs.append(enc.build_cf_loop_end(
+                    opcode=K.kLoopEnd, address=d["body"], loop_id=d["loop_id"],
+                    is_predicated_break=False, condition=False,
+                    addressing_mode=xu.AddressingMode.kRelative))
+        while len(pairs) % 2:
+            pairs.append((0, 0))  # cnop
+        assert len(pairs) // 2 == first_slot, "CF layout self-check failed"
 
         dwords = []
-        for i in range(0, len(cf), 2):
-            dwords.extend(enc.pack_cf_pair(cf[i], cf[i + 1]))
+        for i in range(0, len(pairs), 2):
+            dwords.extend(enc.pack_cf_pair(pairs[i], pairs[i + 1]))
         for stage in self._stages:
             for ins in stage:
                 dwords.extend(ins.triple)
