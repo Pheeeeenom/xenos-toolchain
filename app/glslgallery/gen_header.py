@@ -35,6 +35,22 @@ GALLERY = [
     ("CLAMP", "clamprange.frag"),    # clamp(tex*color, 0.2, 0.8)
     ("FLRABS", "floorabs.frag"),     # abs(tex-color)+floor(color)
     ("GAMMA", "gamma.frag"),         # pow(tex, gamma) — scalar pipe log2/exp2
+    # --- verification slots (G10+): safe ops first, then crash suspects so a
+    #     hang doesn't hide the rest ---
+    ("SMOOTH", "verify_smooth.frag"),  # G10 smoothstep (division — now fixed)
+    ("MOD", "verify_mod.frag"),        # G11 mod (division — now fixed; ==FRACT)
+    ("FRACT", "verify_fract.frag"),    # G12 fract -> 4 sawtooth (native)
+    ("TRUNC", "verify_trunc.frag"),    # G13 trunc -> 4 flat steps
+    ("ROUND", "verify_round.frag"),    # G14 round -> 4 flat steps
+    ("CROSS", "verify_cross.frag"),    # G15 cross product -> color field
+    ("NEST", "verify_nest.frag"),      # G16 nested if/else -> RGB quadrants
+    # --- crash suspects (never hardware-tested ops), isolated ---
+    ("SQRT", "verify_sqrt.frag"),      # G17 isolate kSqrt (scalar pipe)
+    ("SIGN", "verify_sign.frag"),      # G18 isolate kSgt (sign compare)
+    ("ATAN", "verify_atan.frag"),      # G19 atan: only mul/mad (proven ops)
+    ("ASIN", "verify_asin.frag"),      # G20 asin: sqrt+sign+poly (the crasher)
+    # --- register allocator proof ---
+    ("ALLOC", "verify_alloc.frag"),    # G21 25 GPR -> 5 via allocator; R=x,G=y
 ]
 
 # extra (non-literal) uniform values to upload per shader: {stem: [(reg, 4f)]}
