@@ -51,6 +51,9 @@ GALLERY = [
     ("ASIN", "verify_asin.frag"),      # G20 asin: sqrt+sign+poly (the crasher)
     # --- register allocator proof ---
     ("ALLOC", "verify_alloc.frag"),    # G21 25 GPR -> 5 via allocator; R=x,G=y
+    # --- loop unrolling proof (xsc.unroll) ---
+    ("LOOP", "loop_stair.frag"),       # G22 5x step() staircase: trip count +
+    #                                        induction-fold + post-loop RMW
 ]
 
 # extra (non-literal) uniform values to upload per shader: {stem: [(reg, 4f)]}
