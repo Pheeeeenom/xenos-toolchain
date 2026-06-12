@@ -1,12 +1,14 @@
 /* xost glslgallery — a spinning textured cube cycling through a gallery of
- * fragment shaders WRITTEN IN GLSL and compiled to Xenos microcode by xsc.
- * The vertex shader is GLSL too. Each shader's literal-constant manifest is
+ * fragment/vertex shaders WRITTEN IN GLSL and compiled to Xenos microcode by xsc.
+ * The default vertex shader is GLSL too; late gallery slots swap in vertex
+ * frontend proof shaders. Each shader's literal-constant manifest is
  * uploaded before drawing — this is the on-hardware proof of the whole
  * GLSL frontend (dot/dp3, saturate, literal pool, swizzles).
  *
  *   G0 MODULATE  tex*color     G3 GLOW   clamp(tex+color,0,1)
  *   G1 TINT      rgb tint      G4 BLEND  mix(tex,color,0.5)
- *   G2 GRAY      desaturate
+ *   G2 GRAY      desaturate    G23 VSCHAIN  chained mat4*vec4
+ *                              G24 VSARITH  VS add/mul values
  */
 #include <stdio.h>
 #include <string.h>
@@ -21,9 +23,17 @@ typedef struct { int reg; float v[4]; } gallery_const;
 typedef struct {
 	const char *name;
 	unsigned char *code;
+	unsigned char *vscode;
+	int vs_mode;
 	int n_const;
 	const gallery_const *consts;
 } gallery_entry;
+
+enum {
+	VS_MODE_MVP = 0,
+	VS_MODE_CHAIN = 1,
+	VS_MODE_ARITH = 2
+};
 
 #include "xost_shaders.h"
 
@@ -102,12 +112,12 @@ int main(void)
 	static const struct XenosVBFFormat vbf_plain={2,{
 		{XE_USAGE_POSITION,0,XE_TYPE_FLOAT4},{XE_USAGE_COLOR,0,XE_TYPE_FLOAT4}}};
 
-	struct XenosShader *vs=Xe_LoadShaderFromMemory(xe,glsl_vs);
-	Xe_InstantiateShader(xe,vs,0); Xe_ShaderApplyVFetchPatches(xe,vs,0,&vbf_tex);
-
-	struct XenosShader *gps[GALLERY_N]; int i;
+	struct XenosShader *gps[GALLERY_N],*gvs[GALLERY_N]; int i;
 	for(i=0;i<GALLERY_N;i++){gps[i]=Xe_LoadShaderFromMemory(xe,gallery[i].code);
-		Xe_InstantiateShader(xe,gps[i],0);}
+		Xe_InstantiateShader(xe,gps[i],0);
+		gvs[i]=Xe_LoadShaderFromMemory(xe,gallery[i].vscode);
+		Xe_InstantiateShader(xe,gvs[i],0);
+		Xe_ShaderApplyVFetchPatches(xe,gvs[i],0,&vbf_tex);}
 
 	struct XenosShader *ps_hud=Xe_LoadShaderFromMemory(xe,xost_ps0);Xe_InstantiateShader(xe,ps_hud,0);
 	struct XenosShader *vs_hud=Xe_LoadShaderFromMemory(xe,xost_vs1);Xe_InstantiateShader(xe,vs_hud,0);
@@ -142,17 +152,29 @@ int main(void)
 		Xe_InvalidateState(xe);Xe_SetCullMode(xe,0);Xe_SetZEnable(xe,1);Xe_SetZWrite(xe,1);
 		Xe_SetClearColor(xe,0xFF202020);
 
-		mat4 mvp,pr,tr,ry,rx,id;
+		mat4 mvp,model,viewproj,pr,tr,ry,rx,id;
 		m_persp(pr,50.0f*(float)M_PI/180.0f,1280.0f/720.0f,1,20);
 		m_tz(tr,-5);m_roty(ry,t*0.9f);m_rotx(rx,t*0.55f);
-		m_mul(mvp,ry,rx);m_mul(mvp,tr,mvp);m_mul(mvp,pr,mvp);m_identity(id);
+		m_mul(model,ry,rx);m_mul(viewproj,pr,tr);
+		m_mul(mvp,tr,model);m_mul(mvp,pr,mvp);m_identity(id);
 
 		hudn=0;hrow(-0.97f,0.95f,lc,3,sc,1,cc);hrow(-0.97f,0.84f,lg,3,sg,1,gc);
 		hrow(-0.97f,0.73f,ln,1,mode,0,nc);
 		void*hv=Xe_VB_Lock(xe,hvb,0,hudn*32,XE_LOCK_WRITE);memcpy(hv,hud,hudn*32);Xe_VB_Unlock(xe,hvb);
 
 		/* cube with the active GLSL shader; upload its literal manifest */
-		Xe_SetVertexShaderConstantF(xe,0,(float*)mvp,4);
+		if(gallery[mode].vs_mode==VS_MODE_CHAIN){
+			Xe_SetVertexShaderConstantF(xe,0,(float*)model,4);
+			Xe_SetVertexShaderConstantF(xe,4,(float*)viewproj,4);
+		}else{
+			Xe_SetVertexShaderConstantF(xe,0,(float*)mvp,4);
+			if(gallery[mode].vs_mode==VS_MODE_ARITH){
+				float off[4]={0.35f*sinf(t*1.7f),0.25f*cosf(t*1.3f),0,0};
+				float tint[4]={1.0f,0.35f+0.65f*(0.5f+0.5f*sinf(t*2.1f)),0.55f,1.0f};
+				Xe_SetVertexShaderConstantF(xe,4,off,1);
+				Xe_SetVertexShaderConstantF(xe,5,tint,1);
+			}
+		}
 		for(i=0;i<gallery[mode].n_const;i++)
 			Xe_SetPixelShaderConstantF(xe,gallery[mode].consts[i].reg,
 				(float*)gallery[mode].consts[i].v,1);
@@ -164,7 +186,7 @@ int main(void)
 		xe->integer_constants[8+0]=(lcount&0xff)|(0<<8)|(1<<16);
 		xe->dirty|=DIRTY_INTEGER;
 		Xe_SetShader(xe,SHADER_TYPE_PIXEL,gps[mode],0);
-		Xe_SetShader(xe,SHADER_TYPE_VERTEX,vs,0);
+		Xe_SetShader(xe,SHADER_TYPE_VERTEX,gvs[mode],0);
 		Xe_SetTexture(xe,0,tex);
 		Xe_SetStreamSource(xe,0,vb,0,10);Xe_SetIndices(xe,ib);
 		Xe_DrawIndexedPrimitive(xe,XE_PRIMTYPE_TRIANGLELIST,0,0,24,0,12);
