@@ -70,6 +70,23 @@ def main():
             print(f"  PASS blend.frag: novel mix() -> correct lerp "
                   f"(sub+mad), oracle-validated ({len(blend)} B)")
 
+    # swizzle / CompositeConstruct: vec4(tex.rgb * color.rgb, tex.a)
+    tint = compile_glsl("tint.frag")
+    thlsl = oracle_hlsl(tint, "tint_frag")
+    if thlsl is None:
+        ok = False
+        print("  FAIL tint.frag: XenosRecomp rejected it")
+    else:
+        need = ["oC0.xyz = max(r3.xyz", "r2.xyzw * r1.xyzw",
+                "oC0.w = max(r2.w"]
+        miss = [s for s in need if s not in thlsl]
+        if miss:
+            ok = False
+            print(f"  FAIL tint.frag swizzle/construct wrong: missing {miss}")
+        else:
+            print(f"  PASS tint.frag: .rgb swizzle + vec4(rgb,a) construct "
+                  f"-> masked exports ({len(tint)} B)")
+
     # vertex: oracle-equivalent to the mvp transform
     vert = compile_glsl("spincube.vert")
     hlsl = oracle_hlsl(vert, "spincube_vert")

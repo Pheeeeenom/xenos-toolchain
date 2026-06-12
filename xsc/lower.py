@@ -203,14 +203,19 @@ def lower_fragment(m: spirv.Module) -> bytes:
                      dest=dst, src=interp_reg[cins.operands[0]])
             sample_reg[ssa_id] = dst
             used_samplers.add(srole[1])
-        elif ins.opcode == 61 and ins.operands[0] in local_store:
-            gather(local_store[ins.operands[0]])
-        elif ins.opcode in (129, 130, 133):       # FAdd FSub FMul
-            gather(ins.operands[0])
-            gather(ins.operands[1])
-        elif ins.opcode == 12:                    # ExtInst
-            for a in ins.operands[2:]:
-                gather(a)
+            return
+        if ins.opcode == 61 and ins.operands[0] in local_store:
+            gather(local_store[ins.operands[0]])  # Load of a local
+            return
+        if ins.opcode == 65:                      # AccessChain: recurse base
+            if ins.operands[0] in local_store:
+                gather(local_store[ins.operands[0]])
+            return
+        # generic: recurse into any operand that is an SSA result
+        skip = 2 if ins.opcode == 12 else 0       # ExtInst: set + inst num
+        for w in ins.operands[skip:]:
+            if w in m.by_result:
+                gather(w)
 
     out_var = si.color_out[0][0].vid
     if out_var not in stores:
@@ -221,45 +226,104 @@ def lower_fragment(m: spirv.Module) -> bytes:
     # phase 2 (after alloc_colors): arithmetic, operand-typed.
     p.alloc_colors()
 
+    op_cache = {}
+
     def operand(ssa_id: int):
         """Resolve an SSA value to ('reg', n) or ('const', reg), emitting
-        ops for computed values."""
+        ops for computed values (memoized so a shared value emits once)."""
+        if ssa_id in op_cache:
+            return op_cache[ssa_id]
         ins = m.by_result[ssa_id]
         op = ins.opcode
         if op == 61:                              # Load
             src = ins.operands[0]
             if src in interp_reg:
-                return ("reg", interp_reg[src])
-            if src in local_store:
-                return operand(local_store[src])
-            role = si.roles.get(src)
-            if role and role[0] == "constant":
-                return ("const", role[1][0])
-            raise LowerError(f"unresolved Load %{src}")
-        if op == 87:
-            return ("reg", sample_reg[ssa_id])
-        if op in (129, 130, 133):                 # FAdd FSub FMul
-            return ("reg", _binop(op, ins.operands[0], ins.operands[1]))
-        if op == 12:                              # ExtInst
-            return ("reg", _extinst(ins))
-        raise LowerError(f"v1 fragment: unhandled op {ins.name}")
+                res = ("reg", interp_reg[src])
+            elif src in local_store:
+                res = operand(local_store[src])
+            else:
+                role = si.roles.get(src)
+                if role and role[0] == "constant":
+                    res = ("const", role[1][0])
+                else:
+                    raise LowerError(f"unresolved Load %{src}")
+        elif op == 87:
+            res = ("reg", sample_reg[ssa_id])
+        elif op == 79:                            # VectorShuffle
+            idxs = list(ins.operands[2:])
+            if idxs == list(range(len(idxs))):    # identity prefix (.rgb/.xy)
+                res = operand(ins.operands[0])
+            else:
+                raise LowerError(f"non-identity swizzle {idxs} (v1)")
+        elif op in (129, 130, 133):               # FAdd FSub FMul
+            res = ("reg", _binop(op, ins.operands[0], ins.operands[1]))
+        elif op == 12:                            # ExtInst
+            res = ("reg", _extinst(ins))
+        else:
+            raise LowerError(f"v1 fragment: unhandled op {ins.name}")
+        op_cache[ssa_id] = res
+        return res
 
-    def _src(fields, n, opnd, negate=False):
+    def _src(fields, n, opnd, negate=False, swizzle=0):
         kind, val = opnd
         fields[f"src{n}_reg"] = val
         fields[f"src{n}_is_temp"] = (kind == "reg")
-        fields[f"src{n}_swizzle"] = 0
+        fields[f"src{n}_swizzle"] = swizzle
         fields[f"src{n}_negate"] = negate
 
-    def _emit(opcode, ops, dst, export):
-        n_const = sum(1 for k, _ in ops.values() if k == "const")
+    def _emit(opcode, ops, dst, export, mask=0xF):
+        n_const = sum(1 for v in ops.values() if v[0][0] == "const")
         if n_const > 1:
             raise LowerError(">1 constant operand (v1 cannot split here)")
         f = dict(T["mov"], vector_opcode=opcode, vector_dest=dst,
-                 is_export=export, vector_write_mask=0xF)
-        for n, (opnd, neg) in ops.items():
-            _src(f, n, opnd, neg)
+                 is_export=export, vector_write_mask=mask)
+        for n, v in ops.items():
+            opnd, neg = v[0], v[1]
+            swz = v[2] if len(v) > 2 else 0
+            _src(f, n, opnd, neg, swz)
         p.alu(**f)
+
+    def _const_val(ssa_id):
+        c = m.by_result.get(ssa_id)
+        if c is None or c.opcode != 43:
+            raise LowerError(f"%{ssa_id} is not an int constant")
+        return c.operands[0]
+
+    def scalar_origin(ssa_id):
+        """Resolve a scalar SSA to (vector_operand, source_component)."""
+        ins = m.by_result[ssa_id]
+        if ins.opcode == 81:                      # CompositeExtract(v, idx)
+            return operand(ins.operands[0]), ins.operands[1]
+        if ins.opcode == 61:                      # Load of AccessChain comp
+            ptr = m.by_result.get(ins.operands[0])
+            if ptr is not None and ptr.opcode == 65:  # AccessChain base idx
+                base, comp = ptr.operands[0], _const_val(ptr.operands[1])
+                if base in local_store:
+                    return operand(local_store[base]), comp
+                if base in interp_reg:
+                    return ("reg", interp_reg[base]), comp
+        raise LowerError(f"cannot resolve scalar %{ssa_id}")
+
+    def emit_construct(ins, export_reg):
+        origins = [scalar_origin(part) for part in ins.operands]
+        n = len(origins)
+        j = 0
+        while j < n:
+            op_j = origins[j][0]
+            k = j
+            while k < n and origins[k][0] == op_j and origins[k][1] == k:
+                k += 1
+            if k > j:                             # identity run [j, k)
+                mask = sum(1 << t for t in range(j, k))
+                _emit(_V.kMax, {1: (op_j, False), 2: (op_j, False)},
+                      export_reg, True, mask=mask)
+                j = k
+            else:                                 # route comp -> position j
+                op, comp = origins[j]
+                swz = ((comp - j) & 3) << (2 * j)
+                _emit(_V.kMax, {1: (op, False, swz), 2: (op, False, swz)},
+                      export_reg, True, mask=(1 << j))
+                j += 1
 
     def _binop(op, a, b, dst=None, export=False):
         oa, ob = operand(a), operand(b)
@@ -295,7 +359,9 @@ def lower_fragment(m: spirv.Module) -> bytes:
 
     # emit the output expression with its final op fused to the oC0 export
     root_ins = m.by_result[out_val]
-    if root_ins.opcode in (129, 130, 133):
+    if root_ins.opcode == 80:                     # CompositeConstruct
+        emit_construct(root_ins, 0)
+    elif root_ins.opcode in (129, 130, 133):
         _binop(root_ins.opcode, root_ins.operands[0], root_ins.operands[1],
                dst=0, export=True)
     elif root_ins.opcode == 12:
