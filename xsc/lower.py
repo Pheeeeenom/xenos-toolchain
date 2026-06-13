@@ -102,6 +102,7 @@ class ValueLowerer:
         self.lit_pool = {}
         self.lit_manifest = []
         self.op_cache = {}
+        self.local_values = {}
 
     def fresh(self):
         r = self.next_reg
@@ -113,7 +114,7 @@ class ValueLowerer:
         return t.count if t and t.kind == "vector" else 1
 
     def scalar_const(self, ssa):
-        bits = self.m.by_result[ssa].operands[0]
+        bits = self.m.by_result[ssa].operands[0] & 0xFFFFFFFF
         return struct.unpack("<f", struct.pack("<I", bits))[0]
 
     def literal_reg(self, value4):
@@ -197,6 +198,8 @@ class ValueLowerer:
                 res = ("reg", r)
             elif src in self.inputs:
                 res = ("reg", self.inputs[src])
+            elif src in self.local_values:
+                res = self.local_values[src]
             elif src in self.local_store:
                 res = self.operand(self.local_store[src])
             else:
@@ -288,6 +291,8 @@ class ValueLowerer:
             ptr = self.m.by_result.get(src)
             if ptr is not None and ptr.opcode == 65:
                 base, comp = ptr.operands[0], self.const_val(ptr.operands[1])
+                if base in self.local_values:
+                    return self.local_values[base], comp
                 if base in self.local_store:
                     return self.operand(self.local_store[base]), comp
                 if base in self.inputs:
@@ -295,6 +300,8 @@ class ValueLowerer:
                 role = self.si.roles.get(base)
                 if role and role[0] == "constant":
                     return ("const", role[1][0]), comp
+            if src in self.local_values:
+                return self.local_values[src], "B"
             if src in self.local_store:
                 return self.operand(self.local_store[src]), "B"
             role = self.si.roles.get(src)
@@ -895,10 +902,14 @@ def lower_fragment(m: spirv.Module) -> bytes:
             sample_reg[ssa_id] = dst
             used_samplers.add(srole[1])
             return
+        if ins.opcode == 61 and ins.operands[0] == merged_local:
+            return
         if ins.opcode == 61 and ins.operands[0] in local_store:
             gather(local_store[ins.operands[0]])  # Load of a local
             return
         if ins.opcode == 65:                      # AccessChain: recurse base
+            if ins.operands[0] == merged_local:
+                return
             if ins.operands[0] in local_store:
                 gather(local_store[ins.operands[0]])
             return
@@ -910,8 +921,10 @@ def lower_fragment(m: spirv.Module) -> bytes:
 
     out_var = si.color_out[0][0].vid
 
-    # control flow: structured if/else, possibly NESTED, that assigns o_color
-    # in every arm lowers branch-free to chained Xenos cnd* selects (no jumps).
+    # control flow: structured if/else, possibly NESTED, that assigns one
+    # common variable in every arm lowers branch-free to chained Xenos cnd*
+    # selects (no jumps). The common variable can be o_color directly, or a
+    # Function-local later loaded by the post-merge output expression.
     def _block(label):
         """Basic block starting at `label`: instrs after the Label through the
         terminator (Branch / BranchConditional / Kill / Return)."""
@@ -926,21 +939,52 @@ def lower_fragment(m: spirv.Module) -> bytes:
                     break
         return out
 
-    def _region(label):
+    def _leaf_store_region(blk, target):
+        stores_here = [(i.operands[0], i.operands[1])
+                       for i in blk if i.opcode == 62]
+        if target is not None:
+            vals = [v for t, v in stores_here if t == target]
+            if not vals:
+                name = "o_color" if target == out_var else f"%{target}"
+                raise LowerError(f"if/else arm does not assign {name}")
+            return ("val", vals[-1]), target
+
+        # v1: accept arms whose meaningful assignment is either the output or
+        # a Function-local. Ignore stores to unrelated storage classes.
+        candidates = [(t, v) for t, v in stores_here
+                      if t == out_var or t in local_vars]
+        targets = []
+        for t, _v in candidates:
+            if t not in targets:
+                targets.append(t)
+        if len(targets) != 1:
+            raise LowerError("if/else arm does not assign o_color")
+        target = targets[0]
+        vals = [v for t, v in candidates if t == target]
+        return ("val", vals[-1]), target
+
+    def _region(label, target=None):
         """A structured region -> ('val', ssa) leaf, or
-        ('sel', cmp_instr, true_region, false_region) for a nested if/else."""
+        ('sel', cmp_instr, true_region, false_region) for a nested if/else,
+        plus the variable all leaves assign."""
         blk = _block(label)
         brc = next((i for i in blk if i.opcode == 250), None)
         if brc is not None:                       # nested selection header
             cond, t_lbl, f_lbl = brc.operands
-            return ("sel", m.by_result[cond], _region(t_lbl), _region(f_lbl))
-        val = None
-        for i in blk:
-            if i.opcode == 62 and i.operands[0] == out_var:
-                val = i.operands[1]
-        if val is None:
-            raise LowerError("if/else arm does not assign o_color")
-        return ("val", val)
+            treg, t_target = _region(t_lbl, target)
+            freg, f_target = _region(f_lbl, target or t_target)
+            if t_target != f_target:
+                raise LowerError("if/else arms assign different variables")
+            return ("sel", m.by_result[cond], treg, freg), t_target
+        return _leaf_store_region(blk, target)
+
+    def _selection_region(brc):
+        cond, t_lbl, f_lbl = brc.operands
+        treg, target = _region(t_lbl)
+        freg, f_target = _region(f_lbl, target)
+        if target != f_target:
+            raise LowerError("if/else arms assign different variables")
+        return ("sel", m.by_result[cond], treg, freg), target
 
     def _gather_region(region):
         if region[0] == "val":
@@ -951,13 +995,43 @@ def lower_fragment(m: spirv.Module) -> bytes:
             _gather_region(region[2])
             _gather_region(region[3])
 
+    def _has_kill(label):
+        return any(i.opcode == 252 for i in _block(label))
+
     top_brc = next((i for i in m.instrs if i.opcode == 250), None)
     region = None
+    region_target = None
+    merged_local = None
+    kill_cmp = None
+    kill_on_true = True
     out_val = None
     if top_brc is not None:
         cond_ssa, t_lbl, f_lbl = top_brc.operands
-        region = ("sel", m.by_result[cond_ssa], _region(t_lbl), _region(f_lbl))
-        _gather_region(region)
+        t_kill, f_kill = _has_kill(t_lbl), _has_kill(f_lbl)
+        if t_kill or f_kill:
+            if t_kill and f_kill:
+                raise LowerError("if/discard kills both arms")
+            kill_cmp = m.by_result[cond_ssa]
+            kill_on_true = t_kill
+            gather(kill_cmp.operands[0])
+            gather(kill_cmp.operands[1])
+            if out_var not in stores:
+                raise LowerError("o_color never written")
+            out_val = stores[out_var]
+            gather(out_val)
+        else:
+            region, region_target = _selection_region(top_brc)
+            _gather_region(region)
+            if region_target == out_var:
+                pass
+            elif region_target in local_vars:
+                merged_local = region_target
+                if out_var not in stores:
+                    raise LowerError("o_color never written")
+                out_val = stores[out_var]
+                gather(out_val)
+            else:
+                raise LowerError("if/else arms assign unsupported variable")
     else:
         if out_var not in stores:
             raise LowerError("o_color never written")
@@ -976,9 +1050,39 @@ def lower_fragment(m: spirv.Module) -> bytes:
         180: (_V.kCndEq, False, False),   # a == b : cndeq(a-b)
         182: (_V.kCndEq, False, True),    # a != b : cndeq(a-b), swap arms
     }
+    # comparison opcode -> (kill vector op, swap operands) for true/false arm
+    _KILL_TRUE = {
+        186: (_V.kKillGt, False),          # a >  b
+        184: (_V.kKillGt, True),           # a <  b -> b > a
+        190: (_V.kKillGe, False),          # a >= b
+        188: (_V.kKillGe, True),           # a <= b -> b >= a
+        180: (_V.kKillEq, False),          # a == b
+        182: (_V.kKillNe, False),          # a != b
+    }
+    _KILL_FALSE = {
+        186: (_V.kKillGe, True),           # !(a > b) -> b >= a
+        184: (_V.kKillGe, False),          # !(a < b) -> a >= b
+        190: (_V.kKillGt, True),           # !(a >= b) -> b > a
+        188: (_V.kKillGt, False),          # !(a <= b) -> a > b
+        180: (_V.kKillNe, False),          # !(a == b) -> a != b
+        182: (_V.kKillEq, False),          # !(a != b) -> a == b
+    }
 
     def _bsw(c):
         return 0 if c == "B" else ctx.bsw(c)
+
+    def _emit_kill(cmp, on_true):
+        table = _KILL_TRUE if on_true else _KILL_FALSE
+        if cmp.opcode not in table:
+            raise LowerError(f"v1: unsupported discard comparison {cmp.name}")
+        killop, swap_ops = table[cmp.opcode]
+        oa, ca = ctx.scalar_origin(cmp.operands[0])
+        ob, cb = ctx.scalar_origin(cmp.operands[1])
+        if swap_ops:
+            (oa, ca), (ob, cb) = (ob, cb), (oa, ca)
+        ctx.emit(killop, {1: (oa, False, _bsw(ca)),
+                          2: (ob, False, _bsw(cb))},
+                 0, False, mask=0)
 
     def _region_value(region):
         """Operand holding a region's value: a leaf resolves through operand()
@@ -1021,8 +1125,16 @@ def lower_fragment(m: spirv.Module) -> bytes:
         ctx.emit(cndop, {1: (("reg", d), False), 2: (tv, False),
                          3: (fv, False)}, dst, export)
 
-    if region is not None:
+    if kill_cmp is not None:
+        _emit_kill(kill_cmp, kill_on_true)
+
+    if region is not None and region_target == out_var:
         _emit_region(region, 0, True)
+    elif region is not None:
+        r = ctx.fresh()
+        _emit_region(region, r, False)
+        ctx.local_values[merged_local] = ("reg", r)
+        ctx.emit_value(out_val, 0, True)
     else:
         ctx.emit_value(out_val, 0, True)
 

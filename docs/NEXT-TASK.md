@@ -3,6 +3,10 @@
 > Living task brief. Read [HANDOFF.md](HANDOFF.md) first (invariants +
 > build/verify workflow); this builds on it. The `ValueLowerer` unification is
 > the foundation — keep it intact, don't re-introduce per-stage copies.
+>
+> Status: frontend implementation and oracle tests are in place. The final
+> `glslgallery` slot G26 (`DISCARD`) still needs console verification because
+> XenosRecomp validates decode, not kill execution.
 
 ## Why
 

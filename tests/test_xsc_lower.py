@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import xsc.spirv as spirv  # noqa: E402
-from xsc.lower import lower  # noqa: E402
+from xsc.lower import LowerError, lower  # noqa: E402
 
 TD = ROOT / "xsc" / "testdata"
 RECOMP = (ROOT / "reference" / "XenosRecomp" / "build" / "XenosRecomp" /
@@ -136,6 +136,36 @@ def main():
     else:
         print(f"  PASS nested_if.frag: nested if/else -> chained cnd selects, "
               f"branch-free ({len(nif)} B)")
+
+    # if/else assigning a local -> cnd select feeds post-merge output math
+    fbl = compile_glsl("fs_branch_local.frag")
+    fblh = oracle_hlsl(fbl, "fs_branch_local_frag")
+    need = ["r3.xyzw = select(r4.xyzw > 0.0, r2.xyzw, r1.xyzw)",
+            "oC0.xyzw = r3.xyzw * r1.xyzw"]
+    miss = [s for s in need if not fblh or s not in fblh]
+    if fblh is None or miss:
+        ok = False
+        print(f"  FAIL fs_branch_local.frag: local select merge wrong "
+              f"(missing {miss})")
+    else:
+        print(f"  PASS fs_branch_local.frag: if/else local -> select feeds "
+              f"post-merge math ({len(fbl)} B)")
+
+    # discard: if(v_uv.x < 0.5) discard -> kill_gt(0.5, uv.x)
+    fdk, dkman = lower_ex(spirv.Module.parse(
+        (TD / "fs_discard.frag.spv").read_bytes()))
+    fdkh = oracle_hlsl(fdk, "fs_discard_frag")
+    need = ["clip(any(_lit0.x > r0.x) ? -1 : 1)",
+            "oC0.xyzw = r2.xyzw * r1.xyzw"]
+    want_man = [(0, (0.5, 0.5, 0.5, 0.5))]
+    miss = [s for s in need if not fdkh or s not in fdkh]
+    if fdkh is None or miss or dkman != want_man:
+        ok = False
+        print(f"  FAIL fs_discard.frag: discard kill wrong "
+              f"(missing {miss}, manifest {dkman})")
+    else:
+        print(f"  PASS fs_discard.frag: if(uv.x<0.5) discard -> "
+              f"kill_gt literal-vs-uv ({len(fdk)} B)")
 
     # non-identity swizzle (.bgra) + arbitrary clamp + floor/abs
     for name, needle, desc in [
@@ -303,6 +333,22 @@ def main():
         else:
             print(f"  PASS vtx_arith.vert: VS add/mul feed position + "
                   f"varying exports ({len(varith)} B)")
+
+    # vertex literals are still out of scope, but must fail as LowerError.
+    try:
+        compile_glsl("vs_wave.vert")
+        ok = False
+        print("  FAIL vs_wave.vert: unexpectedly lowered "
+              "unsupported VS literal")
+    except LowerError as e:
+        if "vertex literal constants need a host manifest" not in str(e):
+            ok = False
+            print(f"  FAIL vs_wave.vert: wrong LowerError: {e}")
+        else:
+            print("  PASS vs_wave.vert: unsupported VS literal fails cleanly")
+    except Exception as e:
+        ok = False
+        print(f"  FAIL vs_wave.vert: crashed instead of LowerError: {e}")
 
     sys.exit(0 if ok else 1)
 

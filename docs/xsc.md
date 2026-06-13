@@ -43,6 +43,8 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 | `radians` / `degrees` | mul by pooled `π/180` / `180/π` |
 | `clamp(x, lo, hi)` arbitrary | `min(max(x,lo),hi)`, lo/hi pooled literals |
 | **`if/else`**, incl. **nested**, assigning the output | branch-free chained `cndgt`/`cndge`/`cndeq` selects |
+| **`if/else` assigning a Function-local** later read by the output | branch-free `cnd*` select into a temp registered as that local's merged value |
+| **`discard` / `OpKill` inside `if(cond)`** | `kill_gt`/`kill_ge`/`kill_eq`/`kill_ne` ALU side effect; oracle-valid, pending console verification in `glslgallery` G26 |
 | **`for`/`while`** with a compile-time trip count, incl. **nested** | unrolled to branch-free SSA; induction variable constant-folded (see below) |
 | `vec4 t = ...;` (function-local) | store-forwarding |
 | uniforms (block + bare), samplers | constant regs / fetch consts |

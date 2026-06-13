@@ -99,10 +99,12 @@ Measured by compiling representative shaders through glslang→xsc:
    broader matrix forms (`mat*mat`, `vec*mat`, inverse/determinant).
 
 2. **Fragment control-flow generality:**
-   - **`discard`** (→ the `kill` instruction) is unhandled.
-   - **if/else that assigns a local** then outputs it fails — the region
-     lowering (`lower.py` `_region`) only handles arms that assign the *output*
-     directly. Assigning a temp in branches is very common.
+   - **if/else that assigns a local** then outputs it is now lowered as the
+     same branch-free `cnd*` select tree used for direct output assignments.
+   - **`discard`** (→ Xenos `kill_*`) now compiles and oracle-validates.
+     Because the oracle only checks decode, hardware is still the gate: the
+     final `glslgallery` slot G26 (`DISCARD`) should cut away half the cube's
+     pixels (`v_uv.x < 0.5`) on console.
 
 3. **Data-dependent loops (Phase B, in flight).** Mechanism proven: see Loop CF
    below. Wire `unroll.py`'s data-dependent bail to a real-loop lowering that
