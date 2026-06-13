@@ -610,18 +610,15 @@ def main():
         else:
             print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
 
-    # screen-space derivatives via the getGradients fetch (decode-valid here;
-    # the execution packing/sign is hardware-gated).
-    dv = compile_glsl("fs_deriv.frag")
-    dvh = oracle_hlsl(dv, "fs_deriv")
-    dvdis = xu.disassemble(container.Container(dv).ucode_dwords, "pixel")
-    if dvh is None or "getGradients" not in dvdis or "r2.xzxz" not in dvdis:
+    # screen-space derivatives (dFdx/dFdy/fwidth) decode to getTextureGradients
+    # but distort geometry on console (render-state, not encoding), so they are
+    # disabled with a clear error rather than silently miscompiling.
+    try:
+        compile_glsl("fs_deriv.frag")
         ok = False
-        print(f"  FAIL fs_deriv.frag: derivatives "
-              f"(oracle={'OK' if dvh else 'REJECTED'})")
-    else:
-        print(f"  PASS fs_deriv.frag: dFdx/dFdy/fwidth -> getGradients "
-              f"(.xz/.yw) ({len(dv)} B)")
+        print("  FAIL fs_deriv.frag: derivatives should raise (disabled)")
+    except Exception:
+        print("  PASS fs_deriv.frag: derivatives raise a clear error (disabled)")
 
     # vertex: oracle-equivalent to the mvp transform
     vert = compile_glsl("spincube.vert")

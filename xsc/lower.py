@@ -796,10 +796,12 @@ class ValueLowerer:
                 "equivalent (the GPU has no bit ops); restructure with "
                 "arithmetic, or precompute on the host")
         elif op in (207, 208, 209):               # dFdx / dFdy / fwidth
-            if ssa_id not in self.deriv_reg:
-                raise LowerError(
-                    "derivative was not gathered before lowering")
-            res = ("reg", self.deriv_reg[ssa_id])
+            raise LowerError(
+                f"{ins.name}: screen-space derivatives lower to the Xenos "
+                "getTextureGradients fetch and decode cleanly, but on console "
+                "they distort geometry (the quad/helper-pixel render state "
+                "libxenon sets up isn't derivative-ready) -- disabled pending "
+                "a driver-side fix")
         else:
             raise LowerError(f"v1 {self.stage}: unhandled op {ins.name}")
         self.op_cache[ssa_id] = res
@@ -1951,35 +1953,6 @@ def lower_fragment(m: spirv.Module) -> bytes:
         seen.add(ssa_id)
         ins = m.by_result.get(ssa_id)
         if ins is None:
-            return
-        if ins.opcode in (207, 208, 209):         # dFdx / dFdy / fwidth
-            # getGradients is a fetch-pipe op (like tfetch) -> emit in phase 1.
-            # It returns grad.xz = ddx(src.xy), grad.yw = ddy(src.xy).
-            val_ssa = ins.operands[0]
-            gather(val_ssa)
-            if ssa_id not in deriv_reg:
-                src = ctx.to_reg(ctx.operand(val_ssa))[1]
-                grad = ctx.fresh()
-                p.tfetch(dict(T["tf"],
-                              opcode=xu.FetchOpcode.kGetTextureGradients,
-                              src_swizzle=(0 | (1 << 2))), dest=grad, src=src)
-                XZ, YW = 0xE4, 0x39               # .xzxz (ddx), .ywyw (ddy)
-                if ins.opcode == 207:             # dFdx
-                    r = ctx.fresh()
-                    ctx.emit(_V.kMax, {1: (("reg", grad), False, XZ),
-                                       2: (("reg", grad), False, XZ)}, r, False)
-                elif ins.opcode == 208:           # dFdy
-                    r = ctx.fresh()
-                    ctx.emit(_V.kMax, {1: (("reg", grad), False, YW),
-                                       2: (("reg", grad), False, YW)}, r, False)
-                else:                             # fwidth = |ddx| + |ddy|
-                    ag = ctx.fresh()
-                    ctx.emit(_V.kMax, {1: (("reg", grad), False),
-                                       2: (("reg", grad), True)}, ag, False)
-                    r = ctx.fresh()
-                    ctx.emit(_V.kAdd, {1: (("reg", ag), False, XZ),
-                                       2: (("reg", ag), False, YW)}, r, False)
-                deriv_reg[ssa_id] = r
             return
         if ins.opcode in (87, 88, 91, 92):        # ImageSample [Proj][Lod]
             proj = ins.opcode in (91, 92)         # projective (divide by last)
