@@ -35,7 +35,7 @@ OP = {
     57: "FunctionCall", 59: "Variable", 61: "Load", 62: "Store",
     65: "AccessChain", 71: "Decorate", 72: "MemberDecorate",
     79: "VectorShuffle", 80: "CompositeConstruct", 81: "CompositeExtract",
-    82: "CompositeInsert",
+    82: "CompositeInsert", 84: "Transpose",
     87: "ImageSampleImplicitLod", 88: "ImageSampleExplicitLod",
     91: "ImageSampleProjImplicitLod", 92: "ImageSampleProjExplicitLod",
     110: "ConvertFToS", 111: "ConvertSToF",
@@ -68,7 +68,7 @@ OP = {
 # value computations + Constant/Variable/Function (NOT type-defining ops,
 # whose result *is* the type and have no result-type word).
 _HAS_TYPE_AND_RESULT = {
-    12, 43, 44, 54, 55, 57, 59, 61, 65, 79, 80, 81, 82, 87, 88, 91, 92,
+    12, 43, 44, 54, 55, 57, 59, 61, 65, 79, 80, 81, 82, 84, 87, 88, 91, 92,
     124, 127,
     129, 130, 131, 133, 136, 141, 142, 144, 145, 146, 148,
     169, 180, 182, 184, 186, 188, 190,        # OpSelect + FOrd comparisons

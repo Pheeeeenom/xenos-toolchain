@@ -468,6 +468,35 @@ def main():
         print(f"  PASS loop_array.frag: for(i<n) sum += w[i] -> real loop "
               f"with c[base+aL] ({len(lablob)} B)")
 
+    # while-break frontend: `for(i<n){ sum+=k; if(sum.x>thr) break; }` lowers
+    # to a body setp + a predicated LOOP_END (the G30 primitive, from GLSL).
+    lb = spirv.Module.parse((TD / "loop_break.frag.spv").read_bytes())
+    lbblob, lbman = lower_ex(lb)
+    lbh = oracle_hlsl(lbblob, "loop_break_frag")
+    lbdis = xu.disassemble(container.Container(lbblob).ucode_dwords, "pixel")
+    if lbh is None or "setp_gt" not in lbdis or "(p0) endloop" not in lbdis:
+        ok = False
+        print(f"  FAIL loop_break.frag: predicated while-break wrong "
+              f"(oracle={'OK' if lbh else 'REJECTED'})")
+    else:
+        print(f"  PASS loop_break.frag: if(cond) break -> setp + predicated "
+              f"LOOP_END ({len(lbblob)} B)")
+
+    # if/else inside a loop body with a constant (induction-var) condition:
+    # the unroller picks the taken arm per iteration (4x .05 then 4x .10).
+    lc = spirv.Module.parse((TD / "loop_cond.frag.spv").read_bytes())
+    lcblob, lcman = lower_ex(lc)
+    lch = oracle_hlsl(lcblob, "loop_cond_frag")
+    want_lc = [(0, (0.05000000074505806,) * 4),
+               (1, (0.10000000149011612,) * 4)]
+    if lch is None or lcman != want_lc:
+        ok = False
+        print(f"  FAIL loop_cond.frag: if/else-in-loop wrong "
+              f"(manifest {lcman})")
+    else:
+        print(f"  PASS loop_cond.frag: if(i<k) in loop -> per-iteration arm "
+              f"select ({len(lcblob)} B)")
+
     # dot(): luminance desaturation (vec3 dot -> dp3, broadcast scalar)
     gray = compile_glsl("gray.frag")
     ghl = oracle_hlsl(gray, "gray_frag")
@@ -581,6 +610,19 @@ def main():
         else:
             print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
 
+    # screen-space derivatives via the getGradients fetch (decode-valid here;
+    # the execution packing/sign is hardware-gated).
+    dv = compile_glsl("fs_deriv.frag")
+    dvh = oracle_hlsl(dv, "fs_deriv")
+    dvdis = xu.disassemble(container.Container(dv).ucode_dwords, "pixel")
+    if dvh is None or "getGradients" not in dvdis or "r2.xzxz" not in dvdis:
+        ok = False
+        print(f"  FAIL fs_deriv.frag: derivatives "
+              f"(oracle={'OK' if dvh else 'REJECTED'})")
+    else:
+        print(f"  PASS fs_deriv.frag: dFdx/dFdy/fwidth -> getGradients "
+              f"(.xz/.yw) ({len(dv)} B)")
+
     # vertex: oracle-equivalent to the mvp transform
     vert = compile_glsl("spincube.vert")
     hlsl = oracle_hlsl(vert, "spincube_vert")
@@ -631,6 +673,22 @@ def main():
                   f"{'OK' if h else 'REJECTED'}, {needle}={needle in dis})")
         else:
             print(f"  PASS {name}.vert: {desc} ({len(blob)} B)")
+
+    # matrix builtins (transpose / determinant / inverse): numerically gated by
+    # tests/test_matrix.py; here confirm the oracle decodes them + key ops.
+    for name, needle, desc in [
+        ("fs_mtest", "dp3", "transpose + determinant(mat3)"),
+        ("fs_minv", "rcp", "inverse(mat3) via adjugate/det"),
+    ]:
+        blob = compile_glsl(f"{name}.frag")
+        h = oracle_hlsl(blob, name)
+        dis = xu.disassemble(container.Container(blob).ucode_dwords, "pixel")
+        if h is None or needle not in dis:
+            ok = False
+            print(f"  FAIL {name}.frag: {desc} "
+                  f"(oracle={'OK' if h else 'REJECTED'})")
+        else:
+            print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
 
     # vertex: VectorTimesMatrix (vec4 * mat4) lowers as a row-vector
     # accumulation, and the emitted ALU numerically matches v*M.

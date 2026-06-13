@@ -88,7 +88,7 @@ class ValueLowerer:
     BCAST_X = sum(((0 - p) & 3) << (2 * p) for p in range(4))
 
     def __init__(self, *, m, si, program, templates, types, stores, first_reg,
-                 inputs, local_store, stage, sample_reg=None,
+                 inputs, local_store, stage, sample_reg=None, deriv_reg=None,
                  literal_base=0, allow_literals=True):
         self.m = m
         self.si = si
@@ -101,6 +101,7 @@ class ValueLowerer:
         self.local_store = local_store
         self.stage = stage
         self.sample_reg = sample_reg if sample_reg is not None else {}
+        self.deriv_reg = deriv_reg if deriv_reg is not None else {}
         self.allow_literals = allow_literals
         self.lit_base = literal_base
         self.lit_pool = {}
@@ -342,11 +343,112 @@ class ValueLowerer:
                 res = tuple(("const", base + i) for i in range(regs))
         elif ins.opcode == 146:                    # MatrixTimesMatrix
             res = self.emit_mat_mat(ins.operands[0], ins.operands[1])
+        elif ins.opcode == 84:                     # OpTranspose
+            res = self.emit_transpose(ins.operands[0])
+        elif ins.opcode == 12 and ins.operands[1] == 34:   # MatrixInverse
+            res = self.emit_inverse(ins.operands[2])
         else:
             raise LowerError(
                 f"v1 {self.stage}: unhandled matrix op {ins.name}")
         self.matrix_cache[ssa_id] = res
         return res
+
+    def emit_transpose(self, mat_ssa):
+        """transpose(M): row i of the result is column i of M -- gather
+        component i of every input row."""
+        rows = self.matrix_operands(mat_ssa)
+        n = len(rows)
+        if n not in self._MAT_DP:
+            raise LowerError(f"transpose expects mat2/3/4, got {n}")
+        rows = [self.to_reg(r) for r in rows]
+        out = []
+        for i in range(n):                         # new row i = column i
+            r = self.fresh()
+            for j in range(n):                     # gather rows[j][i] -> .j
+                swz = ((i - j) & 3) << (2 * j)
+                self.emit(_V.kMax, {1: (rows[j], False, swz),
+                                    2: (rows[j], False, swz)}, r, False,
+                          mask=(1 << j))
+            out.append(("reg", r))
+        return tuple(out)
+
+    def emit_determinant(self, mat_ssa):
+        """determinant(M) -> a broadcast scalar reg. mat2 = ad-bc; mat3 =
+        row0 . cross(row1, row2)."""
+        rows = [self.to_reg(r) for r in self.matrix_operands(mat_ssa)]
+        n = len(rows)
+        if n == 2:                                 # det = r0.x*r1.y - r0.y*r1.x
+            yx = self.swz([1, 0, 0, 0])
+            prod = self.fresh()
+            self.emit(_V.kMul, {1: (rows[0], False),
+                                2: (rows[1], False, yx)}, prod, False)
+            r = self.fresh()                       # prod.x - prod.y
+            self.emit(_V.kAdd, {1: (("reg", prod), False, self.bsw(0)),
+                                2: (("reg", prod), True, self.bsw(1))},
+                      r, False)
+            return r
+        if n == 3:                                 # r0 . cross(r1, r2)
+            cr = self._cross(rows[1], rows[2])
+            r = self.fresh()
+            self.emit(_V.kDp3, {1: (rows[0], False),
+                                2: (("reg", cr), False)}, r, False, mask=0xF)
+            return r
+        raise LowerError("determinant supports mat2/mat3")
+
+    def _cross(self, a_op, b_op):
+        """cross(a, b) -> a fresh register (vec3 in xyz)."""
+        yzx, zxy = self.swz([1, 2, 0, 0]), self.swz([2, 0, 1, 0])
+        tc = self.fresh()
+        self.emit(_V.kMul, {1: (a_op, False, zxy), 2: (b_op, False, yzx)},
+                  tc, False)
+        out = self.fresh()
+        self.emit(_V.kMad, {1: (a_op, False, yzx), 2: (b_op, False, zxy),
+                            3: (("reg", tc), True)}, out, False)
+        return out
+
+    def emit_inverse(self, mat_ssa):
+        """inverse(M) for mat2/mat3 -> tuple of row operands. mat2 uses the
+        closed form; mat3 uses adjugate(rows of cofactor cross-products) / det.
+        Register-heavy for mat3 -- intended for vertex shaders."""
+        rows = [self.to_reg(r) for r in self.matrix_operands(mat_ssa)]
+        n = len(rows)
+        det = self.emit_determinant(mat_ssa)
+        idet = self.emit_scalar(_S.kRcp, self.fresh(), ("reg", det))
+        if n == 2:                                 # (1/det) [[d,-b],[-c,a]]
+            r0 = self.fresh()                      # [r1.y, -r0.y]
+            self.emit(_V.kMul, {1: (rows[1], False, self.bsw(1)),
+                                2: (("reg", idet), False)}, r0, False,
+                      mask=0x1)
+            self.emit(_V.kMul, {1: (rows[0], True, self.bsw(1)),
+                                2: (("reg", idet), False)}, r0, False,
+                      mask=0x2)
+            r1 = self.fresh()                      # [-r1.x, r0.x]
+            self.emit(_V.kMul, {1: (rows[1], True, self.bsw(0)),
+                                2: (("reg", idet), False)}, r1, False,
+                      mask=0x1)
+            self.emit(_V.kMul, {1: (rows[0], False, self.bsw(0)),
+                                2: (("reg", idet), False)}, r1, False,
+                      mask=0x2)
+            return (("reg", r0), ("reg", r1))
+        if n == 3:
+            # inverse = transpose(cofactor) / det; the cofactor rows are the
+            # cross products of the OTHER two rows, and transposing them is the
+            # column-gather below.
+            c0 = self._cross(rows[1], rows[2])
+            c1 = self._cross(rows[2], rows[0])
+            c2 = self._cross(rows[0], rows[1])
+            cof = [("reg", c0), ("reg", c1), ("reg", c2)]
+            out = []
+            for i in range(3):                     # transpose + scale by 1/det
+                r = self.fresh()
+                for j in range(3):
+                    swz = ((i - j) & 3) << (2 * j)
+                    self.emit(_V.kMul, {1: (cof[j], False, swz),
+                                        2: (("reg", idet), False)},
+                              r, False, mask=(1 << j))
+                out.append(("reg", r))
+            return tuple(out)
+        raise LowerError("inverse supports mat2/mat3")
 
     # square-matrix dimension -> per-row dot opcode (rows uploaded as the
     # matrix's constant registers; (M*v)[i] = dot(v, row_i)).
@@ -354,8 +456,6 @@ class ValueLowerer:
 
     def emit_mat_vec_ops(self, mat_ops, vec_op, dst=None,
                          export_position=False):
-        if self.stage != "vertex":
-            raise LowerError("matrix-vector lowering is vertex-only")
         n = len(mat_ops)
         if n not in self._MAT_DP:
             raise LowerError(f"matrix-vector expects mat2/3/4, got {n} rows")
@@ -368,6 +468,12 @@ class ValueLowerer:
                       is_export=export_position, vector_write_mask=(1 << i),
                       src1_reg=vec_op[1], src1_is_temp=True,
                       src2_reg=mat_op[1], src2_is_temp=(mat_op[0] == "reg"))
+            if n != 4:
+                # The dp4 template carries the MVP position swizzle (.wzxy),
+                # which is permutation-invariant for a full 4-dot but WRONG for
+                # dp3/dp2 (it would read w,z,x and drop y). Use identity so the
+                # dot covers exactly the n live components.
+                kw.update(src1_swizzle=0, src2_swizzle=0)
             if n == 2:                            # dp2add: zero the addend
                 z = self.literal_reg((0.0, 0.0, 0.0, 0.0))
                 kw.update(src3_reg=z, src3_is_temp=False, src3_swizzle=0)
@@ -381,8 +487,6 @@ class ValueLowerer:
 
     def emit_vec_mat_ops(self, vec_op, mat_ops, dst=None,
                          export_position=False):
-        if self.stage != "vertex":
-            raise LowerError("vector-matrix lowering is vertex-only")
         n = len(mat_ops)
         if n not in self._MAT_DP:
             raise LowerError(f"vector-matrix expects mat2/3/4, got {n} rows")
@@ -649,6 +753,8 @@ class ValueLowerer:
             res = ("reg", self.emit_vec_mat(ins.operands[0], ins.operands[1]))
         elif op == 146:                           # MatrixTimesMatrix
             res = ("mat", self.matrix_operands(ssa_id))
+        elif op == 84:                            # OpTranspose
+            res = ("mat", self.matrix_operands(ssa_id))
         elif op in (129, 131, 133):               # FAdd FSub FMul
             res = ("reg", self.binop(op, ins.operands[0], ins.operands[1]))
         elif op == 142:                           # VectorTimesScalar
@@ -678,7 +784,9 @@ class ValueLowerer:
                 r = self.fresh()
                 self.emit_construct(ins, r, export=False)
                 res = ("reg", r)
-        elif op == 12:                            # ExtInst
+        elif op == 12 and ins.operands[1] == 34:  # MatrixInverse -> matrix
+            res = ("mat", self.matrix_operands(ssa_id))
+        elif op == 12:                            # ExtInst (scalar/vector)
             res = ("reg", self.extinst(ins))
         elif op == 111:                           # ConvertSToF
             res = self.int_operand(ins.operands[0])
@@ -687,11 +795,11 @@ class ValueLowerer:
                 f"{ins.name}: bitwise/shift operators have no Xenos float-ALU "
                 "equivalent (the GPU has no bit ops); restructure with "
                 "arithmetic, or precompute on the host")
-        elif op in (207, 208, 209):
-            raise LowerError(
-                f"{ins.name}: screen-space derivatives (dFdx/dFdy/fwidth) are "
-                "not yet supported -- the Xenos getGradients fetch is the path "
-                "but is unproven on hardware")
+        elif op in (207, 208, 209):               # dFdx / dFdy / fwidth
+            if ssa_id not in self.deriv_reg:
+                raise LowerError(
+                    "derivative was not gathered before lowering")
+            res = ("reg", self.deriv_reg[ssa_id])
         else:
             raise LowerError(f"v1 {self.stage}: unhandled op {ins.name}")
         self.op_cache[ssa_id] = res
@@ -1268,6 +1376,11 @@ class ValueLowerer:
                                 2: (ob, False, zxy),
                                 3: (("reg", tc), True)}, dst, export)
             return dst
+        if inst == 33:                            # Determinant -> scalar
+            r = self.emit_determinant(args[0])
+            self.emit(_V.kMax, {1: (("reg", r), False),
+                                2: (("reg", r), False)}, dst, export)
+            return dst
         if inst == 72:                            # Refract(I, N, eta)
             oi, on = self.operand(args[0]), self.operand(args[1])
             n = max(self.vec_size(args[0]), 1)
@@ -1577,9 +1690,13 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
         fail("induction update must be i + 1")
 
     body_mid, body_term = blocks.get(body_lbl, (None, None))
-    if body_term is None or body_term.opcode != 249 or \
-            body_term.operands[0] != cont_lbl:
-        fail("loop body must branch to continue")
+    plain_body = (body_term is not None and body_term.opcode == 249 and
+                  body_term.operands[0] == cont_lbl)
+    # `if(cond) break;` makes the body end in SelectionMerge + BranchConditional
+    # (one arm jumps to the loop merge); handled below.
+    break_body = body_term is not None and body_term.opcode == 250
+    if not (plain_body or break_body):
+        fail("loop body must branch to continue (or conditionally break)")
     body_store = next((ins for ins in body_mid or [] if ins.opcode == 62),
                       None)
     if body_store is None or body_store.operands[0] not in local_vars:
@@ -1622,6 +1739,57 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
     init_val = const_vec4(acc_init)
     if arr is not None and not all(v == 0.0 for v in init_val):
         fail("array-accumulating loop must start the accumulator at zero")
+
+    # `if(acc.c CMP const) break;` -> a setp on the body value + a predicated
+    # LOOP_END (the data-dependent while-break, ISA-proven as G30).
+    has_break = break_setp = break_comp = break_thresh = None
+    break_negate = break_cond_val = False
+    if break_body:
+        def acc_component(ssa):
+            ld = m.by_result.get(ssa)
+            if ld is None or ld.opcode != 61:
+                return None
+            ac = m.by_result.get(ld.operands[0])
+            if ac is None or ac.opcode != 65 or ac.operands[0] != acc_var:
+                return None
+            ci = m.by_result.get(ac.operands[1])
+            return ci.operands[0] if ci and ci.opcode == 43 else None
+
+        def jumps_to(lbl, target):
+            mm, tt = blocks.get(lbl, (None, None))
+            return (not (mm or [])) and tt is not None and \
+                tt.opcode == 249 and tt.operands[0] == target
+
+        t_lbl, f_lbl = body_term.operands[1], body_term.operands[2]
+        if jumps_to(t_lbl, merge_lbl):
+            break_cond_val = True
+        elif jumps_to(f_lbl, merge_lbl):
+            break_cond_val = False
+        else:
+            fail("loop body conditional must be a plain `break`")
+        bcmp = m.by_result.get(body_term.operands[0])
+        if bcmp is None or bcmp.opcode not in (180, 182, 184, 186, 188, 190):
+            fail("break condition must be a float comparison")
+        comp = acc_component(bcmp.operands[0])
+        if comp is not None:
+            thr_ssa, cop = bcmp.operands[1], bcmp.opcode
+        else:                                      # accumulator on the rhs
+            comp = acc_component(bcmp.operands[1])
+            _flip = {186: 184, 184: 186, 190: 188, 188: 190, 180: 180,
+                     182: 182}
+            thr_ssa, cop = bcmp.operands[0], _flip[bcmp.opcode]
+        if comp is None:
+            fail("break must compare the accumulator to a constant")
+        # condition `acc CMP thr` -> setp on (acc-thr); for < / <= negate diff.
+        _setp = {186: (xu.AluScalarOpcode.kSetpGt, False),
+                 190: (xu.AluScalarOpcode.kSetpGe, False),
+                 184: (xu.AluScalarOpcode.kSetpGt, True),
+                 188: (xu.AluScalarOpcode.kSetpGe, True),
+                 180: (xu.AluScalarOpcode.kSetpEq, False),
+                 182: (xu.AluScalarOpcode.kSetpNe, False)}
+        break_setp, break_negate = _setp[cop]
+        break_comp, break_thresh = comp, const_float(thr_ssa)
+        has_break = True
 
     merge_mid, merge_term = blocks.get(merge_lbl, (None, None))
     if merge_term is None or merge_term.opcode != 253:
@@ -1670,6 +1838,13 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
         init_reg = 1
         emit(_V.kMax, acc_reg, [("const", init_reg, False),
                                 ("const", init_reg, False)])
+    if has_break:
+        if arr is not None:
+            thresh_reg = arr_base + arr_regs
+        elif not init_is_zero:
+            thresh_reg = init_reg + 1
+        else:
+            thresh_reg = step_reg + 1
     p.begin_loop(loop_id=loop_id)
     if arr is not None:
         # acc += c[base + aL]: the array element selected by the loop counter.
@@ -1683,7 +1858,24 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
     else:
         emit(_V.kAdd, acc_reg, [("reg", acc_reg, False),
                                 ("const", step_reg, False)])
-    p.end_loop()
+    if has_break:
+        # p0 = (acc.comp CMP thresh); break the loop when p0 == break_cond_val.
+        diff_reg = acc_reg + 1
+        if break_negate:                          # thresh - acc (for < / <=)
+            emit(_V.kAdd, diff_reg, [("const", thresh_reg, False),
+                                     ("reg", acc_reg, True)])
+        else:                                     # acc - thresh
+            emit(_V.kAdd, diff_reg, [("reg", acc_reg, False),
+                                     ("const", thresh_reg, True)])
+        bsw = sum(((break_comp - pp) & 3) << (2 * pp) for pp in range(4))
+        p.alu(**dict(T["mov"], vector_opcode=_V.kMax, vector_dest=0,
+                     is_export=False, vector_write_mask=0, vector_clamp=False,
+                     scalar_opcode=break_setp, scalar_dest=0,
+                     scalar_write_mask=0,
+                     src3_reg=diff_reg, src3_is_temp=True, src3_swizzle=bsw))
+        p.end_loop(predicated_break=True, break_condition=break_cond_val)
+    else:
+        p.end_loop()
     p.alloc_colors()
     emit(_V.kMax, 0, [("reg", acc_reg, False), ("reg", acc_reg, False)],
          export=True)
@@ -1705,6 +1897,11 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
                                          ce.CLASS_VECTOR, ce.TYPE_FLOAT,
                                          rows=1, columns=4))
             manifest.append((init_reg, init_val))
+    if has_break:
+        constants.append(ce.Constant("_thr", ce.RS_FLOAT4, thresh_reg, 1,
+                                     ce.CLASS_VECTOR, ce.TYPE_FLOAT,
+                                     rows=1, columns=4))
+        manifest.append((thresh_reg, (break_thresh,) * 4))
     manifest.append(("loop", loop_id, bound_name))
     return p.finish(constants=constants), manifest
 
@@ -1725,6 +1922,7 @@ def lower_fragment(m: spirv.Module) -> bytes:
         interp_reg[v.vid] = r
         maxr = max(maxr, r)
     sample_reg = {}       # ImageSample ssa-id -> register (phase 1)
+    deriv_reg = {}        # dFdx/dFdy/fwidth ssa-id -> register (phase 1)
     used_samplers = set()
 
     # Literal pool starts after uniform-declared constants.
@@ -1740,6 +1938,7 @@ def lower_fragment(m: spirv.Module) -> bytes:
                        stores=stores, first_reg=maxr + 1,
                        inputs=interp_reg, local_store=local_store,
                        stage="fragment", sample_reg=sample_reg,
+                       deriv_reg=deriv_reg,
                        literal_base=lit_base, allow_literals=True)
 
     # phase 1 (before alloc_colors): emit a tfetch for every ImageSample
@@ -1752,6 +1951,35 @@ def lower_fragment(m: spirv.Module) -> bytes:
         seen.add(ssa_id)
         ins = m.by_result.get(ssa_id)
         if ins is None:
+            return
+        if ins.opcode in (207, 208, 209):         # dFdx / dFdy / fwidth
+            # getGradients is a fetch-pipe op (like tfetch) -> emit in phase 1.
+            # It returns grad.xz = ddx(src.xy), grad.yw = ddy(src.xy).
+            val_ssa = ins.operands[0]
+            gather(val_ssa)
+            if ssa_id not in deriv_reg:
+                src = ctx.to_reg(ctx.operand(val_ssa))[1]
+                grad = ctx.fresh()
+                p.tfetch(dict(T["tf"],
+                              opcode=xu.FetchOpcode.kGetTextureGradients,
+                              src_swizzle=(0 | (1 << 2))), dest=grad, src=src)
+                XZ, YW = 0xE4, 0x39               # .xzxz (ddx), .ywyw (ddy)
+                if ins.opcode == 207:             # dFdx
+                    r = ctx.fresh()
+                    ctx.emit(_V.kMax, {1: (("reg", grad), False, XZ),
+                                       2: (("reg", grad), False, XZ)}, r, False)
+                elif ins.opcode == 208:           # dFdy
+                    r = ctx.fresh()
+                    ctx.emit(_V.kMax, {1: (("reg", grad), False, YW),
+                                       2: (("reg", grad), False, YW)}, r, False)
+                else:                             # fwidth = |ddx| + |ddy|
+                    ag = ctx.fresh()
+                    ctx.emit(_V.kMax, {1: (("reg", grad), False),
+                                       2: (("reg", grad), True)}, ag, False)
+                    r = ctx.fresh()
+                    ctx.emit(_V.kAdd, {1: (("reg", ag), False, XZ),
+                                       2: (("reg", ag), False, YW)}, r, False)
+                deriv_reg[ssa_id] = r
             return
         if ins.opcode in (87, 88, 91, 92):        # ImageSample [Proj][Lod]
             proj = ins.opcode in (91, 92)         # projective (divide by last)

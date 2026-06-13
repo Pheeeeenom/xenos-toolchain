@@ -267,7 +267,8 @@ def _rewrite_function(m: Module):
                 else:
                     clone_generic(ins, lm)
             elif op in CMP_OPS:
-                raise UnrollError("data-dependent comparison outside loop ctrl")
+                continue                              # if-condition: folded by
+                #                                       _walk's _const_bool
             elif ins.result_id is None:
                 continue                              # Nop / unmodelled
             else:                                     # value op: clone to SSA
@@ -324,6 +325,27 @@ def _rewrite_function(m: Module):
                 raise UnrollError("loop induction variable does not advance")
         return merge_lbl
 
+    def _const_bool(ssa):
+        """Evaluate a comparison to a constant bool using the current env, or
+        None if it is data-dependent."""
+        c = m.by_result.get(ssa)
+        if c is None or c.opcode not in CMP_OPS:
+            return None
+
+        def cint(x):
+            if x in iconst:
+                return iconst[x]
+            lx = m.by_result.get(x)
+            if lx is not None and lx.opcode == LOAD:
+                v = env.get(lx.operands[0])
+                if v in iconst:
+                    return iconst[v]
+            return None
+        va, vb = cint(c.operands[0]), cint(c.operands[1])
+        if va is None or vb is None:
+            return None
+        return _icmp(c.opcode, va, vb)
+
     def _walk(start_lbl, stop_lbl):
         cur = start_lbl
         while cur is not None and cur != stop_lbl:
@@ -337,7 +359,20 @@ def _rewrite_function(m: Module):
             elif term.opcode == BRANCH:
                 cur = term.operands[0]
             else:                                     # BranchConditional
-                raise UnrollError("if/else outside loop control (v1)")
+                # Structured if/else with a CONSTANT condition (e.g. on the
+                # induction variable): pick the taken arm, inline it, resume at
+                # the selection merge. Data-dependent conditional stores can't
+                # be represented in the env model -> raise (no miscompile).
+                cval = _const_bool(term.operands[0])
+                sel = next((x for x in mid if x.opcode == SEL_MERGE), None)
+                if cval is None or sel is None:
+                    raise UnrollError(
+                        "data-dependent if/else in a loop body (v1)")
+                merge = sel.operands[0]
+                taken = term.operands[1] if cval else term.operands[2]
+                if taken != merge:
+                    _walk(taken, merge)
+                cur = merge
 
     _walk(entry_label, None)
 
