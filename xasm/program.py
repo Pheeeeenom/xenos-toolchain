@@ -80,6 +80,15 @@ class _Program:
         self._loops: list[tuple] = []            # (start_stage, end_stage, loop_id)
         self._loop_open = None
 
+    @staticmethod
+    def _src_temp_index(reg: int) -> int:
+        return reg & 0x3F
+
+    @staticmethod
+    def _remap_src_temp(reg: int, mapping: dict) -> int:
+        idx = reg & 0x3F
+        return (reg & ~0x3F) | mapping.get(idx, idx)
+
     # ---- declarations ----
 
     def _track_regs(self, fields: dict):
@@ -95,7 +104,9 @@ class _Program:
             self._max_reg = max(self._max_reg, fields.get("scalar_dest", 0))
         for i in (1, 2, 3):
             if fields.get(f"src{i}_is_temp"):
-                self._max_reg = max(self._max_reg, fields[f"src{i}_reg"])
+                self._max_reg = max(
+                    self._max_reg,
+                    self._src_temp_index(fields[f"src{i}_reg"]))
 
     def alu(self, **fields) -> _Instr:
         self._track_regs(fields)
@@ -242,7 +253,7 @@ class _Program:
                 d.append(f.get("scalar_dest", 0))
             for i in (1, 2, 3):
                 if f.get(f"src{i}_is_temp"):
-                    u.append(f[f"src{i}_reg"])
+                    u.append(_Program._src_temp_index(f[f"src{i}_reg"]))
         else:                                         # tfetch / vfetch
             d.append(f["dest"])
             u.append(f["src"])
@@ -309,8 +320,8 @@ class _Program:
                                                    f.get("scalar_dest", 0))
                 for i in (1, 2, 3):
                     if f.get(f"src{i}_is_temp"):
-                        f[f"src{i}_reg"] = mapping.get(f[f"src{i}_reg"],
-                                                       f[f"src{i}_reg"])
+                        f[f"src{i}_reg"] = self._remap_src_temp(
+                            f[f"src{i}_reg"], mapping)
                 ins.triple = tuple(enc.build_alu(**f))
             else:
                 f["dest"] = mapping.get(f["dest"], f["dest"])

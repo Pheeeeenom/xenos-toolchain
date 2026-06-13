@@ -47,7 +47,15 @@ def main():
          [("v_texcoord", 0), ("v_color", 1)], "fs interp_in"),
         ([(v.name, s) for v, s in fs.samplers] ==
          [("u_tex0", 0)], "fs sampler -> tf0"),
+        (fs.sampler_dims == {0: 1}, "fs sampler Dim 2D"),
         ([idx for _, idx in fs.color_out] == [0], "fs color_out -> oC0"),
+    ]
+
+    cube = load("fs_cubemap.frag.spv")
+    checks += [
+        ([(v.name, s) for v, s in cube.samplers] ==
+         [("u_cube", 0)], "cube sampler -> tf0"),
+        (cube.sampler_dims == {0: 3}, "cube sampler Dim Cube"),
     ]
 
     for passed, label in checks:

@@ -20,13 +20,17 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 |---|---|
 | vertex `mvp * pos` (MatrixTimesVector) | 4× `dp4` → oPos |
 | vertex chained `mat4 * (mat4 * pos)` | first mat4 x vec4 into a temp, second mat4 x vec4 -> oPos |
+| vertex `vec4 * mat4` (VectorTimesMatrix) | row-vector `mul`+`mad` |
+| vertex `(mat4 * mat4) * vec4` | product rows via `vec*mat`, then 4× `dp4` |
 | vertex `+` `-` `*`, `vec * scalar`, `dot()`, swizzled temps | same ALU lowering subset as fragment, feeding position or interpolator exports |
 | passthrough varyings | interpolator exports (max o*N*) |
 | `texture()` (ImageSampleImplicitLod) | `tfetch2D` |
+| samplerCube `texture()` | cube swizzles + rcp/bias + `tfetchCube .yxw` |
 | `*` `+` `-` (FMul/FAdd/FSub) | mul / add / add-neg |
 | `/` (FDiv) | `a · rcp(b)`; scalar-pipe `rcp` per component (scalar divisor: once + broadcast) |
 | `mod()` (OpFMod) | `a − b·floor(a/b)` |
 | `vec * float` (VectorTimesScalar) | mul, scalar `.xxxx` broadcast |
+| scalar int -> float | folded literals or float-backed `trunc` + add/mul |
 | `dot()` / `cross()` | `dp3`/`dp4` broadcast / yzx·zxy mad |
 | `mix` / `max` / `min` / `clamp(x,0,1)` (GLSL.std.450) | sub+mad / max / min / `_sat` modifier (free) |
 | `step` / `smoothstep` | `kSge` / `t·t·(3−2t)`, `t=sat((x−e0)/(e1−e0))` |
@@ -39,16 +43,17 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 | `.rgb` `.xy` (identity) / `.bgra` (reorder) / two-source `vec4(a.xy,b.zw)` | same regs / swizzled mov / per-component masked movs |
 | `v.x` (CompositeExtract), `vec4(a,b,c,d)` (CompositeConstruct) | masked exports |
 | `floor` / `ceil` / `trunc` / `round` / `fract` | `kFloor` / `-floor(-x)` / `kTrunc` / `floor(x+.5)` / `kFrc` |
-| `abs()` / `sign()` | `max(x,-x)` / `sgt(x,0)−sgt(0,x)` (pooled `0.0`) |
+| `abs()` / `sign()` | `max(x,-x)` / `sgt(x,-x)−sgt(-x,x)` |
 | `radians` / `degrees` | mul by pooled `π/180` / `180/π` |
 | `clamp(x, lo, hi)` arbitrary | `min(max(x,lo),hi)`, lo/hi pooled literals |
 | **`if/else`**, incl. **nested**, assigning the output | branch-free chained `cndgt`/`cndge`/`cndeq` selects |
 | **`if/else` assigning a Function-local** later read by the output | branch-free `cnd*` select into a temp registered as that local's merged value |
 | **`discard` / `OpKill` inside `if(cond)`** | `kill_gt`/`kill_ge`/`kill_eq`/`kill_ne` ALU side effect; oracle-valid, pending console verification in `glslgallery` G26 |
 | **`for`/`while`** with a compile-time trip count, incl. **nested** | unrolled to branch-free SSA; induction variable constant-folded (see below) |
+| uniform-bound loop `sum += const` | real `LOOP_START/END` (G28 pending) |
 | `vec4 t = ...;` (function-local) | store-forwarding |
 | uniforms (block + bare), samplers | constant regs / fetch consts |
-| float / vec literals (0.5, vec4(...)) | constant pool (see below) |
+| float / vec literals in FS/VS | constant pool; 0/1 folds (see below) |
 
 ## Interface conventions (GLSL ↔ Xenos)
 
@@ -65,11 +70,20 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 The Xenos has no ALU float immediates, so GLSL literals are allocated
 constant registers **after** the uniform-declared constants.
 `lower_ex()` returns a **manifest** `[(register, (f0,f1,f2,f3))]`; the host
-must `Xe_SetPixelShaderConstantF` those values before drawing, exactly as it
-sets uniforms. Example: `mix(tex, color, 0.5)` →
+must upload those values to the matching shader stage before drawing:
+`Xe_SetPixelShaderConstantF` for fragment manifests and
+`Xe_SetVertexShaderConstantF` for vertex manifests, matching uniforms.
+Example: `mix(tex, color, 0.5)` →
 `add r3, color, -tex; mad oC0, r3, c0, tex` with manifest
-`[(0, (0.5,0.5,0.5,0.5))]` — upload 0.5 to c0. (Future: fold 0.0/1.0 into the
-ALU source-select swizzle, which is free and needs no register.)
+`[(0, (0.5,0.5,0.5,0.5))]` — upload 0.5 to c0.
+
+`0.0`/`1.0` are folded out of the manifest where there is an equivalent
+no-literal encoding: algebraic identity operands (`x+0`, `x*1`, `x/1`), unit
+axis `dot()` constants (a source swizzle/extract), and final export lanes
+(`oC0.z = 0.0`, `oC0.w = 1.0`) via Xenos export constant-result masks. General
+ALU sources do **not** have `k0/k1` source components, so uses such as
+`max(x, 0.0)` still need a pooled literal unless a separate algebraic lowering
+proves an equivalent form.
 
 ## Scalar pipe (the transcendentals)
 
@@ -120,26 +134,29 @@ structured CFG:
 - **Nested** loops expand innermost-first; **`while`** (increment in the body)
   and **`for`** (increment in the continue block) are both handled.
 
+If unrolling fails on the minimal uniform-bound accumulator pattern
+`for(i=0;i<u_count;i++) sum += const;`, xsc routes to a tiny register-machine
+lowerer instead: initialize a persistent GPR, wrap the body in
+`begin_loop/end_loop`, and return a manifest entry `("loop", id, name)` so the
+host uploads `integer_constants[8+id]`. See `loop_uniform.frag`; gallery G28 is
+console-pending.
+
 Because the pass is a no-op when there is no loop, loop-free shaders still lower
 byte-for-byte as before. Unrolled shaders then go through the normal pipeline,
 including the 16-GPR register allocator (e.g. `loop_stair` 17→3 GPRs). See
 `loop_*` in `xsc/testdata/` and the `LOOP` gallery slot.
 
 **Still the frontier:**
-- **Data-dependent loops** — a non-constant trip count (uniform/variable bound)
-  can't be unrolled; `unroll.py` raises `UnrollError` rather than miscompile.
-  These need real Xenos loop control-flow (`kLoopStart`/`kLoopEnd`, encoded in
-  xost but **unproven on hardware**), or a `[[unroll]]`-style bounded fallback.
+- **Loop bodies beyond `sum += const`** — especially array indexing via `aL`,
+  branchy bodies, and computed break conditions.
 - **`if/else` inside a loop body** — branchy loop bodies aren't unrolled yet
   (the body must be straight-line); also rejected with `UnrollError`.
 
 ## Not yet (the frontier)
-- **Integer ops** (`int`/`uint` arithmetic, bit ops) — Xenos ALU is float-
-  centric; awkward, rarely needed in fragment work.
-- **Matrix math beyond mat4 x vec4 chains** — `mat*mat`, `vec*mat`,
-  `inverse`, `determinant`.
-- Folding `0.0`/`1.0` literals into the free source-select swizzle (they
-  currently use a pooled constant register).
+- **General integer ops** (`uint`, bit ops, comparisons, dynamic division) —
+  only scalar signed-int expressions feeding float values are supported.
+- **Matrix inverses / determinants / arbitrary matrix value use** — matrix
+  support is `mat4*vec4`, `vec4*mat4`, and `(mat4*mat4)*vec4`.
 
 ## Validation
 Every test shader is checked by the XenosRecomp oracle (which does the

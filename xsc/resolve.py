@@ -64,6 +64,7 @@ class RType:
     count: int | None = None  # vector size / matrix columns / array length
     members: tuple = ()        # struct member type ids
     storage_class: int | None = None  # pointer
+    dim: int | None = None     # OpTypeImage Dim (0=1D, 1=2D, 2=3D, 3=Cube)
 
     def __repr__(self):
         if self.kind == "vector":
@@ -93,8 +94,8 @@ def resolve_types(m: spirv.Module) -> dict:
             t[rid] = RType("vector", comp=ops[0], count=ops[1])
         elif op == 24:  # TypeMatrix colType colCount
             t[rid] = RType("matrix", comp=ops[0], count=ops[1])
-        elif op == 25:
-            t[rid] = RType("image")
+        elif op == 25:  # TypeImage sampledType dim ...
+            t[rid] = RType("image", comp=ops[0], dim=ops[1])
         elif op == 26:
             t[rid] = RType("sampler")
         elif op == 27:  # TypeSampledImage imageType
@@ -147,6 +148,8 @@ class ShaderInterface:
     color_out: list = field(default_factory=list)     # (Var, oC index)
     constants: list = field(default_factory=list)     # ConstantSlot
     samplers: list = field(default_factory=list)      # (Var, fetch_slot)
+    # fetch_slot -> SPIR-V Dim
+    sampler_dims: dict = field(default_factory=dict)
     block_var: int | None = None                      # uniform block var id
     # role lookup the lowering pass uses: var_id -> ("kind", payload)
     roles: dict = field(default_factory=dict)
@@ -247,8 +250,11 @@ def resolve_interface(m: spirv.Module) -> ShaderInterface:
             st = types.get(v.pointee)
             if st and st.kind in ("sampledimage", "image", "sampler"):
                 slot = v.binding if v.binding is not None else len(si.samplers)
+                img = types.get(st.comp) if st.kind == "sampledimage" else st
+                dim = img.dim if img and img.kind == "image" else None
                 si.samplers.append((v, slot))
-                si.roles[v.vid] = ("sampler", slot)
+                si.sampler_dims[slot] = dim
+                si.roles[v.vid] = ("sampler", slot, dim)
             elif st and st.kind in ("matrix", "vector", "float"):
                 # default-block uniform (bare `uniform mat4 u_mvp;`):
                 # constant register base = Location, else next free.

@@ -24,7 +24,7 @@ import xdis.container as container  # noqa: E402
 import xdis.container_emit as ce  # noqa: E402
 import xdis.xenos_ucode as xu  # noqa: E402
 import xsc.spirv as spirv  # noqa: E402
-from xsc.unroll import unroll  # noqa: E402
+from xsc.unroll import UnrollError, unroll  # noqa: E402
 from xsc.resolve import resolve_interface, resolve_types  # noqa: E402
 from xasm.program import VertexProgram, PixelProgram  # noqa: E402
 from author_passthrough import alu_fields, vf_fields, corpus_records  # noqa: E402
@@ -73,6 +73,10 @@ def _access_chain_base(m: spirv.Module, ptr_id: int):
     return base, idx_consts
 
 
+def _signed_int(lit: int) -> int:
+    return lit - (1 << 32) if lit >= (1 << 31) else lit
+
+
 class ValueLowerer:
     """Shared SPIR-V value lowering for vertex and fragment stages.
 
@@ -102,6 +106,7 @@ class ValueLowerer:
         self.lit_pool = {}
         self.lit_manifest = []
         self.op_cache = {}
+        self.matrix_cache = {}
         self.local_values = {}
 
     def fresh(self):
@@ -116,6 +121,140 @@ class ValueLowerer:
     def scalar_const(self, ssa):
         bits = self.m.by_result[ssa].operands[0] & 0xFFFFFFFF
         return struct.unpack("<f", struct.pack("<I", bits))[0]
+
+    @staticmethod
+    def is_zero(v):
+        return v == 0.0
+
+    @staticmethod
+    def is_one(v):
+        return v == 1.0
+
+    def float_const01(self, ssa):
+        v = self.float_const(ssa)
+        if v is not None and (self.is_zero(v) or self.is_one(v)):
+            return v
+        return None
+
+    def const_vector(self, ssa):
+        ins = self.m.by_result.get(ssa)
+        if ins is None:
+            return None
+        if ins.opcode == 43 and self.result_kind(ssa) == "float":
+            return (self.scalar_const(ssa),)
+        if ins.opcode == 44:                      # ConstantComposite
+            vals = []
+            for comp in ins.operands:
+                ci = self.m.by_result.get(comp)
+                if ci is None or ci.opcode != 43:
+                    return None
+                vals.append(self.scalar_const(comp))
+            return tuple(vals)
+        if ins.opcode == 80:                      # CompositeConstruct
+            vals = []
+            for part in ins.operands:
+                v = self.float_const(part)
+                if v is None:
+                    return None
+                vals.append(v)
+            return tuple(vals)
+        return None
+
+    def axis_component(self, ssa):
+        vals = self.const_vector(ssa)
+        if vals is None:
+            return None
+        n = self.vec_size(ssa)
+        vals = vals[:n]
+        if len(vals) != n:
+            return None
+        axis = [i for i, v in enumerate(vals) if self.is_one(v)]
+        if len(axis) != 1:
+            return None
+        if any(not self.is_zero(v) for i, v in enumerate(vals)
+               if i != axis[0]):
+            return None
+        return axis[0]
+
+    @staticmethod
+    def signed_int(lit: int) -> int:
+        return _signed_int(lit)
+
+    def result_kind(self, ssa):
+        ins = self.m.by_result.get(ssa)
+        t = self.types.get(ins.result_type) if ins is not None else None
+        return t.kind if t is not None else None
+
+    def int_const(self, ssa, seen=None):
+        """Return a folded signed-int scalar, or None when data-dependent."""
+        seen = set() if seen is None else seen
+        if ssa in seen:
+            return None
+        seen.add(ssa)
+        ins = self.m.by_result.get(ssa)
+        if ins is None:
+            return None
+        op = ins.opcode
+        if op == 61:                              # Load
+            src = ins.operands[0]
+            if src in self.local_store:
+                return self.int_const(self.local_store[src], seen)
+            return None
+        if op == 43 and self.result_kind(ssa) == "int":
+            return self.signed_int(ins.operands[0] & 0xFFFFFFFF)
+        if op == 110:                             # ConvertFToS
+            v = self.float_const(ins.operands[0], seen)
+            return int(v) if v is not None else None
+        if op not in (128, 130, 132, 135):        # IAdd ISub IMul SDiv
+            return None
+        a = self.int_const(ins.operands[0], seen)
+        b = self.int_const(ins.operands[1], seen)
+        if a is None or b is None:
+            return None
+        if op == 128:
+            return a + b
+        if op == 130:
+            return a - b
+        if op == 132:
+            return a * b
+        return int(a / b) if b != 0 else 0
+
+    def float_const(self, ssa, seen=None):
+        """Return a folded scalar float, or None when data-dependent."""
+        seen = set() if seen is None else seen
+        if ssa in seen:
+            return None
+        seen.add(ssa)
+        ins = self.m.by_result.get(ssa)
+        if ins is None:
+            return None
+        op = ins.opcode
+        if op == 61:                              # Load
+            src = ins.operands[0]
+            if src in self.local_store:
+                return self.float_const(self.local_store[src], seen)
+            return None
+        if op == 43 and self.result_kind(ssa) == "float":
+            return self.scalar_const(ssa)
+        if op == 111:                             # ConvertSToF
+            v = self.int_const(ins.operands[0], seen)
+            return float(v) if v is not None else None
+        if op == 127:                             # FNegate
+            v = self.float_const(ins.operands[0], seen)
+            return -v if v is not None else None
+        if op not in (129, 131, 133, 136):        # FAdd FSub FMul FDiv
+            return None
+        a = self.float_const(ins.operands[0], seen)
+        b = self.float_const(ins.operands[1], seen)
+        if a is None or b is None:
+            return None
+        if op == 129:
+            return a + b
+        if op == 131:
+            return a - b
+        if op == 133:
+            return a * b
+        return a / b if b != 0.0 else 0.0
 
     def literal_reg(self, value4):
         if not self.allow_literals:
@@ -159,34 +298,170 @@ class ValueLowerer:
             self.src(f, n, opnd, neg, swz)
         self.p.alu(**f)
 
-    def emit_mat_vec(self, mat_ssa, vec_ssa, dst=None, export_position=False):
+    def emit_copy(self, opnd, dst=None, export=False, negate=False,
+                  swizzle=0, mask=0xF, clamp=False):
+        if dst is None and not export and not negate and swizzle == 0 and \
+                not clamp and opnd[0] == "reg":
+            return opnd[1]
+        if dst is None:
+            dst = self.fresh()
+        self.emit(_V.kMax, {1: (opnd, negate, swizzle),
+                            2: (opnd, negate, swizzle)},
+                  dst, export, mask=mask, clamp=clamp)
+        return dst
+
+    def emit_export_constants(self, dst_reg, zero_mask=0, one_mask=0):
+        if not zero_mask and not one_mask:
+            return
+        f = dict(self.T["mov"], vector_opcode=_V.kMax, vector_dest=dst_reg,
+                 is_export=True, vector_write_mask=one_mask,
+                 scalar_write_mask=one_mask,
+                 is_scalar_dest_relative=bool(zero_mask),
+                 vector_clamp=False)
+        self.p.alu(**f)
+
+    def matrix_operands(self, ssa_id):
+        """Resolve a mat4 value to four vector operands (one per register)."""
+        if ssa_id in self.matrix_cache:
+            return self.matrix_cache[ssa_id]
+        ins = self.m.by_result.get(ssa_id)
+        if ins is None:
+            raise LowerError(f"%{ssa_id} is not a matrix value")
+        if ins.opcode == 61:                       # Load
+            src = ins.operands[0]
+            if src in self.local_store:
+                res = self.matrix_operands(self.local_store[src])
+            else:
+                role = self.si.roles.get(src)
+                if not role or role[0] != "constant":
+                    raise LowerError("matrix operand must be a uniform Load")
+                base, regs = role[1]
+                if regs != 4:
+                    raise LowerError("matrix multiply currently expects mat4")
+                res = tuple(("const", base + i) for i in range(4))
+        elif ins.opcode == 146:                    # MatrixTimesMatrix
+            res = self.emit_mat_mat(ins.operands[0], ins.operands[1])
+        else:
+            raise LowerError(
+                f"v1 {self.stage}: unhandled matrix op {ins.name}")
+        self.matrix_cache[ssa_id] = res
+        return res
+
+    def emit_mat_vec_ops(self, mat_ops, vec_op, dst=None,
+                         export_position=False):
         if self.stage != "vertex":
             raise LowerError("matrix-vector lowering is vertex-only")
-        mat_base, mat_regs = self.const_base(mat_ssa)
-        if mat_regs != 4:
-            raise LowerError("vertex matrix multiply currently expects mat4")
-        vec_op = self.operand(vec_ssa)
-        if vec_op[0] != "reg":
-            raise LowerError("matrix vector operand must be in a register")
+        if len(mat_ops) != 4:
+            raise LowerError("matrix multiply currently expects mat4")
+        vec_op = self.to_reg(vec_op)
         target = OPOS if export_position else (
             dst if dst is not None else self.fresh())
-        for i in range(4):
-            self.p.alu(**dict(self.T["dp4"],
-                              vector_dest=target,
+        for i, mat_op in enumerate(mat_ops):
+            self.p.alu(**dict(self.T["dp4"], vector_dest=target,
                               is_export=export_position,
                               vector_write_mask=(1 << i),
                               src1_reg=vec_op[1], src1_is_temp=True,
-                              src2_reg=mat_base + i, src2_is_temp=False))
+                              src2_reg=mat_op[1],
+                              src2_is_temp=(mat_op[0] == "reg")))
         return target
 
+    def emit_mat_vec(self, mat_ssa, vec_ssa, dst=None, export_position=False):
+        return self.emit_mat_vec_ops(self.matrix_operands(mat_ssa),
+                                     self.operand(vec_ssa), dst,
+                                     export_position)
+
+    def emit_vec_mat_ops(self, vec_op, mat_ops, dst=None,
+                         export_position=False):
+        if self.stage != "vertex":
+            raise LowerError("vector-matrix lowering is vertex-only")
+        if len(mat_ops) != 4:
+            raise LowerError("matrix multiply currently expects mat4")
+        vec_op = self.to_reg(vec_op)
+        target = self.fresh() if export_position else (
+            dst if dst is not None else self.fresh())
+        self.emit(_V.kMul, {1: (mat_ops[0], False),
+                            2: (vec_op, False, self.bsw(0))},
+                  target, False)
+        for i in range(1, 4):
+            self.emit(_V.kMad, {1: (mat_ops[i], False),
+                                2: (vec_op, False, self.bsw(i)),
+                                3: (("reg", target), False)},
+                      target, False)
+        if export_position:
+            self.emit_copy(("reg", target), OPOS, True)
+        return target
+
+    def emit_vec_mat(self, vec_ssa, mat_ssa, dst=None, export_position=False):
+        return self.emit_vec_mat_ops(self.operand(vec_ssa),
+                                     self.matrix_operands(mat_ssa), dst,
+                                     export_position)
+
+    def emit_mat_mat(self, a_ssa, b_ssa):
+        lhs = self.matrix_operands(a_ssa)
+        rhs = self.matrix_operands(b_ssa)
+        rows = []
+        for row in lhs:
+            rows.append(("reg", self.emit_vec_mat_ops(row, rhs)))
+        return tuple(rows)
+
+    def int_operand(self, ssa_id):
+        """Integer scalar represented as a float operand."""
+        cv = self.int_const(ssa_id)
+        if cv is not None:
+            fv = float(cv)
+            return ("const", self.literal_reg((fv, fv, fv, fv)))
+        ins = self.m.by_result[ssa_id]
+        op = ins.opcode
+        if op == 61:                              # Load
+            src = ins.operands[0]
+            if src in self.local_store:
+                return self.int_operand(self.local_store[src])
+            raise LowerError("integer Load must be a foldable local")
+        if op == 110:                             # ConvertFToS
+            ov = self.operand(ins.operands[0])
+            r = self.fresh()
+            self.emit(_V.kTrunc, {1: (ov, False), 2: (ov, False)}, r, False)
+            return ("reg", r)
+        if op in (128, 130, 132):                 # IAdd ISub IMul
+            ca = self.int_const(ins.operands[0])
+            cb = self.int_const(ins.operands[1])
+            if op == 128:
+                if ca == 0:
+                    return self.int_operand(ins.operands[1])
+                if cb == 0:
+                    return self.int_operand(ins.operands[0])
+            elif op == 130 and cb == 0:
+                return self.int_operand(ins.operands[0])
+            elif op == 132:
+                if ca == 1:
+                    return self.int_operand(ins.operands[1])
+                if cb == 1:
+                    return self.int_operand(ins.operands[0])
+            oa = self.int_operand(ins.operands[0])
+            ob = self.int_operand(ins.operands[1])
+            r = self.fresh()
+            if op == 132:
+                self.emit(_V.kMul, {1: (oa, False), 2: (ob, False)}, r, False)
+            elif op == 128:
+                self.emit(_V.kAdd, {1: (oa, False), 2: (ob, False)}, r, False)
+            else:
+                self.emit(_V.kAdd, {1: (oa, False), 2: (ob, True)}, r, False)
+            return ("reg", r)
+        raise LowerError(f"v1 {self.stage}: unsupported integer op {ins.name}")
+
     def operand(self, ssa_id: int):
-        """Resolve an SSA value to ('reg', n) or ('const', reg), emitting
-        ops for computed values (memoized so a shared value emits once)."""
+        """Resolve an SSA value to an operand, emitting once."""
         if ssa_id in self.op_cache:
             return self.op_cache[ssa_id]
         ins = self.m.by_result[ssa_id]
         op = ins.opcode
-        if op == 61:                              # Load
+        if self.result_kind(ssa_id) == "int":
+            res = self.int_operand(ssa_id)
+        elif self.result_kind(ssa_id) == "float" and \
+                self.float_const(ssa_id) is not None:
+            v = self.float_const(ssa_id)
+            res = ("const", self.literal_reg((v, v, v, v)))
+        elif op == 61:                            # Load
             src = ins.operands[0]
             ptr = self.m.by_result.get(src)
             if ptr is not None and ptr.opcode == 65:
@@ -205,7 +480,10 @@ class ValueLowerer:
             else:
                 role = self.si.roles.get(src)
                 if role and role[0] == "constant":
-                    res = ("const", role[1][0])
+                    if role[1][1] > 1:
+                        res = ("mat", self.matrix_operands(ssa_id))
+                    else:
+                        res = ("const", role[1][0])
                 else:
                     raise LowerError(f"{self.stage}: unresolved Load %{src}")
         elif op == 87:
@@ -228,6 +506,10 @@ class ValueLowerer:
                 raise LowerError(f"two-source swizzle {idxs} (v1)")
         elif op == 145:                           # MatrixTimesVector
             res = ("reg", self.emit_mat_vec(ins.operands[0], ins.operands[1]))
+        elif op == 144:                           # VectorTimesMatrix
+            res = ("reg", self.emit_vec_mat(ins.operands[0], ins.operands[1]))
+        elif op == 146:                           # MatrixTimesMatrix
+            res = ("mat", self.matrix_operands(ssa_id))
         elif op in (129, 131, 133):               # FAdd FSub FMul
             res = ("reg", self.binop(op, ins.operands[0], ins.operands[1]))
         elif op == 142:                           # VectorTimesScalar
@@ -259,6 +541,8 @@ class ValueLowerer:
                 res = ("reg", r)
         elif op == 12:                            # ExtInst
             res = ("reg", self.extinst(ins))
+        elif op == 111:                           # ConvertSToF
+            res = self.int_operand(ins.operands[0])
         else:
             raise LowerError(f"v1 {self.stage}: unhandled op {ins.name}")
         self.op_cache[ssa_id] = res
@@ -316,14 +600,30 @@ class ValueLowerer:
         raise LowerError(f"cannot resolve scalar %{ssa_id}")
 
     def emit_construct(self, ins, dst_reg, export=True):
-        origins = [self.scalar_origin(part) for part in ins.operands]
+        origins = []
+        for part in ins.operands:
+            v = self.float_const01(part) if export else None
+            if v is not None:
+                origins.append(("lit01", v))
+            else:
+                origins.append(("dyn", self.scalar_origin(part)))
         n = len(origins)
+        if export:
+            zero_mask = sum(1 << i for i, o in enumerate(origins)
+                            if o[0] == "lit01" and self.is_zero(o[1]))
+            one_mask = sum(1 << i for i, o in enumerate(origins)
+                           if o[0] == "lit01" and self.is_one(o[1]))
+            self.emit_export_constants(dst_reg, zero_mask, one_mask)
         j = 0
         while j < n:
-            op_j = origins[j][0]
+            if origins[j][0] == "lit01":
+                j += 1
+                continue
+            op_j = origins[j][1][0]
             k = j
-            while k < n and origins[k][0] == op_j and \
-                    origins[k][1] in (k, "B"):
+            while k < n and origins[k][0] == "dyn" and \
+                    origins[k][1][0] == op_j and \
+                    origins[k][1][1] in (k, "B"):
                 k += 1
             if k > j:
                 mask = sum(1 << t for t in range(j, k))
@@ -331,14 +631,95 @@ class ValueLowerer:
                           dst_reg, export, mask=mask)
                 j = k
             else:
-                op, comp = origins[j]
+                op, comp = origins[j][1]
                 swz = 0 if comp == "B" else ((comp - j) & 3) << (2 * j)
                 self.emit(_V.kMax, {1: (op, False, swz),
                                     2: (op, False, swz)},
                           dst_reg, export, mask=(1 << j))
                 j += 1
 
+    def zero_construct_parts(self, ssa):
+        ins = self.m.by_result.get(ssa)
+        if ins is None:
+            return None
+        if ins.opcode == 44:                      # ConstantComposite
+            parts = ins.operands
+        elif ins.opcode == 80:                    # CompositeConstruct
+            parts = ins.operands
+        else:
+            return None
+        out = []
+        for part in parts:
+            v = self.float_const(part)
+            if v is None:
+                out.append(part)
+            elif self.is_zero(v):
+                out.append(None)
+            else:
+                return None
+        return out
+
+    def add_zero_construct(self, base_ssa, construct_ssa, dst=None,
+                           export=False, negate_construct=False,
+                           clamp=False):
+        parts = self.zero_construct_parts(construct_ssa)
+        if parts is None:
+            return None
+        base = self.operand(base_ssa)
+        if dst is None:
+            if all(part is None for part in parts):
+                return self.emit_copy(base, export=export, clamp=clamp)
+            dst = self.fresh()
+        zero_mask = sum(1 << i for i, part in enumerate(parts)
+                        if part is None)
+        if zero_mask:
+            self.emit_copy(base, dst, export, mask=zero_mask, clamp=clamp)
+        for i, part in enumerate(parts):
+            if part is None:
+                continue
+            op, comp = self.scalar_origin(part)
+            swz = 0 if comp == "B" else ((comp - i) & 3) << (2 * i)
+            self.emit(_V.kAdd, {1: (base, False),
+                                2: (op, negate_construct, swz)},
+                      dst, export, mask=(1 << i), clamp=clamp)
+        return dst
+
     def binop(self, op, a, b, dst=None, export=False, clamp=False):
+        ca, cb = self.float_const01(a), self.float_const01(b)
+        if op == 129:                             # FAdd
+            if ca == 0.0:
+                return self.emit_copy(self.operand(b), dst, export,
+                                      clamp=clamp)
+            if cb == 0.0:
+                return self.emit_copy(self.operand(a), dst, export,
+                                      clamp=clamp)
+            folded = self.add_zero_construct(a, b, dst, export,
+                                             clamp=clamp)
+            if folded is not None:
+                return folded
+            folded = self.add_zero_construct(b, a, dst, export,
+                                             clamp=clamp)
+            if folded is not None:
+                return folded
+        elif op == 131:                           # FSub
+            if cb == 0.0:
+                return self.emit_copy(self.operand(a), dst, export,
+                                      clamp=clamp)
+            if ca == 0.0:
+                return self.emit_copy(self.operand(b), dst, export,
+                                      negate=True, clamp=clamp)
+            folded = self.add_zero_construct(a, b, dst, export,
+                                             negate_construct=True,
+                                             clamp=clamp)
+            if folded is not None:
+                return folded
+        elif op == 133:                           # FMul
+            if ca == 1.0:
+                return self.emit_copy(self.operand(b), dst, export,
+                                      clamp=clamp)
+            if cb == 1.0:
+                return self.emit_copy(self.operand(a), dst, export,
+                                      clamp=clamp)
         oa, ob = self.operand(a), self.operand(b)
         if dst is None:
             dst = self.fresh()
@@ -364,6 +745,8 @@ class ValueLowerer:
         return dst
 
     def vts(self, vec, scal, dst=None, export=False):
+        if self.float_const01(scal) == 1.0:
+            return self.emit_copy(self.operand(vec), dst, export)
         ov, os = self.operand(vec), self.operand(scal)
         if dst is None:
             dst = self.fresh()
@@ -372,6 +755,14 @@ class ValueLowerer:
         return dst
 
     def dot(self, a, b, dst=None, export=False):
+        axis_b = self.axis_component(b)
+        if axis_b is not None:
+            return self.emit_copy(self.operand(a), dst, export,
+                                  swizzle=self.bsw(axis_b))
+        axis_a = self.axis_component(a)
+        if axis_a is not None:
+            return self.emit_copy(self.operand(b), dst, export,
+                                  swizzle=self.bsw(axis_a))
         oa, ob = self.operand(a), self.operand(b)
         opcode = _V.kDp3 if self.vec_size(a) == 3 else _V.kDp4
         if dst is None:
@@ -399,6 +790,8 @@ class ValueLowerer:
         return d
 
     def fdiv(self, a, b, dst=None, export=False):
+        if self.float_const01(b) == 1.0:
+            return self.emit_copy(self.operand(a), dst, export)
         oa, ob = self.operand(a), self.operand(b)
         bi = self.m.by_result.get(b)
         scalar_b = (bi is not None and bi.opcode == 80 and
@@ -557,11 +950,10 @@ class ValueLowerer:
             inner = self.fresh()
             self.emit(_V.kMad, {1: (("reg", s), True), 2: (p, False),
                                 3: (halfpi, False)}, inner, False)
-            zero = ("const", self.literal_reg((0.0,) * 4))
             gt = self.fresh()
-            self.emit(_V.kSgt, {1: (xr, False), 2: (zero, False)}, gt, False)
+            self.emit(_V.kSgt, {1: (xr, False), 2: (xr, True)}, gt, False)
             lt = self.fresh()
-            self.emit(_V.kSgt, {1: (zero, False), 2: (xr, False)}, lt, False)
+            self.emit(_V.kSgt, {1: (xr, True), 2: (xr, False)}, lt, False)
             sgn = self.fresh()
             self.emit(_V.kAdd, {1: (("reg", gt), False),
                                 2: (("reg", lt), True)}, sgn, False)
@@ -636,11 +1028,10 @@ class ValueLowerer:
                 self.emit(_V.kMax, {1: (ox, False), 2: (ox, False)},
                           xr, False)
                 ox = ("reg", xr)
-            zero = ("const", self.literal_reg((0.0, 0.0, 0.0, 0.0)))
             gt = self.fresh()
-            self.emit(_V.kSgt, {1: (ox, False), 2: (zero, False)}, gt, False)
+            self.emit(_V.kSgt, {1: (ox, False), 2: (ox, True)}, gt, False)
             lt = self.fresh()
-            self.emit(_V.kSgt, {1: (zero, False), 2: (ox, False)}, lt, False)
+            self.emit(_V.kSgt, {1: (ox, True), 2: (ox, False)}, lt, False)
             self.emit(_V.kAdd, {1: (("reg", gt), False),
                                 2: (("reg", lt), True)}, dst, export)
             return dst
@@ -757,11 +1148,25 @@ class ValueLowerer:
     def emit_value(self, ssa, dst, export, export_position=False):
         """Emit a value expression to `dst` (export-fused when export)."""
         vi = self.m.by_result[ssa]
-        if vi.opcode == 80:
+        cv = self.const_vector(ssa) if export and vi.opcode in (43, 44) \
+            else None
+        if cv is not None and all(self.is_zero(v) or self.is_one(v)
+                                  for v in cv):
+            zero_mask = sum(1 << i for i, v in enumerate(cv)
+                            if self.is_zero(v))
+            one_mask = sum(1 << i for i, v in enumerate(cv)
+                           if self.is_one(v))
+            self.emit_export_constants(dst, zero_mask, one_mask)
+        elif vi.opcode == 80:
             self.emit_construct(vi, dst, export)
         elif vi.opcode == 145:
             self.emit_mat_vec(vi.operands[0], vi.operands[1], dst=dst,
                               export_position=export_position)
+        elif vi.opcode == 144:
+            self.emit_vec_mat(vi.operands[0], vi.operands[1], dst=dst,
+                              export_position=export_position)
+        elif vi.opcode == 146:
+            raise LowerError("cannot export a matrix value")
         elif vi.opcode in (129, 131, 133):
             self.binop(vi.opcode, vi.operands[0], vi.operands[1], dst=dst,
                        export=export)
@@ -782,7 +1187,7 @@ class ValueLowerer:
             self.emit(_V.kMax, {1: (r, False), 2: (r, False)}, dst, export)
 
 
-def lower_vertex(m: spirv.Module) -> bytes:
+def lower_vertex(m: spirv.Module):
     si = resolve_interface(m)
     if si.stage != "vertex":
         raise LowerError("lower_vertex called on non-vertex module")
@@ -803,10 +1208,11 @@ def lower_vertex(m: spirv.Module) -> bytes:
                   if ins.opcode == 59 and ins.operands[0] == 7}
     local_store = {tgt: val for tgt, val in stores.items()
                    if tgt in local_vars}
+    lit_base = max((cs.reg + cs.regs for cs in si.constants), default=0)
     ctx = ValueLowerer(m=m, si=si, program=p, templates=T, types=types,
                        stores=stores, first_reg=reg, inputs=input_reg,
                        local_store=local_store, stage="vertex",
-                       allow_literals=False)
+                       literal_base=lit_base, allow_literals=True)
 
     # --- phase 2: position ---
     p.alloc_position()
@@ -839,7 +1245,231 @@ def lower_vertex(m: spirv.Module) -> bytes:
             constants.append(ce.Constant(cs.name, ce.RS_FLOAT4, cs.reg, 1,
                                          ce.CLASS_VECTOR, ce.TYPE_FLOAT,
                                          rows=1, columns=4))
-    return p.finish(constants=constants)
+    for reg, _val in ctx.lit_manifest:
+        constants.append(ce.Constant(f"_lit{reg}", ce.RS_FLOAT4, reg, 1,
+                                     ce.CLASS_VECTOR, ce.TYPE_FLOAT,
+                                     rows=1, columns=4))
+    return p.finish(constants=constants), ctx.lit_manifest
+
+
+def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
+    """Minimal real-loop lowering for `for(i=0;i<u_count;i++) sum += k`.
+
+    This intentionally bypasses the SSA value DAG: the loop-carried `sum` is a
+    persistent GPR, and the uniform bound is a hardware loop constant uploaded
+    by the host as `integer_constants[8+loop_id]`.
+    """
+    si = resolve_interface(m)
+    if si.stage != "pixel":
+        raise LowerError("real-loop lowering is pixel-only") from reason
+    if len(si.color_out) != 1:
+        raise LowerError("real-loop path expects one color output") from reason
+
+    instrs = m.instrs
+    func_idx = next(i for i, ins in enumerate(instrs) if ins.opcode == 54)
+    end_idx = next(i for i, ins in enumerate(instrs) if ins.opcode == 56)
+    entry_idx = next(i for i in range(func_idx, end_idx)
+                     if instrs[i].opcode == 248)
+    entry_label = instrs[entry_idx].result_id
+
+    blocks = {}
+    i = entry_idx
+    while i < end_idx:
+        if instrs[i].opcode == 248:               # Label
+            lbl = instrs[i].result_id
+            mid, j = [], i + 1
+            while j < end_idx and instrs[j].opcode not in (249, 250, 253):
+                mid.append(instrs[j])
+                j += 1
+            term = instrs[j] if j < end_idx else None
+            blocks[lbl] = (mid, term)
+            i = j + 1
+        else:
+            i += 1
+
+    local_vars = {ins.result_id for ins in instrs[func_idx:end_idx]
+                  if ins.opcode == 59 and ins.operands[0] == 7}
+
+    def fail(msg):
+        raise LowerError(f"real-loop v1: {msg}") from reason
+
+    def const_int(ssa):
+        ins = m.by_result.get(ssa)
+        if ins is None or ins.opcode != 43:
+            fail(f"%{ssa} is not an int constant")
+        return _signed_int(ins.operands[0] & 0xFFFFFFFF)
+
+    def const_float(ssa):
+        ins = m.by_result.get(ssa)
+        if ins is None or ins.opcode != 43:
+            fail(f"%{ssa} is not a float constant")
+        bits = ins.operands[0] & 0xFFFFFFFF
+        return struct.unpack("<f", struct.pack("<I", bits))[0]
+
+    def const_vec4(ssa):
+        ins = m.by_result.get(ssa)
+        if ins is None:
+            fail(f"%{ssa} is not a constant vector")
+        if ins.opcode == 44:
+            vals = [const_float(c) for c in ins.operands]
+        elif ins.opcode == 43:
+            vals = [const_float(ssa)]
+        else:
+            fail(f"%{ssa} is not a constant vector")
+        return tuple((vals + [0.0, 0.0, 0.0, 0.0])[:4])
+
+    def load_var(ssa):
+        ins = m.by_result.get(ssa)
+        if ins is not None and ins.opcode == 61:
+            return ins.operands[0]
+        return None
+
+    entry_mid, entry_term = blocks[entry_label]
+    if entry_term is None or entry_term.opcode != 249:
+        fail("entry must branch to a loop header")
+    header_lbl = entry_term.operands[0]
+    init_stores = [(ins.operands[0], ins.operands[1])
+                   for ins in entry_mid if ins.opcode == 62]
+    header_mid, header_term = blocks.get(header_lbl, (None, None))
+    loop_merge = next((ins for ins in header_mid or []
+                       if ins.opcode == 246), None)
+    if loop_merge is None or header_term is None or header_term.opcode != 249:
+        fail("missing structured loop header")
+    merge_lbl, cont_lbl = loop_merge.operands[:2]
+    cond_lbl = header_term.operands[0]
+
+    cond_mid, cond_term = blocks.get(cond_lbl, (None, None))
+    if cond_term is None or cond_term.opcode != 250:
+        fail("loop condition must branch conditionally")
+    cmp = m.by_result.get(cond_term.operands[0])
+    if cmp is None or cmp.opcode != 177:           # SLessThan
+        fail("loop condition must be signed i < bound")
+    body_lbl = cond_term.operands[1]
+    if cond_term.operands[2] != merge_lbl:
+        fail("loop false branch must exit")
+
+    iv_var = load_var(cmp.operands[0])
+    bound_var = load_var(cmp.operands[1])
+    if iv_var not in local_vars or bound_var is None:
+        fail("condition must compare local induction var to a uniform")
+    bound_decl = m.by_result.get(bound_var)
+    if bound_decl is None or bound_decl.opcode != 59 or \
+            bound_decl.operands[0] != 0:
+        fail("loop bound must be a UniformConstant int")
+    loop_id = 0
+    for deco, args in m.decorations.get(bound_var, []):
+        if deco == 30:                             # Location
+            loop_id = args[0]
+    bound_name = m.names.get(bound_var, f"u_loop{loop_id}")
+
+    init_map = {t: v for t, v in init_stores}
+    if const_int(init_map.get(iv_var)) != 0:
+        fail("induction variable must start at zero")
+
+    cont_mid, cont_term = blocks.get(cont_lbl, (None, None))
+    if cont_term is None or cont_term.opcode != 249 or \
+            cont_term.operands[0] != header_lbl:
+        fail("continue block must branch back to the header")
+    cont_store = next((ins for ins in cont_mid or [] if ins.opcode == 62
+                       and ins.operands[0] == iv_var), None)
+    if cont_store is None:
+        fail("continue block must update the induction variable")
+    inc = m.by_result.get(cont_store.operands[1])
+    if inc is None or inc.opcode != 128:           # IAdd
+        fail("induction update must be i + 1")
+    inc_loads = [load_var(w) for w in inc.operands]
+    inc_consts = [w for w in inc.operands if w in m.by_result and
+                  m.by_result[w].opcode == 43]
+    if iv_var not in inc_loads or not inc_consts or \
+            const_int(inc_consts[0]) != 1:
+        fail("induction update must be i + 1")
+
+    body_mid, body_term = blocks.get(body_lbl, (None, None))
+    if body_term is None or body_term.opcode != 249 or \
+            body_term.operands[0] != cont_lbl:
+        fail("loop body must branch to continue")
+    body_store = next((ins for ins in body_mid or [] if ins.opcode == 62),
+                      None)
+    if body_store is None or body_store.operands[0] not in local_vars:
+        fail("loop body must store one local accumulator")
+    acc_var = body_store.operands[0]
+    acc_init = init_map.get(acc_var)
+    if acc_init is None:
+        fail("accumulator must be initialized before the loop")
+    add = m.by_result.get(body_store.operands[1])
+    if add is None or add.opcode != 129:           # FAdd
+        fail("loop body must be sum += constant")
+    acc_load_idx = None
+    for idx, operand in enumerate(add.operands):
+        if load_var(operand) == acc_var:
+            acc_load_idx = idx
+    if acc_load_idx is None:
+        fail("loop body must add to the accumulator")
+    step_ssa = add.operands[1 - acc_load_idx]
+    step_val = const_vec4(step_ssa)
+    init_val = const_vec4(acc_init)
+
+    merge_mid, merge_term = blocks.get(merge_lbl, (None, None))
+    if merge_term is None or merge_term.opcode != 253:
+        fail("merge block must return")
+    out_var = si.color_out[0][0].vid
+    out_store = next((ins for ins in merge_mid or [] if ins.opcode == 62
+                      and ins.operands[0] == out_var), None)
+    if out_store is None or load_var(out_store.operands[1]) != acc_var:
+        fail("merge block must export the accumulator")
+
+    T = _templates()
+    p = PixelProgram()
+
+    def emit(opcode, dst, srcs, export=False):
+        f = dict(T["mov"], vector_opcode=opcode, vector_dest=dst,
+                 is_export=export, vector_write_mask=0xF,
+                 vector_clamp=False, scalar_write_mask=0)
+        for n, (kind, reg, neg) in enumerate(srcs, start=1):
+            f[f"src{n}_reg"] = reg
+            f[f"src{n}_is_temp"] = (kind == "reg")
+            f[f"src{n}_swizzle"] = 0
+            f[f"src{n}_negate"] = neg
+        p.alu(**f)
+
+    # Match the gallery's standard vertex shader, which exports two
+    # interpolators (texcoord, color). The PS parameter-cache count MUST match
+    # the VS export count, or the GPU leaks the varying and corrupts
+    # interpolation (magenta hue + distorted geometry). The loop body uses
+    # neither; they are interface padding (same fix as the hand-built LOOPHW).
+    # The accumulator therefore lives in r2, clear of the interpolators r0/r1.
+    # (v1: a general solution would derive this from the VS pairing.)
+    p.input(0, ce.USAGE_TEXCOORD)
+    p.input(1, ce.USAGE_COLOR)
+    acc_reg, step_reg = 2, 0
+    init_is_zero = all(v == 0.0 for v in init_val)
+    if init_is_zero:
+        emit(_V.kAdd, acc_reg, [("const", step_reg, False),
+                                ("const", step_reg, True)])
+    else:
+        init_reg = 1
+        emit(_V.kMax, acc_reg, [("const", init_reg, False),
+                                ("const", init_reg, False)])
+    p.begin_loop(loop_id=loop_id)
+    emit(_V.kAdd, acc_reg, [("reg", acc_reg, False),
+                            ("const", step_reg, False)])
+    p.end_loop()
+    p.alloc_colors()
+    emit(_V.kMax, 0, [("reg", acc_reg, False), ("reg", acc_reg, False)],
+         export=True)
+
+    constants = [
+        ce.Constant("_lit0", ce.RS_FLOAT4, step_reg, 1, ce.CLASS_VECTOR,
+                    ce.TYPE_FLOAT, rows=1, columns=4),
+    ]
+    manifest = [(step_reg, step_val)]
+    if not init_is_zero:
+        constants.append(ce.Constant("_lit1", ce.RS_FLOAT4, init_reg, 1,
+                                     ce.CLASS_VECTOR, ce.TYPE_FLOAT,
+                                     rows=1, columns=4))
+        manifest.append((init_reg, init_val))
+    manifest.append(("loop", loop_id, bound_name))
+    return p.finish(constants=constants), manifest
 
 
 def lower_fragment(m: spirv.Module) -> bytes:
@@ -891,16 +1521,42 @@ def lower_fragment(m: spirv.Module) -> bytes:
             srole = si.roles.get(samp.operands[0]) if samp else None
             if not srole or srole[0] != "sampler":
                 raise LowerError("ImageSample needs a sampler")
+            slot = srole[1]
+            dim = srole[2] if len(srole) > 2 else si.sampler_dims.get(slot)
+            if dim not in (1, 3):
+                raise LowerError(f"unsupported sampler dimension {dim}")
             coord = ins.operands[1]
             cins = m.by_result.get(coord)
             if not cins or cins.opcode != 61 or \
                     cins.operands[0] not in interp_reg:
                 raise LowerError("texture coord must be an interpolator")
+            coord_reg = interp_reg[cins.operands[0]]
             dst = ctx.fresh()
-            p.tfetch(dict(T["tf"], fetch_constant_index=srole[1]),
-                     dest=dst, src=interp_reg[cins.operands[0]])
+            if dim == 3:                          # SPIR-V Dim Cube
+                cube = ctx.fresh()
+                ctx.emit(_V.kCube, {
+                    1: (("reg", coord_reg), False,
+                        ctx.swz([2, 2, 0, 1])),   # .zzxy
+                    2: (("reg", coord_reg), False,
+                        ctx.swz([1, 0, 2, 2])),   # .yxzz
+                },
+                         cube, False)
+                ctx.emit_scalar(_S.kRcp, cube, ("reg", cube | 0x80),
+                                src_comp=2, mask=0x4)
+                bias = ("const", ctx.literal_reg((1.5, 1.5, 1.5, 1.5)))
+                ctx.emit(_V.kMad, {1: (("reg", cube), False),
+                                   2: (("reg", cube), False, ctx.bsw(2)),
+                                   3: (bias, False)},
+                         cube, False, mask=0x3)
+                p.tfetch(dict(T["tf"], fetch_constant_index=slot,
+                              dimension=xu.FetchOpDimension.kCube,
+                              src_swizzle=(1 | (0 << 2) | (3 << 4))),
+                         dest=dst, src=cube)
+            else:
+                p.tfetch(dict(T["tf"], fetch_constant_index=slot),
+                         dest=dst, src=coord_reg)
             sample_reg[ssa_id] = dst
-            used_samplers.add(srole[1])
+            used_samplers.add(slot)
             return
         if ins.opcode == 61 and ins.operands[0] == merged_local:
             return
@@ -1157,12 +1813,19 @@ def lower_fragment(m: spirv.Module) -> bytes:
 
 def lower_ex(m: spirv.Module):
     """Returns (container_bytes, literal_manifest). The manifest is
-    [(constant_register, (f0,f1,f2,f3))] the host must upload for any GLSL
-    literals the shader used (empty for vertex / literal-free shaders)."""
-    unroll(m)  # expand constant-trip loops to straight-line SPIR-V (no-op if none)
+    [(constant_register, (f0,f1,f2,f3))] for GLSL literals, optionally plus
+    ("loop", loop_id, uniform_name) for a real-loop trip count the host uploads
+    to integer_constants[8+loop_id]."""
     stage = "vertex" if m.entry_points[0][0] == 0 else "pixel"
+    try:
+        # expand constant-trip loops to straight-line SPIR-V (no-op if none)
+        unroll(m)
+    except UnrollError as e:
+        if stage == "pixel" and any(i.opcode == 246 for i in m.instrs):
+            return lower_fragment_real_loop(m, e)
+        raise LowerError(str(e)) from e
     if stage == "vertex":
-        return lower_vertex(m), []
+        return lower_vertex(m)
     return lower_fragment(m)
 
 
