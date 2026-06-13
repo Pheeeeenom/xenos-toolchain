@@ -54,6 +54,18 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 | `vec4 t = ...;` (function-local) | store-forwarding |
 | uniforms (block + bare), samplers | constant regs / fetch consts |
 | float / vec literals in FS/VS | constant pool; 0/1 folds (see below) |
+| ternary `cond ? a : b` (OpSelect) | `f + (t−f)·cond` (sub + mad) |
+| vector relational `lessThan`/`greaterThan`/`equal`/`notEqual`/… → bvec | per-component `sgt`/`sge`/`seq`/`sne` (1.0/0.0) |
+| `any` / `all` / `not` (bvec) | horizontal `max` / horizontal `min` / `1−v` |
+| `&&` / `\|\|` | `min` / `max` of 0/1 bools |
+| `refract(I,N,eta)` | Snell vector + total-internal-reflection (`k<0`) mask |
+| runtime int `/` `%` (SDiv/SMod/U*) | `trunc(a·rcp(b)+ε)`; remainder `a−b·q` — **approximate, non-negative domain** |
+| `mat3` / `mat2` × vec | per-row `dp3` / `dp2add` (matrix uploaded as rows, same as mat4) |
+| `textureLod` / `texture(…,bias)` | constant LOD folded into the tfetch LOD-bias field (1/16 units) |
+| `textureProj` | perspective divide `uv·rcp(w)` then `tfetch2D` |
+| `texture()` with a computed coord | coord expression emitted, then tfetch (not just bare interpolators) |
+| `CompositeInsert` (`v[i] = x`) | copy + masked component mov |
+| uniform-array loop `for(i<n) sum += w[i]` | real loop; body `add acc, acc, c[base+aL]` (aL-relative array read) |
 
 ## Interface conventions (GLSL ↔ Xenos)
 
@@ -146,17 +158,30 @@ byte-for-byte as before. Unrolled shaders then go through the normal pipeline,
 including the 16-GPR register allocator (e.g. `loop_stair` 17→3 GPRs). See
 `loop_*` in `xsc/testdata/` and the `LOOP` gallery slot.
 
-**Still the frontier:**
-- **Loop bodies beyond `sum += const`** — especially array indexing via `aL`,
-  branchy bodies, and computed break conditions.
-- **`if/else` inside a loop body** — branchy loop bodies aren't unrolled yet
-  (the body must be straight-line); also rejected with `UnrollError`.
+Data-dependent loops use real `LOOP_START/END`: `sum += const` (G28) and now
+**`sum += w[i]`** — a uniform array indexed by the loop counter, lowering to the
+aL-relative `c[base+aL]` read (the ISA primitive hardware-proven as G29). The
+predicated `while`-break primitive is hardware-proven (G30); see below.
 
-## Not yet (the frontier)
-- **General integer ops** (`uint`, bit ops, comparisons, dynamic division) —
-  only scalar signed-int expressions feeding float values are supported.
-- **Matrix inverses / determinants / arbitrary matrix value use** — matrix
-  support is `mat4*vec4`, `vec4*mat4`, and `(mat4*mat4)*vec4`.
+**Still the frontier:**
+- **`if(cond) break` from GLSL** — the predicated-`LOOP_END` ISA primitive is
+  proven (G30 `end_loop(predicated_break=…)`), but the frontend doesn't yet
+  detect a data-dependent break in glslang's loop CFG and emit the `setp`.
+- **`if/else` inside a loop body** — branchy loop bodies aren't unrolled
+  (the body must be straight-line); rejected with `UnrollError`.
+
+## Not yet / out of scope
+- **Bitwise (`& | ^ ~`) and dynamic shifts** — the Xenos ALU has no bit
+  operations; these now raise a clear compile error rather than miscompiling.
+  Constant-amount shifts could be done as mul/div by powers of two (not wired).
+- **Screen-space derivatives (`dFdx`/`dFdy`/`fwidth`)** — the hardware path is
+  the `getTextureGradients` fetch op, but its gradient packing is unverified;
+  rejected with a clear error until a hardware session nails it.
+- **Matrix `inverse`/`determinant`/`transpose`, `matrixCompMult`** — matrix
+  support is `matN*vec`, `vec*matN`, and `(mat4*mat4)*vec4` for N∈{2,3,4};
+  per-element and inverse matrix builtins are not lowered.
+- **Runtime integer division** is float-emulated and **approximate** (a small
+  bias corrects exact multiples; non-negative domain).
 
 ## Validation
 Every test shader is checked by the XenosRecomp oracle (which does the
