@@ -58,6 +58,10 @@ GALLERY = [
     ("TERNARY", "fs_ternary.frag", "glsl_vs", "VS_MODE_MVP"),
     ("VREL", "fs_vrelation.frag", "glsl_vs", "VS_MODE_MVP"),
     ("REFRACT", "fs_refract.frag", "glsl_vs", "VS_MODE_MVP"),
+    # Frontier proofs: derivatives, GLSL while-break, if/else-in-loop.
+    ("DERIV", "fs_deriv.frag", "glsl_vs", "VS_MODE_MVP"),
+    ("LOOPBRK", "loop_break.frag", "glsl_vs", "VS_MODE_MVP"),
+    ("LOOPCOND", "loop_cond.frag", "glsl_vs", "VS_MODE_MVP"),
 ]
 
 # Extra non-literal uniform values to upload per pixel shader:
