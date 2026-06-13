@@ -214,7 +214,14 @@ int main(void)
 		/* Real-loop proof slots upload loop constant i#:
 		   count|start<<8|step<<16. Brightness steps with count. */
 		if(gallery[mode].loop_id>=0){
-			int lcount=1+((int)t)%6;
+			/* ALCONST reads c[0+aL] for aL=0..3, so it needs exactly 4 passes.
+			   WHILEBRK relies on a predicated break, so its count is only the
+			   upper bound (16) -- the predicate should stop it at pass 4. The
+			   other loop slots animate brightness with the trip count. */
+			int lcount;
+			if(!strcmp(gallery[mode].name,"ALCONST")) lcount=4;
+			else if(!strcmp(gallery[mode].name,"WHILEBRK")) lcount=16;
+			else lcount=1+((int)t)%6;
 			int lid=gallery[mode].loop_id;
 			xe->integer_constants[8+lid]=(lcount&0xff)|(0<<8)|(1<<16);
 			xe->dirty|=DIRTY_INTEGER;
