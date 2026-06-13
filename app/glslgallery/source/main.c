@@ -9,6 +9,8 @@
  *   G1 TINT      rgb tint      G4 BLEND  mix(tex,color,0.5)
  *   G2 GRAY      desaturate    G23 VSCHAIN  chained mat4*vec4
  *                              G24 VSARITH  VS add/mul values
+ *                              G25 LOOPHW   real HW loop
+ *                              G26 DISCARD  kill half the pixels
  */
 #include <stdio.h>
 #include <string.h>

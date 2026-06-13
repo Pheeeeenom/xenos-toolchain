@@ -23,8 +23,8 @@ GLSLANG = ROOT / "tools" / "glslang" / "bin" / "glslang.exe"
 TD = ROOT / "xsc" / "testdata"
 
 # (label, fragment GLSL source stem, vertex shader array, vertex mode) in
-# gallery order. Keep never-hardware-tested vertex paths at the end so a hang
-# cannot hide earlier fragment slots.
+# gallery order. Keep frontier paths late so a hang cannot hide earlier slots.
+# The new discard proof is appended after LOOPHW in main(), making it last.
 GALLERY = [
     ("MODULATE", "modulate.frag", "glsl_vs", "VS_MODE_MVP"),
     ("TINT", "tint.frag", "glsl_vs", "VS_MODE_MVP"),
@@ -169,6 +169,18 @@ def main():
     parts.append("")
     entries.append(("LOOPHW", li, len(lmanifest), "glsl_vs", "VS_MODE_MVP"))
 
+    di = len(entries)
+    dblob, dmanifest = compile_frag("fs_discard.frag")
+    parts.append(c_array(f"gal_ps{di}", dblob))
+    if dmanifest:
+        rows = ",\n\t".join(
+            "{ %d, { %ff, %ff, %ff, %ff } }" % (reg, *vals)
+            for reg, vals in dmanifest)
+        parts.append(f"static const gallery_const gal_c{di}[] = {{\n"
+                     f"\t{rows}\n}};")
+    parts.append("")
+    entries.append(("DISCARD", di, len(dmanifest), "glsl_vs", "VS_MODE_MVP"))
+
     parts.append("#define GALLERY_N %d" % len(entries))
     parts.append("static const gallery_entry gallery[GALLERY_N] = {")
     for label, i, nman, vs_name, vs_mode in entries:
@@ -179,7 +191,8 @@ def main():
     parts.append("")
 
     OUT.write_text("\n".join(parts))
-    print(f"wrote {OUT}  ({len(GALLERY)} GLSL slots + 1 hardware-loop proof)")
+    print(f"wrote {OUT}  ({len(GALLERY) + 1} GLSL slots + "
+          "1 hardware-loop proof)")
     for label, i, nman, _vs_name, _vs_mode in entries:
         print(f"  gal_ps{i} {label}: {nman} literal const(s) to upload")
 
