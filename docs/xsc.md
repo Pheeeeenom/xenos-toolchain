@@ -66,6 +66,12 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 | `texture()` with a computed coord | coord expression emitted, then tfetch (not just bare interpolators) |
 | `CompositeInsert` (`v[i] = x`) | copy + masked component mov |
 | uniform-array loop `for(i<n) sum += w[i]` | real loop; body `add acc, acc, c[base+aL]` (aL-relative array read) |
+| `for(i<n){ …; if(acc.c CMP k) break; }` | body `setp_*` + a predicated LOOP_END (data-dependent break) |
+| if/else in a loop body with a **constant** condition (e.g. `if(i<k)`) | unroller picks the taken arm per iteration |
+| `transpose` (mat2/3/4) | per-row column gather (swizzled movs) |
+| `determinant` (mat2/3) | mat2 `ad−bc`; mat3 `row0·cross(row1,row2)` |
+| `inverse` (mat2/3) | mat2 closed form; mat3 adjugate (cofactor crosses) / det · `rcp` |
+| `dFdx` / `dFdy` / `fwidth` | `getTextureGradients` fetch; ddx=grad.xz, ddy=grad.yw |
 
 ## Interface conventions (GLSL ↔ Xenos)
 
@@ -163,25 +169,26 @@ Data-dependent loops use real `LOOP_START/END`: `sum += const` (G28) and now
 aL-relative `c[base+aL]` read (the ISA primitive hardware-proven as G29). The
 predicated `while`-break primitive is hardware-proven (G30); see below.
 
-**Still the frontier:**
-- **`if(cond) break` from GLSL** — the predicated-`LOOP_END` ISA primitive is
-  proven (G30 `end_loop(predicated_break=…)`), but the frontend doesn't yet
-  detect a data-dependent break in glslang's loop CFG and emit the `setp`.
-- **`if/else` inside a loop body** — branchy loop bodies aren't unrolled
-  (the body must be straight-line); rejected with `UnrollError`.
+A data-dependent `while`-break (`if(cond) break;`) now lowers from GLSL to a
+body `setp_*` + a predicated LOOP_END (the G30 primitive). An if/else **with a
+constant condition** inside a loop body unrolls (the arm is picked per pass).
 
 ## Not yet / out of scope
+- **Data-dependent if/else inside a loop body** — a conditional *store* in the
+  body can't be modelled by the unroller's mem2reg env; raises `UnrollError`
+  (the constant-condition case above is handled). Constant-trip loops with a
+  data-dependent body conditional are the remaining loop edge.
 - **Bitwise (`& | ^ ~`) and dynamic shifts** — the Xenos ALU has no bit
-  operations; these now raise a clear compile error rather than miscompiling.
+  operations; these raise a clear compile error rather than miscompiling.
   Constant-amount shifts could be done as mul/div by powers of two (not wired).
-- **Screen-space derivatives (`dFdx`/`dFdy`/`fwidth`)** — the hardware path is
-  the `getTextureGradients` fetch op, but its gradient packing is unverified;
-  rejected with a clear error until a hardware session nails it.
-- **Matrix `inverse`/`determinant`/`transpose`, `matrixCompMult`** — matrix
-  support is `matN*vec`, `vec*matN`, and `(mat4*mat4)*vec4` for N∈{2,3,4};
-  per-element and inverse matrix builtins are not lowered.
+- **`matrixCompMult`, mat4 `inverse`** — `transpose`/`determinant`/`inverse`
+  cover mat2/mat3 (numerically gated by `tests/test_matrix.py`); per-element
+  multiply and 4×4 inverse (register-heavy) are not lowered.
 - **Runtime integer division** is float-emulated and **approximate** (a small
   bias corrects exact multiples; non-negative domain).
+- **`dFdx`/`dFdy`/`fwidth`** lower to `getTextureGradients` and decode cleanly,
+  but the gradient packing/sign are **hardware-unverified** (the `DERIV`
+  gallery slot is the console gate).
 
 ## Validation
 Every test shader is checked by the XenosRecomp oracle (which does the
