@@ -38,6 +38,27 @@ K = xu.ControlFlowOpcode
 
 MAX_EXEC_COUNT = 6  # exec count field is 3 bits; stay below the 7 limit
 
+# Scalar ALU opcodes that write the predicate register p0. An exec block that
+# contains one of these MUST be emitted with is_predicate_clean=False, or the
+# sequencer treats the predicate as clean and won't wait for the write before
+# a following predicated control-flow instruction (e.g. a predicated LOOP_END)
+# reads it -- the data-dependent break would then never fire (ucode.h:
+# "PredicateClean=false for the exec if the instructions inside it modify the
+# predicate").
+_PRED_WRITE_SCALAR_OPS = frozenset(int(o) for o in (
+    xu.AluScalarOpcode.kSetpEq, xu.AluScalarOpcode.kSetpNe,
+    xu.AluScalarOpcode.kSetpGt, xu.AluScalarOpcode.kSetpGe,
+    xu.AluScalarOpcode.kSetpInv, xu.AluScalarOpcode.kSetpPop,
+    xu.AluScalarOpcode.kSetpClr, xu.AluScalarOpcode.kSetpRstr))
+
+
+def _modifies_predicate(ins) -> bool:
+    f = getattr(ins, "fields", None)
+    if not f:
+        return False
+    op = f.get("scalar_opcode")
+    return op is not None and int(op) in _PRED_WRITE_SCALAR_OPS
+
 _USAGE_NIBBLE = {ce.USAGE_TEXCOORD: 0x3, ce.USAGE_COLOR: 0xF}
 _VE_FLAGS = {ce.USAGE_POSITION: 0x1, ce.USAGE_COLOR: 0x3,
              ce.USAGE_TEXCOORD: 0x0}
@@ -77,7 +98,7 @@ class _Program:
         self._max_reg = 0
         self.interpolators: list[ce.Interpolator] = []
         self._export_stage_idx = None
-        self._loops: list[tuple] = []            # (start_stage, end_stage, loop_id)
+        self._loops: list[tuple] = []            # (start, end, loop_id, brk, cond)
         self._loop_open = None
 
     @staticmethod
@@ -131,9 +152,19 @@ class _Program:
             self._stages.append([])              # body starts in a fresh stage
         self._loop_open = (len(self._stages) - 1, loop_id)
 
-    def end_loop(self):
+    def end_loop(self, predicated_break: bool = False,
+                 break_condition: bool = False):
+        """Close the loop opened by begin_loop().
+
+        predicated_break=True turns the LOOP_END into a data-dependent early
+        exit: the loop breaks when the predicate p0 (set by a setp_* ALU op in
+        the body) equals break_condition. This is the `while(cond) break`
+        primitive -- the trip count from the loop constant still acts as the
+        upper bound. Defaults reproduce the plain counted loop (no break),
+        keeping existing loop shaders byte-identical."""
         start_stage, loop_id = self._loop_open
-        self._loops.append((start_stage, len(self._stages), loop_id))
+        self._loops.append((start_stage, len(self._stages), loop_id,
+                            predicated_break, break_condition))
         self._stages.append([])                  # fresh stage for post-loop code
         self._loop_open = None
 
@@ -161,8 +192,9 @@ class _Program:
         total_slots = slot
 
         # loop boundaries keyed by stage index
-        loop_start_at = {s0: lid for (s0, s1, lid) in self._loops}
-        loop_end_at = {s1 - 1: lid for (s0, s1, lid) in self._loops}
+        loop_start_at = {s0: lid for (s0, s1, lid, *_) in self._loops}
+        loop_end_at = {s1 - 1: (lid, brk, cond)
+                       for (s0, s1, lid, brk, cond) in self._loops}
         # the final non-empty exec chunk gets kExecEnd (ends the shader)
         last_exec = None
         for si, stage in enumerate(self._stages):
@@ -191,17 +223,21 @@ class _Program:
                 # corpus: 4 fetches -> 0xF, 3 -> 0x7 (cube_vs)
                 vc = ((1 << min(n_fetch, 4)) - 1) if (
                     n_fetch and self.shader_type == "vertex") else 0
+                # An exec that sets the predicate is not predicate-clean.
+                pred_clean = not any(_modifies_predicate(ins) for ins in chunk)
                 cf.append({"t": "exec",
                            "opcode": K.kExecEnd if is_last else K.kExec,
                            "address": chunk[0].slot, "count": len(chunk),
-                           "sequence": seq, "vc_hi": vc})
+                           "sequence": seq, "vc_hi": vc,
+                           "pred_clean": pred_clean})
             if si in self._alloc_after:
                 cf.append({"t": "alloc", "alloc_type": self._alloc_after[si]})
             if si in loop_end_at:
-                lid = loop_end_at[si]
+                lid, brk, cond = loop_end_at[si]
                 ls = open_loops.pop(lid)
                 le = len(cf)
-                cf.append({"t": "loop_end", "loop_id": lid, "body": ls + 1})
+                cf.append({"t": "loop_end", "loop_id": lid, "body": ls + 1,
+                           "brk": brk, "cond": cond})
                 cf[ls]["skip"] = le + 1          # skip past LOOP_END when done
 
         pairs = []
@@ -211,7 +247,7 @@ class _Program:
                     opcode=d["opcode"], address=d["address"], count=d["count"],
                     is_yield=False, sequence=d["sequence"],
                     vc_hi=d["vc_hi"], vc_lo=0,
-                    is_predicate_clean=True, addressing_mode=0))
+                    is_predicate_clean=d["pred_clean"], addressing_mode=0))
             elif d["t"] == "alloc":
                 pairs.append(enc.build_cf_alloc(
                     opcode=K.kAlloc, size=0, is_unserialized=False,
@@ -224,7 +260,7 @@ class _Program:
             else:                                # loop_end
                 pairs.append(enc.build_cf_loop_end(
                     opcode=K.kLoopEnd, address=d["body"], loop_id=d["loop_id"],
-                    is_predicated_break=False, condition=False,
+                    is_predicated_break=d["brk"], condition=d["cond"],
                     addressing_mode=xu.AddressingMode.kRelative))
         while len(pairs) % 2:
             pairs.append((0, 0))  # cnop

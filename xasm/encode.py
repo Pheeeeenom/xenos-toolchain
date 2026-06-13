@@ -477,6 +477,7 @@ def build_alu(vector_opcode=AluVectorOpcode.kMax,
               is_predicated=False, predicate_condition=False,
               is_const_0_addressed=False, is_const_1_addressed=False,
               is_const_address_register_relative=False,
+              src1_const_rel=False, src2_const_rel=False, src3_const_rel=False,
               src1_reg=0, src1_is_temp=True, src1_swizzle=0, src1_negate=False,
               src2_reg=0, src2_is_temp=True, src2_swizzle=0, src2_negate=False,
               src3_reg=0, src3_is_temp=True, src3_swizzle=0,
@@ -499,7 +500,31 @@ def build_alu(vector_opcode=AluVectorOpcode.kMax,
       * is_const_0_addressed / is_const_1_addressed are the raw
         const_0_rel_abs / const_1_rel_abs bits; which one applies to operand
         i is the derived selection rule in src_const_is_addressed(i).
+      * srcN_const_rel requests aL-relative addressing (c[base + aL]) for
+        constant operand N -- the high-level form needed for arrays indexed
+        by a hardware-loop counter. The ISA has only two addressing bits, so
+        this folds the request onto const_0/const_1 via the same
+        src_const_is_addressed(i) rule the decoder uses. Only constant
+        operands are addressable (temps carry their own relative bit in bit 6
+        of srcN_reg); the request is ignored for temp operands.
+        is_const_address_register_relative stays 0 (aL, not a0).
     """
+    # Fold per-source aL-relative requests onto the two hardware addressing
+    # bits. src_const_is_addressed(i): i=1 -> const_0; i=2 -> const_0 if src1
+    # is temp else const_1; i=3 -> const_0 if src1 & src2 both temp else
+    # const_1. (xost mirrors the decoder so c[base+aL] round-trips.)
+    if src1_const_rel and not src1_is_temp:
+        is_const_0_addressed = True
+    if src2_const_rel and not src2_is_temp:
+        if src1_is_temp:
+            is_const_0_addressed = True
+        else:
+            is_const_1_addressed = True
+    if src3_const_rel and not src3_is_temp:
+        if src1_is_temp and src2_is_temp:
+            is_const_0_addressed = True
+        else:
+            is_const_1_addressed = True
     d0 = (_enc(vector_dest, 0, 6, "vector_dest")
           | _flag(is_vector_dest_relative, 6)
           | _flag(abs_constants, 7)
