@@ -336,9 +336,10 @@ class ValueLowerer:
                 if not role or role[0] != "constant":
                     raise LowerError("matrix operand must be a uniform Load")
                 base, regs = role[1]
-                if regs != 4:
-                    raise LowerError("matrix multiply currently expects mat4")
-                res = tuple(("const", base + i) for i in range(4))
+                if regs not in self._MAT_DP:
+                    raise LowerError(
+                        f"matrix operand expects mat2/3/4, got {regs} regs")
+                res = tuple(("const", base + i) for i in range(regs))
         elif ins.opcode == 146:                    # MatrixTimesMatrix
             res = self.emit_mat_mat(ins.operands[0], ins.operands[1])
         else:
@@ -347,22 +348,30 @@ class ValueLowerer:
         self.matrix_cache[ssa_id] = res
         return res
 
+    # square-matrix dimension -> per-row dot opcode (rows uploaded as the
+    # matrix's constant registers; (M*v)[i] = dot(v, row_i)).
+    _MAT_DP = {4: _V.kDp4, 3: _V.kDp3, 2: _V.kDp2Add}
+
     def emit_mat_vec_ops(self, mat_ops, vec_op, dst=None,
                          export_position=False):
         if self.stage != "vertex":
             raise LowerError("matrix-vector lowering is vertex-only")
-        if len(mat_ops) != 4:
-            raise LowerError("matrix multiply currently expects mat4")
+        n = len(mat_ops)
+        if n not in self._MAT_DP:
+            raise LowerError(f"matrix-vector expects mat2/3/4, got {n} rows")
+        dpop = self._MAT_DP[n]
         vec_op = self.to_reg(vec_op)
         target = OPOS if export_position else (
             dst if dst is not None else self.fresh())
         for i, mat_op in enumerate(mat_ops):
-            self.p.alu(**dict(self.T["dp4"], vector_dest=target,
-                              is_export=export_position,
-                              vector_write_mask=(1 << i),
-                              src1_reg=vec_op[1], src1_is_temp=True,
-                              src2_reg=mat_op[1],
-                              src2_is_temp=(mat_op[0] == "reg")))
+            kw = dict(self.T["dp4"], vector_opcode=dpop, vector_dest=target,
+                      is_export=export_position, vector_write_mask=(1 << i),
+                      src1_reg=vec_op[1], src1_is_temp=True,
+                      src2_reg=mat_op[1], src2_is_temp=(mat_op[0] == "reg"))
+            if n == 2:                            # dp2add: zero the addend
+                z = self.literal_reg((0.0, 0.0, 0.0, 0.0))
+                kw.update(src3_reg=z, src3_is_temp=False, src3_swizzle=0)
+            self.p.alu(**kw)
         return target
 
     def emit_mat_vec(self, mat_ssa, vec_ssa, dst=None, export_position=False):
@@ -374,15 +383,16 @@ class ValueLowerer:
                          export_position=False):
         if self.stage != "vertex":
             raise LowerError("vector-matrix lowering is vertex-only")
-        if len(mat_ops) != 4:
-            raise LowerError("matrix multiply currently expects mat4")
+        n = len(mat_ops)
+        if n not in self._MAT_DP:
+            raise LowerError(f"vector-matrix expects mat2/3/4, got {n} rows")
         vec_op = self.to_reg(vec_op)
         target = self.fresh() if export_position else (
             dst if dst is not None else self.fresh())
         self.emit(_V.kMul, {1: (mat_ops[0], False),
                             2: (vec_op, False, self.bsw(0))},
                   target, False)
-        for i in range(1, 4):
+        for i in range(1, n):
             self.emit(_V.kMad, {1: (mat_ops[i], False),
                                 2: (vec_op, False, self.bsw(i)),
                                 3: (("reg", target), False)},
@@ -447,7 +457,106 @@ class ValueLowerer:
             else:
                 self.emit(_V.kAdd, {1: (oa, False), 2: (ob, True)}, r, False)
             return ("reg", r)
+        if op in (134, 135, 137, 138, 139):       # UDiv/SDiv/UMod/SRem/SMod
+            # Float emulation: q = trunc(a*rcp(b) + eps). rcp is approximate, so
+            # an exact multiple can come out as x.9998 and truncate to x-1; the
+            # small positive bias restores it. Correct for the non-negative
+            # integers shaders actually use (indices, counts); negative operands
+            # are approximate. eps < 1/256 so it never crosses a real boundary
+            # for divisors up to 256.
+            oa = self.int_operand(ins.operands[0])
+            ob = self.int_operand(ins.operands[1])
+            rb = self.emit_scalar(_S.kRcp, self.fresh(), ob)
+            q = self.fresh()
+            self.emit(_V.kMad, {1: (oa, False), 2: (("reg", rb), False),
+                                3: (("const", self.literal_reg(
+                                    (1.0 / 1024,) * 4)), False)}, q, False)
+            t = self.fresh()
+            self.emit(_V.kTrunc, {1: (("reg", q), False),
+                                  2: (("reg", q), False)}, t, False)
+            if op in (134, 135):                  # division -> quotient
+                return ("reg", t)
+            r = self.fresh()                      # remainder: a - b*trunc(a/b)
+            self.emit(_V.kMad, {1: (ob, True), 2: (("reg", t), False),
+                                3: (oa, False)}, r, False)
+            return ("reg", r)
         raise LowerError(f"v1 {self.stage}: unsupported integer op {ins.name}")
+
+    # Comparison opcode -> (Xenos set op, swap operands). These yield 1.0 where
+    # the comparison is true and 0.0 elsewhere, component-wise -- the float
+    # representation of a GLSL bool / bvec. Unsigned compares fold onto the
+    # signed set ops (exact for the small non-negative ints shaders use).
+    _CMP_VALUE = {
+        186: (_V.kSgt, False), 184: (_V.kSgt, True),    # FOrd >, <
+        190: (_V.kSge, False), 188: (_V.kSge, True),    # FOrd >=, <=
+        180: (_V.kSeq, False), 182: (_V.kSne, False),   # FOrd ==, !=
+        173: (_V.kSgt, False), 177: (_V.kSgt, True),    # S >, <
+        175: (_V.kSge, False), 179: (_V.kSge, True),    # S >=, <=
+        172: (_V.kSgt, False), 176: (_V.kSgt, True),    # U >, <
+        174: (_V.kSge, False), 178: (_V.kSge, True),    # U >=, <=
+        170: (_V.kSeq, False), 171: (_V.kSne, False),   # I ==, !=
+    }
+
+    def compare_value(self, ins, dst, export=False):
+        """A relational op used as a value: 1.0 where true else 0.0,
+        component-wise (the float form of a GLSL bool/bvec)."""
+        xop, swap = self._CMP_VALUE[ins.opcode]
+        a, b = self.operand(ins.operands[0]), self.operand(ins.operands[1])
+        if swap:
+            a, b = b, a
+        self.emit(xop, {1: (a, False), 2: (b, False)}, dst, export)
+        return dst
+
+    def bool01(self, ssa):
+        """Operand holding a bool/bvec as 0.0/1.0 floats."""
+        ins = self.m.by_result[ssa]
+        if ins.opcode in self._CMP_VALUE:
+            r = self.fresh()
+            self.compare_value(ins, r, False)
+            return ("reg", r)
+        return self.operand(ssa)              # any/all/not/logical already 0/1
+
+    def select_value(self, ins, dst, export=False):
+        """OpSelect(cond, t, f) -> f + (t - f)*cond, component-wise. Works for
+        a scalar cond broadcast over a vector and for a component-wise bvec."""
+        c = self.bool01(ins.operands[0])
+        tr = self.to_reg(self.operand(ins.operands[1]))
+        fr = self.to_reg(self.operand(ins.operands[2]))
+        diff = self.fresh()
+        self.emit(_V.kAdd, {1: (tr, False), 2: (fr, True)}, diff, False)
+        self.emit(_V.kMad, {1: (("reg", diff), False), 2: (c, False),
+                            3: (fr, False)}, dst, export)
+        return dst
+
+    def reduce_bool(self, ins, dst, export=False, is_all=False):
+        """any(bvec) = horizontal max, all(bvec) = horizontal min, over the
+        0/1 components."""
+        vr = self.to_reg(self.bool01(ins.operands[0]))
+        n = max(self.vec_size(ins.operands[0]), 1)
+        op = _V.kMin if is_all else _V.kMax
+        acc = self.fresh()
+        self.emit(_V.kMax, {1: (vr, False, self.bsw(0)),
+                            2: (vr, False, self.bsw(0))}, acc, False)
+        for i in range(1, n):
+            self.emit(op, {1: (("reg", acc), False),
+                           2: (vr, False, self.bsw(i))}, acc, False)
+        self.emit(_V.kMax, {1: (("reg", acc), False),
+                            2: (("reg", acc), False)}, dst, export)
+        return dst
+
+    def logical_not_value(self, ins, dst, export=False):
+        """!bool / not(bvec) = 1.0 - v over 0/1 components."""
+        v = self.bool01(ins.operands[0])
+        one = ("const", self.literal_reg((1.0, 1.0, 1.0, 1.0)))
+        self.emit(_V.kAdd, {1: (one, False), 2: (v, True)}, dst, export)
+        return dst
+
+    def logical_binop_value(self, ins, dst, export=False):
+        """&& = min, || = max over 0/1 bool operands."""
+        a, b = self.bool01(ins.operands[0]), self.bool01(ins.operands[1])
+        op = _V.kMin if ins.opcode == 167 else _V.kMax
+        self.emit(op, {1: (a, False), 2: (b, False)}, dst, export)
+        return dst
 
     def operand(self, ssa_id: int):
         """Resolve an SSA value to an operand, emitting once."""
@@ -455,7 +564,27 @@ class ValueLowerer:
             return self.op_cache[ssa_id]
         ins = self.m.by_result[ssa_id]
         op = ins.opcode
-        if self.result_kind(ssa_id) == "int":
+        if op in self._CMP_VALUE:
+            r = self.fresh()
+            self.compare_value(ins, r, False)
+            res = ("reg", r)
+        elif op == 169:                           # OpSelect (ternary ?:)
+            r = self.fresh()
+            self.select_value(ins, r, False)
+            res = ("reg", r)
+        elif op in (154, 155):                    # any / all
+            r = self.fresh()
+            self.reduce_bool(ins, r, False, is_all=(op == 155))
+            res = ("reg", r)
+        elif op == 168:                           # logical not / not(bvec)
+            r = self.fresh()
+            self.logical_not_value(ins, r, False)
+            res = ("reg", r)
+        elif op in (166, 167):                    # logical or / and
+            r = self.fresh()
+            self.logical_binop_value(ins, r, False)
+            res = ("reg", r)
+        elif self.result_kind(ssa_id) == "int":
             res = self.int_operand(ssa_id)
         elif self.result_kind(ssa_id) == "float" and \
                 self.float_const(ssa_id) is not None:
@@ -486,11 +615,21 @@ class ValueLowerer:
                         res = ("const", role[1][0])
                 else:
                     raise LowerError(f"{self.stage}: unresolved Load %{src}")
-        elif op == 87:
+        elif op in (87, 88, 91, 92):
             if ssa_id not in self.sample_reg:
                 raise LowerError(
                     "ImageSample was not gathered before lowering")
             res = ("reg", self.sample_reg[ssa_id])
+        elif op == 82:                            # CompositeInsert(obj,comp,i)
+            base = self.to_reg(self.operand(ins.operands[1]))
+            r = self.fresh()
+            self.emit(_V.kMax, {1: (base, False), 2: (base, False)}, r, False)
+            idx = ins.operands[2]
+            o, c = self.scalar_origin(ins.operands[0])
+            swz = 0 if c == "B" else ((c - idx) & 3) << (2 * idx)
+            self.emit(_V.kMax, {1: (o, False, swz), 2: (o, False, swz)},
+                      r, False, mask=(1 << idx))
+            res = ("reg", r)
         elif op == 79:                            # VectorShuffle
             idxs = list(ins.operands[2:])
             if idxs == list(range(len(idxs))):
@@ -543,6 +682,16 @@ class ValueLowerer:
             res = ("reg", self.extinst(ins))
         elif op == 111:                           # ConvertSToF
             res = self.int_operand(ins.operands[0])
+        elif op in (194, 195, 196, 197, 198, 199, 200):
+            raise LowerError(
+                f"{ins.name}: bitwise/shift operators have no Xenos float-ALU "
+                "equivalent (the GPU has no bit ops); restructure with "
+                "arithmetic, or precompute on the host")
+        elif op in (207, 208, 209):
+            raise LowerError(
+                f"{ins.name}: screen-space derivatives (dFdx/dFdy/fwidth) are "
+                "not yet supported -- the Xenos getGradients fetch is the path "
+                "but is unproven on hardware")
         else:
             raise LowerError(f"v1 {self.stage}: unhandled op {ins.name}")
         self.op_cache[ssa_id] = res
@@ -596,6 +745,11 @@ class ValueLowerer:
         if ins.opcode in (148, 43):
             return self.operand(ssa_id), "B"
         if ins.opcode in (129, 131, 133, 136, 141, 12):
+            return self.operand(ssa_id), "B"
+        # select / any / all / not / logical / relational results: produced by
+        # operand() as a (broadcast) value.
+        if ins.opcode in (169, 154, 155, 168, 166, 167) or \
+                ins.opcode in self._CMP_VALUE:
             return self.operand(ssa_id), "B"
         raise LowerError(f"cannot resolve scalar %{ssa_id}")
 
@@ -1114,6 +1268,44 @@ class ValueLowerer:
                                 2: (ob, False, zxy),
                                 3: (("reg", tc), True)}, dst, export)
             return dst
+        if inst == 72:                            # Refract(I, N, eta)
+            oi, on = self.operand(args[0]), self.operand(args[1])
+            n = max(self.vec_size(args[0]), 1)
+            eta = bcast(args[2])
+            one = ("const", self.literal_reg((1.0,) * 4))
+            d = self.fresh()                      # d = dot(N, I)
+            self.emit(_V.kDp3 if n == 3 else _V.kDp4,
+                      {1: (on, False), 2: (oi, False)}, d, False, mask=0xF)
+            d2 = self.fresh()
+            self.emit(_V.kMul, {1: (("reg", d), False),
+                                2: (("reg", d), False)}, d2, False)
+            om = self.fresh()                     # 1 - d^2
+            self.emit(_V.kAdd, {1: (one, False),
+                                2: (("reg", d2), True)}, om, False)
+            e2 = self.fresh()                     # eta^2
+            self.emit(_V.kMul, {1: (eta, False), 2: (eta, False)}, e2, False)
+            t = self.fresh()                      # eta^2 * (1 - d^2)
+            self.emit(_V.kMul, {1: (("reg", e2), False),
+                                2: (("reg", om), False)}, t, False)
+            k = self.fresh()                      # k = 1 - eta^2*(1-d^2)
+            self.emit(_V.kAdd, {1: (one, False),
+                                2: (("reg", t), True)}, k, False)
+            sk = self.emit_scalar(_S.kSqrt, self.fresh(), ("reg", k))
+            coef = self.fresh()                   # eta*d + sqrt(k)
+            self.emit(_V.kMad, {1: (eta, False), 2: (("reg", d), False),
+                                3: (("reg", sk), False)}, coef, False)
+            base = self.fresh()                   # eta*I
+            self.emit(_V.kMul, {1: (eta, False), 2: (oi, False)}, base, False)
+            res = self.fresh()                    # eta*I - coef*N
+            self.emit(_V.kMad, {1: (on, True), 2: (("reg", coef), False),
+                                3: (("reg", base), False)}, res, False)
+            zero = ("const", self.literal_reg((0.0,) * 4))
+            msk = self.fresh()                    # k >= 0 ? 1 : 0
+            self.emit(_V.kSge, {1: (("reg", k), False),
+                                2: (zero, False)}, msk, False)
+            self.emit(_V.kMul, {1: (("reg", res), False),
+                                2: (("reg", msk), False)}, dst, export)
+            return dst
         if inst == 43:                            # FClamp
             lo, hi = self.const_scalar(args[1]), self.const_scalar(args[2])
             if lo == 0.0 and hi == 1.0:
@@ -1406,8 +1598,30 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
     if acc_load_idx is None:
         fail("loop body must add to the accumulator")
     step_ssa = add.operands[1 - acc_load_idx]
-    step_val = const_vec4(step_ssa)
+
+    def al_array(ssa):
+        """(base_reg, n_regs) if ssa is a Load of arr[induction_var] for a
+        uniform array -- the aL-relative addressing case c[base+aL]."""
+        ld = m.by_result.get(ssa)
+        if ld is None or ld.opcode != 61:          # Load
+            return None
+        ac = m.by_result.get(ld.operands[0])
+        if ac is None or ac.opcode != 65:          # AccessChain
+            return None
+        il = m.by_result.get(ac.operands[1])       # index == Load(induction)?
+        if il is None or il.opcode != 61 or il.operands[0] != iv_var:
+            return None
+        role = si.roles.get(ac.operands[0])
+        if role and role[0] == "array":
+            return role[1][0], role[1][1], ac.operands[0]
+        return None
+
+    arr = al_array(step_ssa)
+    if arr is None:
+        step_val = const_vec4(step_ssa)            # acc += constant
     init_val = const_vec4(acc_init)
+    if arr is not None and not all(v == 0.0 for v in init_val):
+        fail("array-accumulating loop must start the accumulator at zero")
 
     merge_mid, merge_term = blocks.get(merge_lbl, (None, None))
     if merge_term is None or merge_term.opcode != 253:
@@ -1443,7 +1657,13 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
     p.input(1, ce.USAGE_COLOR)
     acc_reg, step_reg = 2, 0
     init_is_zero = all(v == 0.0 for v in init_val)
-    if init_is_zero:
+    if arr is not None:
+        arr_base, arr_regs, arr_var = arr
+        arr_name = m.names.get(arr_var) or f"u_arr{arr_base}"
+        # acc = c[base] - c[base] = 0 (zero without spending a literal slot)
+        emit(_V.kAdd, acc_reg, [("const", arr_base, False),
+                                ("const", arr_base, True)])
+    elif init_is_zero:
         emit(_V.kAdd, acc_reg, [("const", step_reg, False),
                                 ("const", step_reg, True)])
     else:
@@ -1451,23 +1671,40 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
         emit(_V.kMax, acc_reg, [("const", init_reg, False),
                                 ("const", init_reg, False)])
     p.begin_loop(loop_id=loop_id)
-    emit(_V.kAdd, acc_reg, [("reg", acc_reg, False),
-                            ("const", step_reg, False)])
+    if arr is not None:
+        # acc += c[base + aL]: the array element selected by the loop counter.
+        p.alu(**dict(T["mov"], vector_opcode=_V.kAdd, vector_dest=acc_reg,
+                     is_export=False, vector_write_mask=0xF,
+                     vector_clamp=False, scalar_write_mask=0,
+                     src1_reg=acc_reg, src1_is_temp=True, src1_swizzle=0,
+                     src1_negate=False,
+                     src2_reg=arr_base, src2_is_temp=False, src2_swizzle=0,
+                     src2_negate=False, src2_const_rel=True))
+    else:
+        emit(_V.kAdd, acc_reg, [("reg", acc_reg, False),
+                                ("const", step_reg, False)])
     p.end_loop()
     p.alloc_colors()
     emit(_V.kMax, 0, [("reg", acc_reg, False), ("reg", acc_reg, False)],
          export=True)
 
-    constants = [
-        ce.Constant("_lit0", ce.RS_FLOAT4, step_reg, 1, ce.CLASS_VECTOR,
-                    ce.TYPE_FLOAT, rows=1, columns=4),
-    ]
-    manifest = [(step_reg, step_val)]
-    if not init_is_zero:
-        constants.append(ce.Constant("_lit1", ce.RS_FLOAT4, init_reg, 1,
+    constants = []
+    manifest = []
+    if arr is not None:
+        constants.append(ce.Constant(arr_name, ce.RS_FLOAT4, arr_base,
+                                     arr_regs, ce.CLASS_VECTOR, ce.TYPE_FLOAT,
+                                     rows=1, columns=4))
+        manifest.append(("array", arr_base, arr_regs, arr_name))
+    else:
+        constants.append(ce.Constant("_lit0", ce.RS_FLOAT4, step_reg, 1,
                                      ce.CLASS_VECTOR, ce.TYPE_FLOAT,
                                      rows=1, columns=4))
-        manifest.append((init_reg, init_val))
+        manifest.append((step_reg, step_val))
+        if not init_is_zero:
+            constants.append(ce.Constant("_lit1", ce.RS_FLOAT4, init_reg, 1,
+                                         ce.CLASS_VECTOR, ce.TYPE_FLOAT,
+                                         rows=1, columns=4))
+            manifest.append((init_reg, init_val))
     manifest.append(("loop", loop_id, bound_name))
     return p.finish(constants=constants), manifest
 
@@ -1516,7 +1753,8 @@ def lower_fragment(m: spirv.Module) -> bytes:
         ins = m.by_result.get(ssa_id)
         if ins is None:
             return
-        if ins.opcode == 87:                      # ImageSample sampler coord
+        if ins.opcode in (87, 88, 91, 92):        # ImageSample [Proj][Lod]
+            proj = ins.opcode in (91, 92)         # projective (divide by last)
             samp = m.by_result.get(ins.operands[0])
             srole = si.roles.get(samp.operands[0]) if samp else None
             if not srole or srole[0] != "sampler":
@@ -1526,13 +1764,21 @@ def lower_fragment(m: spirv.Module) -> bytes:
             if dim not in (1, 3):
                 raise LowerError(f"unsupported sampler dimension {dim}")
             coord = ins.operands[1]
-            cins = m.by_result.get(coord)
-            if not cins or cins.opcode != 61 or \
-                    cins.operands[0] not in interp_reg:
-                raise LowerError("texture coord must be an interpolator")
-            coord_reg = interp_reg[cins.operands[0]]
+            # Optional image operand: Bias (0x1) or explicit Lod (0x2). Xenos
+            # tfetch carries a constant LOD bias (7-bit, 1/16 units), so a
+            # constant bias / LOD folds in; a register LOD is rejected.
+            lod_bias = 0.0
+            rest = list(ins.operands[2:])
+            if rest and (rest[0] & 0x3) and len(rest) > 1:
+                lod_bias = ctx.const_scalar(rest[1])
+            # Coord resolves through operand(): an interpolator Load returns its
+            # register with no extra ALU (texture2D stays byte-identical), while
+            # a computed coord (e.g. uv*2, or the projective divide) is emitted.
+            coord_reg = ctx.to_reg(ctx.operand(coord))[1]
             dst = ctx.fresh()
             if dim == 3:                          # SPIR-V Dim Cube
+                if proj:
+                    raise LowerError("projective cube sampling unsupported")
                 cube = ctx.fresh()
                 ctx.emit(_V.kCube, {
                     1: (("reg", coord_reg), False,
@@ -1550,11 +1796,20 @@ def lower_fragment(m: spirv.Module) -> bytes:
                          cube, False, mask=0x3)
                 p.tfetch(dict(T["tf"], fetch_constant_index=slot,
                               dimension=xu.FetchOpDimension.kCube,
+                              lod_bias=lod_bias,
                               src_swizzle=(1 | (0 << 2) | (3 << 4))),
                          dest=dst, src=cube)
             else:
-                p.tfetch(dict(T["tf"], fetch_constant_index=slot),
-                         dest=dst, src=coord_reg)
+                if proj:                          # uv = coord.xy / coord.last
+                    wcomp = max(ctx.vec_size(coord) - 1, 1)
+                    rw = ctx.emit_scalar(_S.kRcp, ctx.fresh(),
+                                         ("reg", coord_reg), src_comp=wcomp)
+                    uv = ctx.fresh()
+                    ctx.emit(_V.kMul, {1: (("reg", coord_reg), False),
+                                       2: (("reg", rw), False)}, uv, False)
+                    coord_reg = uv
+                p.tfetch(dict(T["tf"], fetch_constant_index=slot,
+                              lod_bias=lod_bias), dest=dst, src=coord_reg)
             sample_reg[ssa_id] = dst
             used_samplers.add(slot)
             return

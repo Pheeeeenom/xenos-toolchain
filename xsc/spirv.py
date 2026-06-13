@@ -35,13 +35,18 @@ OP = {
     57: "FunctionCall", 59: "Variable", 61: "Load", 62: "Store",
     65: "AccessChain", 71: "Decorate", 72: "MemberDecorate",
     79: "VectorShuffle", 80: "CompositeConstruct", 81: "CompositeExtract",
+    82: "CompositeInsert",
     87: "ImageSampleImplicitLod", 88: "ImageSampleExplicitLod",
+    91: "ImageSampleProjImplicitLod", 92: "ImageSampleProjExplicitLod",
     110: "ConvertFToS", 111: "ConvertSToF",
     124: "Bitcast", 127: "FNegate", 128: "IAdd", 129: "FAdd", 130: "ISub",
-    131: "FSub", 132: "IMul", 133: "FMul", 135: "SDiv", 136: "FDiv",
+    131: "FSub", 132: "IMul", 133: "FMul", 134: "UDiv", 135: "SDiv",
+    136: "FDiv", 137: "UMod", 138: "SRem", 139: "SMod",
     142: "VectorTimesScalar",
     144: "VectorTimesMatrix", 145: "MatrixTimesVector",
     146: "MatrixTimesMatrix", 148: "Dot",
+    154: "Any", 155: "All",
+    166: "LogicalOr", 167: "LogicalAnd", 168: "LogicalNot",
     169: "Select",
     170: "IEqual", 171: "INotEqual", 172: "UGreaterThan",
     173: "SGreaterThan", 174: "UGreaterThanEqual", 175: "SGreaterThanEqual",
@@ -50,6 +55,10 @@ OP = {
     180: "FOrdEqual", 182: "FOrdNotEqual", 184: "FOrdLessThan",
     186: "FOrdGreaterThan", 188: "FOrdLessThanEqual",
     190: "FOrdGreaterThanEqual",
+    194: "ShiftRightLogical", 195: "ShiftRightArithmetic",
+    196: "ShiftLeftLogical", 197: "BitwiseOr", 198: "BitwiseXor",
+    199: "BitwiseAnd", 200: "Not",
+    207: "DPdx", 208: "DPdy", 209: "Fwidth",
     246: "LoopMerge", 247: "SelectionMerge",
     248: "Label", 249: "Branch", 250: "BranchConditional",
     252: "Kill", 253: "Return", 254: "ReturnValue",
@@ -59,11 +68,15 @@ OP = {
 # value computations + Constant/Variable/Function (NOT type-defining ops,
 # whose result *is* the type and have no result-type word).
 _HAS_TYPE_AND_RESULT = {
-    12, 43, 44, 54, 55, 57, 59, 61, 65, 79, 80, 81, 87, 88, 124, 127,
+    12, 43, 44, 54, 55, 57, 59, 61, 65, 79, 80, 81, 82, 87, 88, 91, 92,
+    124, 127,
     129, 130, 131, 133, 136, 141, 142, 144, 145, 146, 148,
     169, 180, 182, 184, 186, 188, 190,        # OpSelect + FOrd comparisons
-    110, 111, 128, 132, 135,                  # int arith + S<->F convert (loops)
+    110, 111, 128, 132, 134, 135, 137, 138, 139,  # int arith/div/mod + convert
+    154, 155, 166, 167, 168,                  # any/all + logical and/or/not
     170, 171, 172, 173, 174, 175, 176, 177, 178, 179,  # int comparisons
+    194, 195, 196, 197, 198, 199, 200,        # shifts + bitwise (rejected)
+    207, 208, 209,                            # derivatives (rejected for now)
 }
 # Opcodes that carry only result_id (no result type): every Type* op plus
 # ExtInstImport and Label.

@@ -451,6 +451,23 @@ def main():
         print(f"  PASS loop_uniform.frag: uniform bound -> real "
               f"LOOP_START/END ({len(lblob)} B)")
 
+    # loop frontend: a uniform array indexed by the loop counter compiles to a
+    # real loop whose body accumulates the aL-relative constant c[base+aL].
+    la = spirv.Module.parse((TD / "loop_array.frag.spv").read_bytes())
+    lablob, laman = lower_ex(la)
+    lah = oracle_hlsl(lablob, "loop_array_frag")
+    ladis = xu.disassemble(container.Container(lablob).ucode_dwords, "pixel")
+    la_cf = [o[0] for o in cf_ops(lablob)]
+    want_laman = [("array", 1, 4, "u_w"), ("loop", 0, "u_count")]
+    if lah is None or "+aL]" not in ladis or laman != want_laman or \
+            "loop_start" not in la_cf:
+        ok = False
+        print(f"  FAIL loop_array.frag: aL-relative array loop wrong "
+              f"(manifest {laman}, has_aL={'+aL]' in ladis})")
+    else:
+        print(f"  PASS loop_array.frag: for(i<n) sum += w[i] -> real loop "
+              f"with c[base+aL] ({len(lablob)} B)")
+
     # dot(): luminance desaturation (vec3 dot -> dp3, broadcast scalar)
     gray = compile_glsl("gray.frag")
     ghl = oracle_hlsl(gray, "gray_frag")
@@ -522,6 +539,48 @@ def main():
         print(f"  PASS intbucket.frag: ConvertFToS/IAdd/ConvertSToF "
               f"float-backed path ({len(iblob)} B)")
 
+    # Batch A frontend ops: each must oracle-decode AND emit the expected
+    # Xenos ALU mnemonics (the disassembly is the direct check on what we
+    # emit; the oracle confirms it decodes as a valid program).
+    for name, needles, desc in [
+        ("fs_ternary", ["sgt", "mad"],
+         "ternary ?: -> f + (t-f)*cond select"),
+        ("fs_vrelation", ["sgt", "min", "mad"],
+         "greaterThan + any(max)/all(min)/not + select"),
+        ("fs_refract", ["dp3", "sqrt"],
+         "refract(): Snell vector with total-internal-reflection mask"),
+        ("fs_intdiv", ["rcp", "trunc"],
+         "runtime int / and % via rcp+trunc emulation"),
+    ]:
+        blob = compile_glsl(f"{name}.frag")
+        h = oracle_hlsl(blob, name)
+        dis = xu.disassemble(container.Container(blob).ucode_dwords, "pixel")
+        miss = [s for s in needles if s not in dis]
+        if h is None or miss:
+            ok = False
+            print(f"  FAIL {name}.frag: {desc} "
+                  f"(oracle={'OK' if h else 'REJECTED'}, missing {miss})")
+        else:
+            print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
+
+    # Batch C texture sampling: explicit LOD -> tfetch LOD bias, projective
+    # divide, and a computed (non-interpolator) coordinate.
+    for name, needles, desc in [
+        ("fs_texlod", ["LODBias"], "textureLod explicit LOD -> tfetch LOD bias"),
+        ("fs_texproj", ["rcp", "tfetch2D"], "textureProj perspective divide"),
+        ("fs_texscale", ["tfetch2D"], "texture2D with a computed coordinate"),
+    ]:
+        blob = compile_glsl(f"{name}.frag")
+        h = oracle_hlsl(blob, name)
+        dis = xu.disassemble(container.Container(blob).ucode_dwords, "pixel")
+        miss = [s for s in needles if s not in dis]
+        if h is None or miss:
+            ok = False
+            print(f"  FAIL {name}.frag: {desc} "
+                  f"(oracle={'OK' if h else 'REJECTED'}, missing {miss})")
+        else:
+            print(f"  PASS {name}.frag: {desc} ({len(blob)} B)")
+
     # vertex: oracle-equivalent to the mvp transform
     vert = compile_glsl("spincube.vert")
     hlsl = oracle_hlsl(vert, "spincube_vert")
@@ -556,6 +615,22 @@ def main():
         else:
             print(f"  PASS chainmat.vert: u_viewproj * (u_model * pos) "
                   f"-> temp dp4 chain + passthrough ({len(chain)} B)")
+
+    # mat3 / mat2 (normal matrices, UV rotations): the matrix multiply uses a
+    # dp3 / dp2add per row while the mat4 position transform stays dp4.
+    for name, needle, desc in [
+        ("vs_mat3", "dp3", "mat3 normal matrix (dp3 per row) + mat4 MVP"),
+        ("vs_mat2", "dp2", "mat2 UV rotation (dp2add per row) + mat4 MVP"),
+    ]:
+        blob = compile_glsl(f"{name}.vert")
+        h = oracle_hlsl(blob, name)
+        dis = xu.disassemble(container.Container(blob).ucode_dwords, "vertex")
+        if h is None or needle not in dis or "dp4 oPos" not in dis:
+            ok = False
+            print(f"  FAIL {name}.vert: {desc} (oracle="
+                  f"{'OK' if h else 'REJECTED'}, {needle}={needle in dis})")
+        else:
+            print(f"  PASS {name}.vert: {desc} ({len(blob)} B)")
 
     # vertex: VectorTimesMatrix (vec4 * mat4) lowers as a row-vector
     # accumulation, and the emitted ALU numerically matches v*M.

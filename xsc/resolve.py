@@ -264,6 +264,21 @@ def resolve_interface(m: spirv.Module) -> ShaderInterface:
                 si.constants.append(
                     ConstantSlot(v.name or f"u{reg}", reg, regs, -1))
                 si.roles[v.vid] = ("constant", (reg, regs))
+            elif st and st.kind == "array":
+                # uniform array (`uniform vec4 w[N]`): N contiguous constant
+                # registers, element i at base+i. Indexed by a loop counter it
+                # becomes aL-relative addressing c[base+aL].
+                elem = types.get(st.comp)
+                elem_regs = (elem.count if elem and elem.kind == "matrix"
+                             else 1)
+                lc = m.by_result.get(st.count)
+                length = lc.operands[0] if lc and lc.opcode == 43 else 1
+                regs = max(int(length), 1) * elem_regs
+                reg = v.location if v.location is not None else _next_const[0]
+                _next_const[0] = max(_next_const[0], reg + regs)
+                si.constants.append(
+                    ConstantSlot(v.name or f"u{reg}", reg, regs, -1))
+                si.roles[v.vid] = ("array", (reg, regs, elem_regs))
 
     si.vfetch.sort(key=lambda x: x[0].location or 0)
     si.interp_in.sort(key=lambda x: x[1])
