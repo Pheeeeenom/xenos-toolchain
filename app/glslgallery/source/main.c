@@ -220,6 +220,7 @@ int main(void)
 			   other loop slots animate brightness with the trip count. */
 			int lcount;
 			if(!strcmp(gallery[mode].name,"ALCONST")) lcount=4;
+			else if(!strcmp(gallery[mode].name,"LOOPARR")) lcount=4;
 			else if(!strcmp(gallery[mode].name,"WHILEBRK")) lcount=16;
 			else lcount=1+((int)t)%6;
 			int lid=gallery[mode].loop_id;

@@ -54,6 +54,10 @@ GALLERY = [
     # Vertex frontend proofs.
     ("VSCHAIN", "modulate.frag", "chainmat_vs", "VS_MODE_CHAIN"),
     ("VSARITH", "modulate.frag", "vtx_arith_vs", "VS_MODE_ARITH"),
+    # GLES2 completion-batch fragment proofs (literals auto-uploaded).
+    ("TERNARY", "fs_ternary.frag", "glsl_vs", "VS_MODE_MVP"),
+    ("VREL", "fs_vrelation.frag", "glsl_vs", "VS_MODE_MVP"),
+    ("REFRACT", "fs_refract.frag", "glsl_vs", "VS_MODE_MVP"),
 ]
 
 # Extra non-literal uniform values to upload per pixel shader:
@@ -344,6 +348,24 @@ def main():
     parts.append("")
     entries.append(("WHILEBRK", wi, len(wconsts), "glsl_vs", "VS_MODE_MVP",
                     wloop_id))
+
+    # LOOPARR: GLSL `vec4 s=0; for(i<u_count) s += u_w[i]; o=s;` -> a real loop
+    # whose body reads the aL-relative array element c[base+aL]. The host fills
+    # the array (base..base+3) with four distinct colors; their sum is light
+    # grey if the frontend wired the aL-relative read, else wrong/black.
+    ri = len(entries)
+    rblob, rman = compile_frag("loop_array.frag")
+    arr_base = next(it[1] for it in rman if it[0] == "array")
+    rloop = next(it[1] for it in rman if it[0] == "loop")
+    rconsts = [(arr_base + 0, (0.4, 0.0, 0.0, 0.0)),
+               (arr_base + 1, (0.0, 0.4, 0.0, 0.0)),
+               (arr_base + 2, (0.0, 0.0, 0.4, 0.0)),
+               (arr_base + 3, (0.1, 0.1, 0.1, 0.0))]
+    parts.append(c_array(f"gal_ps{ri}", rblob))
+    append_const_array(parts, ri, rconsts)
+    parts.append("")
+    entries.append(("LOOPARR", ri, len(rconsts), "glsl_vs", "VS_MODE_MVP",
+                    rloop))
 
     parts.append("#define GALLERY_N %d" % len(entries))
     parts.append("static const gallery_entry gallery[GALLERY_N] = {")
