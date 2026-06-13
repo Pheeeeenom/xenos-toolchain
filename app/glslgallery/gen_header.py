@@ -24,7 +24,7 @@ TD = ROOT / "xsc" / "testdata"
 
 # (label, fragment GLSL source stem, vertex shader array, vertex mode) in
 # gallery order. Keep frontier paths late so a hang cannot hide earlier slots.
-# The new discard proof is appended after LOOPHW in main(), making it last.
+# Extra hardware-gated proofs are appended after LOOPHW in main().
 GALLERY = [
     ("MODULATE", "modulate.frag", "glsl_vs", "VS_MODE_MVP"),
     ("TINT", "tint.frag", "glsl_vs", "VS_MODE_MVP"),
@@ -91,6 +91,27 @@ def c_array(name, data):
     return "\n".join(lines)
 
 
+def split_manifest(manifest):
+    consts = []
+    loop_id = -1
+    for item in manifest:
+        if item[0] == "loop":
+            loop_id = item[1]
+        else:
+            consts.append(item)
+    return consts, loop_id
+
+
+def append_const_array(parts, idx, consts):
+    if not consts:
+        return
+    rows = ",\n\t".join(
+        "{ %d, { %ff, %ff, %ff, %ff } }" % (reg, *vals)
+        for reg, vals in consts)
+    parts.append(f"static const gallery_const gal_c{idx}[] = {{\n"
+                 f"\t{rows}\n}};")
+
+
 def build_loop_proof():
     """Hand-authored PS with a real hardware loop.
 
@@ -127,7 +148,8 @@ def build_loop_proof():
                           ce.TYPE_FLOAT, rows=1, columns=4)]
     blob = p.finish(constants=consts)
     manifest = [(0, (0.12, 0.12, 0.12, 0.12)),
-                (1, (0.0, 0.0, 0.0, 0.0))]
+                (1, (0.0, 0.0, 0.0, 0.0)),
+                ("loop", 0, "i0")]
     return blob, manifest
 
 
@@ -139,6 +161,7 @@ def main():
         "glsl_vs": compile_vert("spincube.vert"),
         "chainmat_vs": compile_vert("chainmat.vert"),
         "vtx_arith_vs": compile_vert("vtx_arith.vert"),
+        "cubedir_vs": compile_vert("cubedir.vert"),
     }
     for name in ("xost_vs1", "xost_ps0"):
         blobs[name] = (ROOT / "examples" / "out" / f"{name}.bin").read_bytes()
@@ -149,52 +172,64 @@ def main():
     entries = []
     for i, (label, stem, vs_name, vs_mode) in enumerate(GALLERY):
         blob, manifest = compile_frag(stem)
-        consts = list(manifest) + EXTRA.get(stem, [])
+        consts, loop_id = split_manifest(manifest)
+        consts += EXTRA.get(stem, [])
         parts.append(c_array(f"gal_ps{i}", blob))
-        if consts:
-            rows = ",\n\t".join(
-                "{ %d, { %ff, %ff, %ff, %ff } }" % (reg, *vals)
-                for reg, vals in consts)
-            parts.append(f"static const gallery_const gal_c{i}[] = {{\n"
-                         f"\t{rows}\n}};")
+        append_const_array(parts, i, consts)
         parts.append("")
-        entries.append((label, i, len(consts), vs_name, vs_mode))
+        entries.append((label, i, len(consts), vs_name, vs_mode, loop_id))
 
     li = len(GALLERY)
     lblob, lmanifest = build_loop_proof()
+    lconsts, lloop_id = split_manifest(lmanifest)
     parts.append(c_array(f"gal_ps{li}", lblob))
-    rows = ",\n\t".join("{ %d, { %ff, %ff, %ff, %ff } }" % (reg, *vals)
-                        for reg, vals in lmanifest)
-    parts.append(f"static const gallery_const gal_c{li}[] = {{\n\t{rows}\n}};")
+    append_const_array(parts, li, lconsts)
     parts.append("")
-    entries.append(("LOOPHW", li, len(lmanifest), "glsl_vs", "VS_MODE_MVP"))
+    entries.append(("LOOPHW", li, len(lconsts), "glsl_vs", "VS_MODE_MVP",
+                    lloop_id))
 
     di = len(entries)
     dblob, dmanifest = compile_frag("fs_discard.frag")
+    dconsts, dloop_id = split_manifest(dmanifest)
     parts.append(c_array(f"gal_ps{di}", dblob))
-    if dmanifest:
-        rows = ",\n\t".join(
-            "{ %d, { %ff, %ff, %ff, %ff } }" % (reg, *vals)
-            for reg, vals in dmanifest)
-        parts.append(f"static const gallery_const gal_c{di}[] = {{\n"
-                     f"\t{rows}\n}};")
+    append_const_array(parts, di, dconsts)
     parts.append("")
-    entries.append(("DISCARD", di, len(dmanifest), "glsl_vs", "VS_MODE_MVP"))
+    entries.append(("DISCARD", di, len(dconsts), "glsl_vs", "VS_MODE_MVP",
+                    dloop_id))
+
+    ci = len(entries)
+    cblob, cmanifest = compile_frag("fs_cubemap.frag")
+    cconsts, cloop_id = split_manifest(cmanifest)
+    parts.append(c_array(f"gal_ps{ci}", cblob))
+    append_const_array(parts, ci, cconsts)
+    parts.append("")
+    entries.append(("CUBEMAP", ci, len(cconsts), "cubedir_vs",
+                    "VS_MODE_MVP", cloop_id))
+
+    gi = len(entries)
+    gblob, gmanifest = compile_frag("loop_uniform.frag")
+    gconsts, gloop_id = split_manifest(gmanifest)
+    parts.append(c_array(f"gal_ps{gi}", gblob))
+    append_const_array(parts, gi, gconsts)
+    parts.append("")
+    entries.append(("GLSLLOOP", gi, len(gconsts), "glsl_vs",
+                    "VS_MODE_MVP", gloop_id))
 
     parts.append("#define GALLERY_N %d" % len(entries))
     parts.append("static const gallery_entry gallery[GALLERY_N] = {")
-    for label, i, nman, vs_name, vs_mode in entries:
+    for label, i, nman, vs_name, vs_mode, loop_id in entries:
         cptr = f"gal_c{i}" if nman else "0"
         parts.append(f'\t{{ "{label}", gal_ps{i}, {vs_name}, {vs_mode}, '
-                     f'{nman}, {cptr} }},')
+                     f'{nman}, {cptr}, {loop_id} }},')
     parts.append("};")
     parts.append("")
 
     OUT.write_text("\n".join(parts))
-    print(f"wrote {OUT}  ({len(GALLERY) + 1} GLSL slots + "
+    print(f"wrote {OUT}  ({len(entries) - 1} GLSL slots + "
           "1 hardware-loop proof)")
-    for label, i, nman, _vs_name, _vs_mode in entries:
-        print(f"  gal_ps{i} {label}: {nman} literal const(s) to upload")
+    for label, i, nman, _vs_name, _vs_mode, loop_id in entries:
+        loop = f", loop i{loop_id}" if loop_id >= 0 else ""
+        print(f"  gal_ps{i} {label}: {nman} literal const(s){loop}")
 
 
 if __name__ == "__main__":

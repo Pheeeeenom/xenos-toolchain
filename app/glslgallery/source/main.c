@@ -11,6 +11,8 @@
  *                              G24 VSARITH  VS add/mul values
  *                              G25 LOOPHW   real HW loop
  *                              G26 DISCARD  kill half the pixels
+ *                              G27 CUBEMAP  cube fetch proof
+ *                              G28 GLSLLOOP uniform-bound GLSL loop
  */
 #include <stdio.h>
 #include <string.h>
@@ -20,6 +22,8 @@
 #include <xenos/edram.h>
 #include <console/console.h>
 #include <ppc/timebase.h>
+#include <usb/usbmain.h>
+#include <input/input.h>
 
 typedef struct { int reg; float v[4]; } gallery_const;
 typedef struct {
@@ -29,6 +33,7 @@ typedef struct {
 	int vs_mode;
 	int n_const;
 	const gallery_const *consts;
+	int loop_id;
 } gallery_entry;
 
 enum {
@@ -38,6 +43,7 @@ enum {
 };
 
 #include "xost_shaders.h"
+#include "texture_data.h"
 
 extern void mdelay(int);
 
@@ -105,6 +111,7 @@ int main(void)
 	printf("xost glslgallery: %d GLSL shaders compiled by xsc\n", GALLERY_N);
 
 	struct XenosDevice _xe,*xe=&_xe; Xe_Init(xe);
+	usb_init(); usb_do_poll();   /* controller: manual slot select (see loop) */
 	struct XenosSurface *fb=Xe_GetFramebufferSurface(xe); Xe_SetRenderTarget(xe,fb);
 
 	static const struct XenosVBFFormat vbf_tex={3,{
@@ -132,11 +139,23 @@ int main(void)
 	void*ip=Xe_IB_Lock(xe,ib,0,sizeof(cidx),XE_LOCK_WRITE);memcpy(ip,cidx,sizeof(cidx));Xe_IB_Unlock(xe,ib);
 	struct XenosVertexBuffer *hvb=Xe_CreateVertexBuffer(xe,sizeof(hud));
 
-	struct XenosSurface *tex=Xe_CreateTexture(xe,64,64,1,XE_FMT_8888|XE_FMT_ARGB,0);
+	struct XenosSurface *tex=Xe_CreateTexture(xe,GALLERY_TEX_SIZE,
+		GALLERY_TEX_SIZE,1,XE_FMT_8888|XE_FMT_ARGB,0);
 	unsigned char *tp=Xe_Surface_LockRect(xe,tex,0,0,0,0,XE_LOCK_WRITE);int yy,xx;
-	for(yy=0;yy<64;yy++){unsigned int*row=(unsigned int*)(tp+yy*tex->wpitch);
-		for(xx=0;xx<64;xx++)row[xx]=(((xx>>3)^(yy>>3))&1)?0xFFFFFFFF:0xFF404040;}
+	for(yy=0;yy<GALLERY_TEX_SIZE;yy++){unsigned int*row=(unsigned int*)(tp+yy*tex->wpitch);
+		for(xx=0;xx<GALLERY_TEX_SIZE;xx++)row[xx]=gallery_tex[yy*GALLERY_TEX_SIZE+xx];}
 	Xe_Surface_Unlock(xe,tex);
+	struct XenosSurface *cubetex=Xe_CreateTexture(xe,64,64*6,1,
+		XE_FMT_8888|XE_FMT_ARGB,0);
+	unsigned char *cpix=Xe_Surface_LockRect(xe,cubetex,0,0,0,0,XE_LOCK_WRITE);
+	unsigned int face_col[6]={0xFFFF4040,0xFF40FF40,0xFF4040FF,
+		0xFFFFFF40,0xFF40FFFF,0xFFFF40FF};
+	int face;
+	for(face=0;face<6;face++)for(yy=0;yy<64;yy++){
+		unsigned int*row=(unsigned int*)(cpix+(face*64+yy)*cubetex->wpitch);
+		for(xx=0;xx<64;xx++)row[xx]=(((xx>>3)^(yy>>3))&1)?face_col[face]:0xFF202020;}
+	Xe_Surface_Unlock(xe,cubetex);
+	cubetex->height=64;cubetex->hpitch=64;
 
 	edram_init(xe);
 	printf("rendering. cube cycles GLSL shaders every 4s.\n");
@@ -146,10 +165,22 @@ int main(void)
 	const float cc[3]={0.2f,1,0.2f},gc[3]={0.2f,0.9f,1},nc[3]={1,0.8f,0.2f};
 	const unsigned char lc[3]={S_C,S_P,S_U},lg[3]={S_G,S_P,S_U},ln[1]={S_G};
 	float ca=0,ga=0;int sc=0,sg=0,rf=0;uint64_t t0=mftb();
+	/* controller: D-pad/bumpers step slots manually; START resumes auto-cycle */
+	int sel=0,manual=0,pl=0,pr=0,plb=0,prb=0,pst=0;
+	struct controller_data_s pad;
 
 	while(1){
 		uint64_t fs=mftb();float t=(float)((double)(fs-t0)/(double)PPC_TIMEBASE_FREQ);
-		int mode=((int)(t/4.0f))%GALLERY_N;
+		usb_do_poll();
+		if(get_controller_data(&pad,0)){
+			int nx=(pad.right||pad.rb)&&!(pr||prb);
+			int pv=(pad.left||pad.lb)&&!(pl||plb);
+			if(nx){manual=1;sel=(sel+1)%GALLERY_N;}
+			if(pv){manual=1;sel=(sel+GALLERY_N-1)%GALLERY_N;}
+			if(pad.start&&!pst)manual=0;          /* resume auto-cycle */
+			pl=pad.left;pr=pad.right;plb=pad.lb;prb=pad.rb;pst=pad.start;
+		}
+		int mode=manual?sel:((int)(t/4.0f))%GALLERY_N;
 
 		Xe_InvalidateState(xe);Xe_SetCullMode(xe,0);Xe_SetZEnable(xe,1);Xe_SetZWrite(xe,1);
 		Xe_SetClearColor(xe,0xFF202020);
@@ -180,16 +211,26 @@ int main(void)
 		for(i=0;i<gallery[mode].n_const;i++)
 			Xe_SetPixelShaderConstantF(xe,gallery[mode].consts[i].reg,
 				(float*)gallery[mode].consts[i].v,1);
-		/* data-dependent loop proof: upload loop constant i0 with an animated
-		   trip count (count|start<<8|step<<16). The LOOP slot's shader runs its
-		   body i0.x times (oC0 = count*c0 -> brightness steps with count);
-		   non-loop slots ignore it. integer_constants[8+id] = loop const i#. */
-		int lcount=1+((int)t)%6;
-		xe->integer_constants[8+0]=(lcount&0xff)|(0<<8)|(1<<16);
-		xe->dirty|=DIRTY_INTEGER;
+		/* Real-loop proof slots upload loop constant i#:
+		   count|start<<8|step<<16. Brightness steps with count. */
+		if(gallery[mode].loop_id>=0){
+			int lcount=1+((int)t)%6;
+			int lid=gallery[mode].loop_id;
+			xe->integer_constants[8+lid]=(lcount&0xff)|(0<<8)|(1<<16);
+			xe->dirty|=DIRTY_INTEGER;
+		}
 		Xe_SetShader(xe,SHADER_TYPE_PIXEL,gps[mode],0);
 		Xe_SetShader(xe,SHADER_TYPE_VERTEX,gvs[mode],0);
-		Xe_SetTexture(xe,0,tex);
+		Xe_SetTexture(xe,0,!strcmp(gallery[mode].name,"CUBEMAP")?cubetex:tex);
+		if(!strcmp(gallery[mode].name,"CUBEMAP")){
+			/* libxenon only writes a 2D fetch constant; promote tex unit 0 to a
+			   cubemap in place: fetch dword5 dimension 2D(1)->Cube(3) (set bit10),
+			   dword2 stack_depth=5 (6 faces). The 64x384 alloc already lays the 6
+			   faces out at the 16384-byte cube slice stride. DIRTY_FETCH is set by
+			   Xe_SetTexture, so the draw uploads these. */
+			xe->fetch_constants[5]|=(1u<<10);
+			xe->fetch_constants[2]|=(5u<<26);
+		}
 		Xe_SetStreamSource(xe,0,vb,0,10);Xe_SetIndices(xe,ib);
 		Xe_DrawIndexedPrimitive(xe,XE_PRIMTYPE_TRIANGLELIST,0,0,24,0,12);
 
