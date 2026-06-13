@@ -58,10 +58,16 @@ GALLERY = [
     ("TERNARY", "fs_ternary.frag", "glsl_vs", "VS_MODE_MVP"),
     ("VREL", "fs_vrelation.frag", "glsl_vs", "VS_MODE_MVP"),
     ("REFRACT", "fs_refract.frag", "glsl_vs", "VS_MODE_MVP"),
-    # Frontier proofs: GLSL while-break + if/else-in-loop. (Derivatives lower
-    # to getTextureGradients but distort geometry on console -- disabled.)
+    # Frontier proofs: GLSL while-break + if/else-in-loop.
     ("LOOPBRK", "loop_break.frag", "glsl_vs", "VS_MODE_MVP"),
     ("LOOPCOND", "loop_cond.frag", "glsl_vs", "VS_MODE_MVP"),
+    # Derivatives (hardware-verified): DERIV visualizes dFdx/dFdy/fwidth (faces
+    # look faceted -- per-triangle derivatives are discontinuous at the seam,
+    # which is correct). DSOLID runs getGradients but outputs a solid colour and
+    # renders a clean cube -- the proof that the getGradients fetch is benign to
+    # rasterization (it was the isolation test that settled the geometry doubt).
+    ("DERIV", "fs_deriv.frag", "glsl_vs", "VS_MODE_MVP"),
+    ("DSOLID", "fs_dsolid.frag", "glsl_vs", "VS_MODE_MVP"),
 ]
 
 # Extra non-literal uniform values to upload per pixel shader:

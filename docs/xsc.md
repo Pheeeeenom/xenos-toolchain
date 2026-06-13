@@ -71,6 +71,7 @@ Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
 | `transpose` (mat2/3/4) | per-row column gather (swizzled movs) |
 | `determinant` (mat2/3) | mat2 `ad−bc`; mat3 `row0·cross(row1,row2)` |
 | `inverse` (mat2/3) | mat2 closed form; mat3 adjugate (cofactor crosses) / det · `rcp` |
+| `dFdx` / `dFdy` / `fwidth` | `getTextureGradients` fetch; ddx=grad.xz, ddy=grad.yw |
 
 ## Interface conventions (GLSL ↔ Xenos)
 
@@ -185,12 +186,12 @@ constant condition** inside a loop body unrolls (the arm is picked per pass).
   multiply and 4×4 inverse (register-heavy) are not lowered.
 - **Runtime integer division** is float-emulated and **approximate** (a small
   bias corrects exact multiples; non-negative domain).
-- **`dFdx`/`dFdy`/`fwidth`** lower to the `getTextureGradients` fetch and decode
-  cleanly (packing `ddx=grad.xz`, `ddy=grad.yw`), but on console they **distort
-  the geometry** -- derivatives put the rasterizer in 2x2-quad/helper-pixel mode
-  that libxenon's fixed render state isn't set up for. Disabled with a clear
-  error until the render state is addressed driver-side; the lowering is kept in
-  git history (commit 8a6b3a5) for when it is.
+
+`dFdx`/`dFdy`/`fwidth` are **hardware-verified** (the `getTextureGradients`
+fetch is benign to the pipeline -- confirmed by the DSOLID isolation slot
+rendering a clean cube). A raw derivative visualization looks faceted because
+screen-space derivatives are constant per triangle and discontinuous at the
+shared edge; that is correct, not a geometry bug.
 
 ## Validation
 Every test shader is checked by the XenosRecomp oracle (which does the
