@@ -30,22 +30,23 @@
 
 ## Tasks (independent unless noted)
 
-### A — Vertex literal constants  *(no HW gate; unblocks lighting VS)*
-`lower_vertex` builds `ValueLowerer(..., allow_literals=False)`, so any VS
-literal (`vec3(0,0,1)`, `0.5`) raises "vertex literal constants need a host
-manifest". `vs_lighting`'s *math already works* post-refactor — this is the one
-wire missing. Flip to `allow_literals=True`, return the `lit_manifest` from
-`lower_vertex` (mirror `lower_fragment`), declare the literals as VS constants in
-the `p.finish` constant list, and have `lower_ex`'s vertex branch return
-`(blob, manifest)` instead of `(blob, [])`. Host uploads them via
-`Xe_SetVertexShaderConstantF`.
+### A — Vertex literal constants  *(done; no HW gate)*
+`lower_vertex` used to build `ValueLowerer(..., allow_literals=False)`, so VS
+literals (`vec3(0,0,1)`, `0.5`) raised "vertex literal constants need a host
+manifest". This task flipped to `allow_literals=True`, returns the
+`lit_manifest` from `lower_vertex` (mirroring `lower_fragment`), declares the
+literals as VS constants in the `p.finish` constant list, and has `lower_ex`'s
+vertex branch return `(blob, manifest)` instead of `(blob, [])`. Host uploads
+them via `Xe_SetVertexShaderConstantF`.
+- **Status:** landed in the working tree. `vs_lighting.vert` and `vs_wave.vert`
+  oracle-validate with vertex literal manifests.
 - **Accept:** `vs_lighting.vert` (normalize/dot/max + a `vec3` literal) compiles
   + oracle-validates; manifest returned; modulate byte-identical.
 
-### B — Cubemap / texture dimensions  *(HW gate)*
+### B — Cubemap / texture dimensions  *(console-pending; HW gate)*
 xsc has one fetch template (`tfetch3`, 2D); `samplerCube` silently miscompiles to
-a 2D fetch. Detect the sampler `Dim` from `OpTypeImage` (2=2D? confirm: 1=2D,
-3=Cube) in `resolve.py`, and in the `lower_fragment` tfetch `gather` emit a
+a 2D fetch. Detect the sampler `Dim` from `OpTypeImage` (1=2D, 3=Cube) in
+`resolve.py`, and in the `lower_fragment` tfetch `gather` emit a
 **cube** fetch (3-component direction coord) for cube samplers. Investigate the
 Xenos cube-fetch encoding first (don't guess — check `xdis/xenos_ucode.py`
 TextureFetch fields + how xenia/XenosRecomp represent cube fetches). At minimum,
@@ -53,6 +54,10 @@ turn the current *silent miscompile* into either a correct cube fetch or a clean
 `LowerError`.
 - **Accept:** `fs_cubemap` emits a cube fetch (not 2D), oracle-validates; gallery
   slot with a cubemap texture (console-pending).
+- **Status:** compiler/oracle path is in the working tree. `fs_cubemap.frag`
+  emits the full cube setup sequence (`cube .zzxy/.yxzz`, `rcp(abs z)`,
+  bias `mad`, `tfetchCube .yxw`); Dim 3 is recorded in `sampler_dims`; G27
+  (`CUBEMAP`) is the final gallery slot awaiting console verification.
 
 ### C — Matrix math beyond `mat*vec`  *(no HW gate)*
 Only `OpMatrixTimesVector` (145) is handled. Add `OpVectorTimesMatrix` (144,
@@ -61,6 +66,10 @@ result is a matrix held in 4 regs). Scope: at least `vec*mat`, and `mat*mat`
 whose result immediately multiplies a vector. New handlers in `ValueLowerer`
 (dispatch in `operand`, like the existing `emit_mat_vec`).
 - **Accept:** testdata shaders for `vec*mat` and `mat*mat`; oracle-validated.
+- **Status:** complete in compiler/oracle tests. `vs_vecmat.vert` covers
+  `OpVectorTimesMatrix` as a row-vector `mul` + `mad` accumulation;
+  `vs_matmat.vert` covers `OpMatrixTimesMatrix` product rows feeding
+  `OpMatrixTimesVector`. Tests include numerical evaluation of the emitted ALU.
 
 ### D — Integer scalars used as float values  *(no HW gate; lower priority)*
 The Xenos ALU is float-centric. Generalize the loop-only `ConvertSToF/FToS`
@@ -71,6 +80,9 @@ rarely need real integers; the goal is to stop rejecting common `int`→`float`
 idioms, not a full integer ALU.
 - **Accept:** a shader mixing an `int` expression into float output compiles +
   oracle-validates.
+- **Status:** complete in compiler/oracle tests. `intmix.frag` covers folded
+  signed-int local arithmetic through `ConvertSToF`; `intbucket.frag` covers
+  `ConvertFToS` via `trunc`, integer add, and conversion back to float.
 
 ### E — Phase B: data-dependent loops in the frontend  *(HW gate; do LAST/own)*
 The real-loop mechanism is **already proven on hardware** (Phase A — see
@@ -87,16 +99,23 @@ codegen for the accumulator. **Start minimal:** `for(i=0;i<u_count;i++) sum+=k;`
 - This is the big one. One agent, no internal parallelism, integrate after A–D.
 - **Accept:** a uniform-bounded loop compiles to a real LOOP_START/END shader;
   gallery slot where changing the uniform changes the output (console-pending).
+- **Status:** compiler/oracle path is in the working tree. `loop_uniform.frag`
+  falls back from `unroll.py` to a real-loop register-machine path, returns a
+  manifest with `("loop", 0, "u_count")`, and `glslgallery` G28 (`GLSLLOOP`)
+  uploads an animated `integer_constants[8]`. Hardware verification is pending.
 
-### F — Optimizer: 0/1 source-select fold  *(behavioral; isolate)*
-Fold `0.0`/`1.0` literal operands into the Xenos source-select swizzle (free,
-saves constant-pool registers) instead of allocating a pooled constant. This
-**changes microcode** for shaders using 0/1 literals, so it will move oracle
-needles and possibly the literal manifest — update the affected tests
-deliberately. Keep it off the byte-identical path (`modulate` has no 0/1 literal,
-so it must stay byte-identical regardless). Lower priority; do it on its own
-branch and integrate last with eyes open.
-- **Accept:** a 0/1-using shader drops the pooled const; suite updated + green.
+### F — Optimizer: 0/1 source-select fold  *(done; no HW gate)*
+The working tree folds `0.0`/`1.0` literals where the ISA/lowering has a
+no-literal equivalent: identity source operands (`x+0`, `x*1`, `x/1`),
+unit-axis `dot()` constants as swizzled extracts, final export 0/1 lanes via
+Xenos export constant-result masks, sign comparisons as `x` vs `-x`, and the
+real-loop zero init as `step-step`. General ALU sources do **not** encode
+`k0/k1`, so forms like `max(x, 0.0)` still pool zero when no equivalent
+lowering is proven.
+- **Status:** complete in compiler/oracle tests. `lit01.frag` has an empty
+  manifest despite 0/1 GLSL literals; `intbucket`, `vs_lighting`, `vs_wave`,
+  and `loop_uniform` had deliberate manifest/needle updates. `modulate.frag`
+  remains byte-identical.
 
 ## Conventions (every task, non-negotiable)
 

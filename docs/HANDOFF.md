@@ -25,11 +25,10 @@ Pipeline: **GLSL → glslang → SPIR-V → xsc → Xenos container**
 ## Current state (see the gap map below)
 
 The **fragment** frontend is strong and hardware-verified: ~35 builtins, nested
-if/else (branch-free `cnd` selects), constant-trip loops, uniforms/samplers/
-literals, real lighting/multi-texture/fog shaders. The **vertex** frontend is
-thin — it lowers essentially one pattern (`mvp*pos` + passthrough). Real loop
-control flow (`LOOP_START/END`) is hardware-proven but not yet wired into the
-GLSL frontend. Renders a real app: mupen64-360's shaders go through it.
+if/else (branch-free `cnd` selects), constant-trip loops, minimal uniform-bound
+real loops, uniforms/samplers/literals, and real lighting/fog shaders. The
+**vertex** frontend handles transform/passthrough plus the scoped GLES2 matrix
+breadth below. Renders a real app: mupen64-360's shaders go through it.
 
 ## Invariants & gotchas (READ THIS)
 
@@ -92,11 +91,11 @@ Measured by compiling representative shaders through glslang→xsc:
 
 1. **Vertex frontend — still the biggest remaining gap.** `lower_vertex` now
    handles chained mat4 x vec4 transforms (`model*pos` then
-   `viewproj*world`) and basic ALU values (`+`, `-`, `*`, `vec*scalar`,
-   `dot`, swizzled temps) feeding position or interpolator exports. Remaining
-   high-value work is the larger fragment/value-lowering refactor for VS:
-   normalize/sqrt/sin/cos/etc., general component writes/constructs, and
-   broader matrix forms (`mat*mat`, `vec*mat`, inverse/determinant).
+   `viewproj*world`), basic ALU values (`+`, `-`, `*`, `vec*scalar`, `dot`,
+   swizzled temps), and VS literal constants via the same manifest contract as
+   fragments. `vs_lighting` and `vs_wave` cover normalize/dot/max/sin paths.
+   Remaining high-value work is general component writes/constructs and broader
+   matrix forms (`mat*mat`, `vec*mat`, inverse/determinant).
 
 2. **Fragment control-flow generality:**
    - **if/else that assigns a local** then outputs it is now lowered as the
@@ -106,14 +105,39 @@ Measured by compiling representative shaders through glslang→xsc:
      final `glslgallery` slot G26 (`DISCARD`) should cut away half the cube's
      pixels (`v_uv.x < 0.5`) on console.
 
-3. **Data-dependent loops (Phase B, in flight).** Mechanism proven: see Loop CF
-   below. Wire `unroll.py`'s data-dependent bail to a real-loop lowering that
-   keeps the loop-carried var in a persistent GPR and binds the uniform bound to
-   a loop constant.
+3. **Uniform-bound loops (Phase B).** The first GLSL frontend route is wired:
+   `for(i=0;i<u_count;i++) sum += const;` lowers to a persistent accumulator
+   GPR wrapped in `LOOP_START/END`. The manifest carries `("loop", id, name)`,
+   and `glslgallery` slot G28 (`GLSLLOOP`) animates `integer_constants[8+id]`.
+   Console verification is pending.
 
-4. **Texture types.** xsc has one fetch template (`tfetch3`, 2D). `samplerCube`
-   currently *silently miscompiles* to a 2D fetch — at minimum make it a clean
-   error. 3D/array/LOD/bias also unsupported.
+4. **Texture types.** `samplerCube` now detects SPIR-V `Dim=Cube` and lowers to
+   the full hardware sequence: `cube` with `.zzxy/.yxzz` source swizzles,
+   `rcp(abs(2*majorAxis))`, bias `mad` by 1.5, then `tfetchCube .yxw`.
+   The final `glslgallery` slot G27 (`CUBEMAP`) is console-pending.
+   3D/array/LOD/bias are still unsupported and should raise cleanly rather than
+   silently miscompile.
+
+5. **Vertex matrix breadth.** `OpVectorTimesMatrix` now lowers as a
+   row-vector `mul` + `mad` accumulation against the row-uploaded matrix.
+   `OpMatrixTimesMatrix` forms each product row with that same `vec*mat` path,
+   for the scoped GLES2 case where the product immediately feeds a vector
+   multiply. Covered by `vs_vecmat.vert` and `vs_matmat.vert` structural +
+   numerical tests.
+
+6. **Scalar int-to-float idioms.** Straight-line signed-int scalar expressions
+   that feed float math now compile. Constants fold to literal manifests
+   (`intmix.frag`); `int(float_expr)` uses `trunc`, then float-backed add/mul
+   where safe (`intbucket.frag`). General integer comparisons, `uint`, bit ops,
+   and dynamic integer division are still unsupported.
+
+7. **0/1 literal folds.** `0.0`/`1.0` literals now avoid the manifest where the
+   hardware/lowering has a no-literal equivalent: identity operands, unit-axis
+   `dot()` swizzles, final export constant-result masks, sign comparisons as
+   `x` vs `-x`, and the real-loop zero init as `step-step`. `lit01.frag` is the
+   focused oracle test; `intbucket`, `vs_lighting`, `vs_wave`, and
+   `loop_uniform` show the manifest drift. General ALU sources still do not
+   encode `k0/k1`, so forms like `max(x, 0.0)` may still pool zero.
 
 ## Loop control flow (Phase A, hardware-proven) — reference for Phase B
 
@@ -132,7 +156,8 @@ Measured by compiling representative shaders through glslang→xsc:
   xe->integer_constants[8+id] = count | (start<<8) | (step<<16);
   xe->dirty |= DIRTY_INTEGER;   // both are public in xe.h
   ```
-- Proven on console via `glslgallery` G23 (LOOPHW): `gen_header.build_loop_proof`.
+- Proven on console via G25 (LOOPHW): `gen_header.build_loop_proof`.
+- Frontend route pending console via G28 (GLSLLOOP): `loop_uniform.frag`.
 
 Phase C (later): `aL`-relative constant addressing (`c[base+aL]`) for array
 indexing — the genuinely useful GLES2 loop pattern — and predicated `LOOP_END`
