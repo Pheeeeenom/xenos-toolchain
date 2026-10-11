@@ -124,8 +124,11 @@ the HLSL, which for the cube pair is BSD and included).
   rebuilds `vs0.bin`/`ps_fb0.bin` from a mupen64-360 clone in one command;
   the cube pair is a two-file copy from a libxenon clone. Costs: a fresh
   clone can't run `tests/test_container_regen.py` / `test_exact_total.py` /
-  `tools/gen_templates.py` without a manual step, and the golden files in
-  `tests/golden/` (derived from the blobs) would have to go too.
+  `tools/gen_templates.py` / `tests/test_templates.py` without a manual step,
+  and the golden files in `tests/golden/` (derived from the blobs) would have
+  to go too. xsc itself no longer reads the corpus: its instruction templates
+  are written from Xenia's definitions (`xsc/templates.py`), and the corpus is
+  only what `tests/test_templates.py` checks them against.
 
 Recommendation: **(a), plus the regeneration instructions from (b) inside
 `corpus/README.md`** — so if anyone ever objects, removal is one `git rm`

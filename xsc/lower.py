@@ -7,8 +7,8 @@ chain and emitting Program-builder calls, scheduled into the Xenos phase
 structure (vfetch -> alloc position -> transform -> alloc interpolators ->
 interpolator exports for VS).
 
-Instruction templates (proven ALU/vfetch field skeletons) come from the
-golden corpus, same as the author_* scripts.
+Instruction templates (ALU/vfetch/tfetch field skeletons) come from Xenia's
+definitions in xsc/templates.py; the corpus is only their test vector.
 """
 from __future__ import annotations
 
@@ -18,17 +18,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "examples"))
 
 import xdis.container as container  # noqa: E402
 import xdis.container_emit as ce  # noqa: E402
 import xdis.xenos_ucode as xu  # noqa: E402
 import xsc.spirv as spirv  # noqa: E402
+from xsc.templates import templates  # noqa: E402
 from xsc.unroll import UnrollError, unroll  # noqa: E402
 from xsc.resolve import resolve_interface, resolve_types  # noqa: E402
 from xasm.program import VertexProgram, PixelProgram  # noqa: E402
-from author_passthrough import alu_fields, vf_fields, corpus_records  # noqa: E402
-from author_textured import tf_fields  # noqa: E402
 
 OPOS = int(xu.ExportRegister.kVSPosition)  # 62
 _V = xu.AluVectorOpcode
@@ -40,14 +38,7 @@ class LowerError(Exception):
 
 
 def _templates():
-    vs0 = corpus_records("vs0")
-    ps0 = corpus_records("ps_fb0")
-    return {
-        "vf": vf_fields(xu.VertexFetchInstruction(*vs0["vfetch3"].raw)),
-        "dp4": alu_fields(xu.AluInstruction(*vs0["alu7"].raw)),   # dp4 oPos.x
-        "mov": alu_fields(xu.AluInstruction(*vs0["alu13"].raw)),  # max o2,r,r
-        "tf": tf_fields(xu.TextureFetchInstruction(*ps0["tfetch3"].raw)),
-    }
+    return templates()
 
 
 def _store_map(m: spirv.Module):
@@ -468,12 +459,6 @@ class ValueLowerer:
                       is_export=export_position, vector_write_mask=(1 << i),
                       src1_reg=vec_op[1], src1_is_temp=True,
                       src2_reg=mat_op[1], src2_is_temp=(mat_op[0] == "reg"))
-            if n != 4:
-                # The dp4 template carries the MVP position swizzle (.wzxy),
-                # which is permutation-invariant for a full 4-dot but WRONG for
-                # dp3/dp2 (it would read w,z,x and drop y). Use identity so the
-                # dot covers exactly the n live components.
-                kw.update(src1_swizzle=0, src2_swizzle=0)
             if n == 2:                            # dp2add: zero the addend
                 z = self.literal_reg((0.0, 0.0, 0.0, 0.0))
                 kw.update(src3_reg=z, src3_is_temp=False, src3_swizzle=0)

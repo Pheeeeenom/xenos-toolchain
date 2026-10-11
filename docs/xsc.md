@@ -12,7 +12,14 @@ served by `xcomb`.
 python -m xsc.lower shader.vert.spv -o shader.bin     # SPIR-V -> container
 ```
 Library: `lower(module) -> bytes`, `lower_ex(module) -> (bytes, manifest)`.
-Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`.
+Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`,
+or Vulkan's with `glslang -V shader.frag -o out.spv`: vertex inputs, varyings
+and outputs lower the same either way (`tests/test_vulkan_spirv.py`);
+descriptor sets and push constants aren't lowered yet.
+
+Instruction templates (the field skeletons the lowering fills in) come from
+Xenia's definitions, `xsc/templates.py`; `tests/test_templates.py` checks them
+against the corpus as test vectors.
 
 ## Supported (v1, branch-free)
 

@@ -630,7 +630,7 @@ def main():
         ok = False
         print("  FAIL spincube.vert: XenosRecomp rejected it")
     else:
-        need = ["dot(r0.wzxy, u_mvp(0)", "dot(r0.wzxy, u_mvp(3)",
+        need = ["dot(r0.xyzw, u_mvp(0)", "dot(r0.xyzw, u_mvp(3)",
                 "oTexCoord0", "oColor0"]
         miss = [s for s in need if s not in hlsl]
         if miss:
@@ -647,9 +647,9 @@ def main():
         ok = False
         print("  FAIL chainmat.vert: XenosRecomp rejected it")
     else:
-        need = ["dot(r0.wzxy, u_model(0)", "r3.w = dot(r0.wzxy, u_model(3)",
-                "dot(r3.wzxy, u_viewproj(0)",
-                "dot(r3.wzxy, u_viewproj(3)", "oTexCoord0", "oColor0"]
+        need = ["dot(r0.xyzw, u_model(0)", "r3.w = dot(r0.xyzw, u_model(3)",
+                "dot(r3.xyzw, u_viewproj(0)",
+                "dot(r3.xyzw, u_viewproj(3)", "oTexCoord0", "oColor0"]
         miss = [s for s in need if s not in chlsl]
         if miss:
             ok = False
@@ -733,8 +733,8 @@ def main():
     mwant = mat_vec(mat_mat(viewproj, model), vpos)
     need = ["r4.xyzw = u_model(0).xyzw * r3.xxxx",
             "r10.xyzw = u_model(3).xyzw * r9.wwww + r10.xyzw",
-            "oPos.x = dot(r0.wzxy, r4.wzxy)",
-            "oPos.w = dot(r0.wzxy, r10.wzxy)"]
+            "oPos.x = dot(r0.xyzw, r4.xyzw)",
+            "oPos.w = dot(r0.xyzw, r10.xyzw)"]
     miss = [s for s in need if not mmhl or s not in mmhl]
     if mmhl is None or miss or not close4(mgot, mwant):
         ok = False
@@ -752,7 +752,7 @@ def main():
         print("  FAIL vtx_arith.vert: XenosRecomp rejected it")
     else:
         need = ["r3.xyzw = r0.xyzw + u_offset.xyzw",
-                "dot(r3.wzxy, u_mvp(0)", "dot(r3.wzxy, u_mvp(3)",
+                "dot(r3.xyzw, u_mvp(0)", "dot(r3.xyzw, u_mvp(3)",
                 "r4.xyzw = r1.xyzw * u_tint.xyzw",
                 "oColor0.xyzw = max(r4.xyzw, r4.xyzw)"]
         miss = [s for s in need if s not in vahl]
@@ -786,7 +786,7 @@ def main():
     vwhl = oracle_hlsl(vwave, "vs_wave_vert")
     want_vwman = [(4, (0.5, 0.5, 0.5, 0.5))]
     need = ["ps = sin(r6.w)", "r3.xzw = max(r0.xzw, r0.xzw)",
-            "r3.y = r0.y + r4.y", "dot(r3.wzxy, u_mvp(0)"]
+            "r3.y = r0.y + r4.y", "dot(r3.xyzw, u_mvp(0)"]
     miss = [s for s in need if not vwhl or s not in vwhl]
     if vwhl is None or miss or vwman != want_vwman:
         ok = False
