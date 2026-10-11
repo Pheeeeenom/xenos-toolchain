@@ -43,7 +43,8 @@ consumer API already existed in libxenon. This project connects them.
 ## What works today
 
 Everything below is implemented in this repository and verified — "verified on
-hardware" means rendered on a real RGH Xbox 360 via libxenon, with photos.
+hardware" means rendered on a real RGH Xbox 360, via libxenon with photos, or
+via the xsdk homebrew SDK with every pixel read back and checked.
 
 - **`xdis/` — disassembler + container tooling.** Full Xenos microcode decoder
   (control flow, vfetch, tfetch, vector/scalar ALU; ISA tables transcribed
@@ -75,7 +76,12 @@ hardware" means rendered on a real RGH Xbox 360 via libxenon, with photos.
 - **Hardware-proven feature matrix:** vfetch (FLOAT4/FLOAT2 + driver
   patching), tfetch2D (two samplers), vector ALU (dp4/mul/max/mad, negation),
   exports, float4 constants (vertex + pixel), depth, multi-interpolator
-  routing, shader switching, 2-cycle combiner chains.
+  routing, shader switching, 2-cycle combiner chains. Through xsdk: boolean
+  constants and loops, vfetch in every 32-bit-word vertex format (float1-4,
+  half2/4, byte4, short2/4, signed or not, normalised or whole numbers) from
+  16 vertex streams, and tfetch2D with the fetch constant's filters,
+  addressing, LOD bias and mips across 13 texture formats including DXT1-5
+  (see [`docs/feature-tests.md`](docs/feature-tests.md#hardware-results)).
 
 ## Honest non-goals (for now)
 
@@ -87,9 +93,10 @@ hardware" means rendered on a real RGH Xbox 360 via libxenon, with photos.
 - **Text assembler is in progress** — the builder API is the supported
   authoring path today.
 - **Unproven on hardware so far:** conditional jumps (`cjmp`), scalar
-  co-issue, predication, ubyte4 vertex formats, depth export/MRT. The
-  encoders exist; the hardware validation does not yet. Boolean constants
-  (through `cexec`) and real loops on loop constants are proven; see
+  co-issue, predication, depth export/MRT. The encoders exist; the hardware
+  validation does not yet. Boolean constants (through `cexec`), real loops on
+  loop constants, ubyte4 and the other vertex formats, and fetch-constant
+  sampling are proven; see
   [`docs/feature-tests.md`](docs/feature-tests.md#hardware-results).
 - This is a toolchain for homebrew (libxenon), not a retail SDK replacement.
 

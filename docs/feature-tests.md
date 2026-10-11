@@ -244,5 +244,42 @@ constants, one boolean dword and one loop dword. Which of those partial
 writes is the culprit isn't isolated yet. Anything driving the GPU without
 libxenon must keep whole-block uploads.
 
+**Vertex formats: PASS on console (2026-10-11).** Through xsdk's
+`tests/test_vertex.c`, with the vertex shader packed by `xasm.encode` and its
+vfetches patched per draw. Every format read right as a colour, checked by
+pixel against a decode on the CPU, alpha included:
+
+- float1, float2, float3 and float4; half2 and half4;
+- byte4 (ubyte4), short2 and short4, unsigned and signed, normalised
+  (`num_format` 0) and whole numbers (`num_format` 1). A signed value of -1 or
+  -0.5 clamped to 0 in the 8-bit target, and a whole-number 2 clamped to 255,
+  so the sign and number-format bits sit where Xenia's `ucode.h` puts them.
+- **Components the data lacks need patching.** The patch turns each
+  destination-swizzle component that selects a component the format lacks
+  into the constant 0, or 1 for w, as libxenon's `Xe_ShaderApplyVFetchPatches`
+  does. With that, float2, float3, half2 and short2 positions drew in place.
+- **Any vertex fetch constant works.** Patching `const_index` and
+  `const_index_sel` to 95 minus the stream read streams 0-6 and 15, across
+  fetch-constant groups 31, 30, 29 and 26, at strides of 4 to 28 bytes.
+- Vertex data is 32-bit words under an 8-in-32 swap, each component after the
+  first in the bits above it: a byte4 is `w << 24 | z << 16 | y << 8 | x`.
+
+**Texture sampling and formats: PASS on console (2026-10-10, 2026-10-11).**
+Through xsdk's `tests/test_sampling.c` and `tests/test_formats.c`, with the
+`tfetch` packed by `xasm.encode` taking every filter from the fetch constant
+(`kUseFetchConst`) and the level from the computed LOD:
+
+- Point and linear magnification, minification and mip filtering, the fetch
+  constant's LOD bias in 1/32 steps, and wrap, mirror and clamp addressing,
+  each checked by pixel against a sampler on the CPU.
+- Mip levels in Xenia's layout, including the packed tail, with one console
+  correction: once a texture's base sits in the tail (its short side 16
+  texels or less), the GPU reads every level from that one tail at the base
+  address and ignores the mip address.
+- A8R8G8B8, R5G6B5, A1R5G5B5, A4R4G4B4, A2B10G10R10, R8, R8G8, R16F,
+  R16G16F, R16G16B16A16F, DXT1, DXT3 and DXT5, linear and tiled. Each
+  format's x is its lowest bits or first byte; 16-bit units, half floats and
+  DXT's words take an 8-in-16 swap, 32-bit units 8-in-32, bytes none.
+
 **Still unproven:** `cjmp` (feat_cjmp), scalar co-issue (feat_coissue) and
 predication (feat_pred).
