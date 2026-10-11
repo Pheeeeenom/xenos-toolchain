@@ -14,8 +14,9 @@ python -m xsc.lower shader.vert.spv -o shader.bin     # SPIR-V -> container
 Library: `lower(module) -> bytes`, `lower_ex(module) -> (bytes, manifest)`.
 Get the SPIR-V with: `glslang -G --target-env opengl shader.frag -o out.spv`,
 or Vulkan's with `glslang -V shader.frag -o out.spv`: vertex inputs, varyings
-and outputs lower the same either way (`tests/test_vulkan_spirv.py`);
-descriptor sets and push constants aren't lowered yet.
+and outputs lower the same either way (`tests/test_vulkan_spirv.py`).
+Vulkan's uniform blocks, push constants and samplers land as "Interface
+conventions" says; `resolve_interface(module).blocks` and `.samplers` give where.
 
 Instruction templates (the field skeletons the lowering fills in) come from
 Xenia's definitions, `xsc/templates.py`; `tests/test_templates.py` checks them
@@ -60,6 +61,8 @@ against the corpus as test vectors.
 | uniform-bound loop `sum += const` | real `LOOP_START/END` (G28 pending) |
 | `vec4 t = ...;` (function-local) | store-forwarding |
 | uniforms (block + bare), samplers | constant regs / fetch consts |
+| Vulkan uniform / push constant block members at any std140 offset | the member's register, swizzled from its first component |
+| block matrix (column-major, std140) `M * v` / `v * M` / `A * B` | `mul`+`mad` over columns / 4x `dp4` with columns / columns of A times each column of B |
 | float / vec literals in FS/VS | constant pool; 0/1 folds (see below) |
 | ternary `cond ? a : b` (OpSelect) | `f + (t−f)·cond` (sub + mad) |
 | vector relational `lessThan`/`greaterThan`/`equal`/`notEqual`/… → bvec | per-component `sgt`/`sge`/`seq`/`sne` (1.0/0.0) |
@@ -86,9 +89,19 @@ against the corpus as test vectors.
   0=POSITION, 1=COLOR, 2=TEXCOORD, 3+=TEXCOORD(idx++). Host vertex format
   must match. VS output BuiltIn Position → oPos; Location *N* → interpolator
   o*N*. FS input Location *N* → register r*N*; output Location 0 → oC0.
-- Uniform block members / bare uniforms → constant registers (block by
-  Offset/16; bare by Location). Scalar uniforms read from the register's
-  `.x`. Samplers (UniformConstant) → tfetch fetch-constant = Binding.
+- Bare uniforms → constant registers by Location; scalars read the register's
+  `.x`.
+- Uniform and push constant blocks → the block's raw std140 bytes in
+  consecutive registers, for a host that copies them in as they are. Push
+  constants take the first registers (after any bare uniforms), then each
+  uniform block in (DescriptorSet, Binding) order. A member at byte offset *o*
+  of a block at register *b* sits in *b* + *o*/16 from component (*o*%16)/4.
+  Matrices keep their memory layout: column-major ones (glslang's default) hold
+  a column a register, so `M * v` lowers to multiply-adds over columns.
+- Samplers (UniformConstant) → with a DescriptorSet decoration (Vulkan), fetch
+  constants from 0 in (DescriptorSet, Binding) order; without (OpenGL), fetch
+  constant = Binding.
+- An ALU instruction reads one constant register; a second goes through a temp.
 
 ## Literal constant pool (the host-upload contract)
 

@@ -25,7 +25,8 @@ import xdis.xenos_ucode as xu  # noqa: E402
 import xsc.spirv as spirv  # noqa: E402
 from xsc.templates import templates  # noqa: E402
 from xsc.unroll import UnrollError, unroll  # noqa: E402
-from xsc.resolve import resolve_interface, resolve_types  # noqa: E402
+from xsc.resolve import (DEC_ARRAY_STRIDE, DEC_MATRIX_STRIDE, DEC_OFFSET, DEC_ROW_MAJOR, _decos,  # noqa: E402
+                         member_decos, resolve_interface, resolve_types)
 from xasm.program import VertexProgram, PixelProgram  # noqa: E402
 
 OPOS = int(xu.ExportRegister.kVSPosition)  # 62
@@ -100,6 +101,8 @@ class ValueLowerer:
         self.op_cache = {}
         self.matrix_cache = {}
         self.local_values = {}
+        # Matrix values whose registers hold columns, as a block's std140 bytes do.
+        self.col_major = set()
 
     def fresh(self):
         r = self.next_reg
@@ -278,9 +281,11 @@ class ValueLowerer:
         fields[f"src{n}_negate"] = negate
 
     def emit(self, opcode, ops, dst, export, mask=0xF, clamp=False):
-        n_const = len({v[0][1] for v in ops.values() if v[0][0] == "const"})
-        if n_const > 1:
-            raise LowerError(">1 constant operand (v1 cannot split here)")
+        consts = sorted({v[0][1] for v in ops.values() if v[0][0] == "const"})
+        if len(consts) > 1:
+            # One constant register an instruction (v1): the others are moved into temps first.
+            ops = {n: (self.to_reg(v[0]),) + tuple(v[1:]) if v[0][0] == "const" and v[0][1] != consts[0] else v
+                   for n, v in ops.items()}
         f = dict(self.T["mov"], vector_opcode=opcode, vector_dest=dst,
                  is_export=export, vector_write_mask=mask,
                  vector_clamp=clamp)
@@ -312,6 +317,70 @@ class ValueLowerer:
                  vector_clamp=False)
         self.p.alu(**f)
 
+    def block_access(self, ptr_id):
+        """An AccessChain into a uniform or push constant block -> (register,
+        first component, type id, member decorations); None for other pointers."""
+        ptr = self.m.by_result.get(ptr_id)
+        if ptr is None or ptr.opcode not in (65, 66):
+            return None
+        role = self.si.roles.get(ptr.operands[0])
+        if not role or role[0] != "block":
+            return None
+        block = self.si.blocks[role[1]]
+        tid, offset, member = block.struct, 0, {}
+        for idx_id in ptr.operands[1:]:
+            idx = self.int_const(idx_id)
+            if idx is None:
+                raise LowerError("dynamic index into a uniform block (v1)")
+            t = self.types[tid]
+            if t.kind == "struct":
+                member = member_decos(self.m, tid, idx)
+                offset += member.get(DEC_OFFSET, (16 * idx,))[0]
+                tid = t.members[idx]
+            elif t.kind == "matrix":
+                if DEC_ROW_MAJOR in member:
+                    raise LowerError("a column of a row-major block matrix (v1)")
+                offset += idx * member.get(DEC_MATRIX_STRIDE, (16,))[0]
+                tid, member = t.comp, {}
+            elif t.kind == "vector":
+                offset += 4 * idx
+                tid = t.comp
+            elif t.kind == "array":
+                offset += idx * _decos(self.m, tid).get(DEC_ARRAY_STRIDE, (16,))[0]
+                tid = t.comp
+            else:
+                raise LowerError(f"index into a block {t.kind} (v1)")
+        return block.reg + offset // 16, (offset % 16) // 4, tid, member
+
+    def block_value(self, ssa_id, access):
+        """A Load of a block member as an operand."""
+        reg, comp, tid, _member = access
+        t = self.types[tid]
+        if t.kind == "matrix":
+            return ("mat", self.matrix_operands(ssa_id))
+        n = t.count if t.kind == "vector" else 1
+        if t.kind == "vector" and comp == 0:
+            return ("const", reg)
+        if comp + n > 4:
+            raise LowerError("a block member across registers (v1)")
+        swz = self.bsw(comp) if n == 1 else self.swz([comp + i for i in range(n)])
+        r = self.fresh()
+        self.emit(_V.kMax, {1: (("const", reg), False, swz), 2: (("const", reg), False, swz)}, r, False)
+        return ("reg", r)
+
+    def block_matrix(self, ssa_id, access):
+        """A block matrix's registers: columns (marked) unless it's row-major."""
+        reg, comp, tid, member = access
+        t = self.types[tid]
+        col = self.types.get(t.comp)
+        rows = col.count if col and col.kind == "vector" else 1
+        if comp or member.get(DEC_MATRIX_STRIDE, (16,))[0] != 16:
+            raise LowerError("a block matrix not on 16-byte lines (v1)")
+        if DEC_ROW_MAJOR in member:
+            return tuple(("const", reg + i) for i in range(rows))
+        self.col_major.add(ssa_id)
+        return tuple(("const", reg + i) for i in range(t.count))
+
     def matrix_operands(self, ssa_id):
         """Resolve a mat4 value to four vector operands (one per register)."""
         if ssa_id in self.matrix_cache:
@@ -321,7 +390,10 @@ class ValueLowerer:
             raise LowerError(f"%{ssa_id} is not a matrix value")
         if ins.opcode == 61:                       # Load
             src = ins.operands[0]
-            if src in self.local_store:
+            access = self.block_access(src)
+            if access is not None:
+                res = self.block_matrix(ssa_id, access)
+            elif src in self.local_store:
                 res = self.matrix_operands(self.local_store[src])
             else:
                 role = self.si.roles.get(src)
@@ -334,6 +406,11 @@ class ValueLowerer:
                 res = tuple(("const", base + i) for i in range(regs))
         elif ins.opcode == 146:                    # MatrixTimesMatrix
             res = self.emit_mat_mat(ins.operands[0], ins.operands[1])
+            if ins.operands[0] in self.col_major:
+                self.col_major.add(ssa_id)
+        elif ins.opcode == 84 and self.is_col_major(ins.operands[0]):
+            # A transpose of columns is the same registers read as rows.
+            res = self.matrix_operands(ins.operands[0])
         elif ins.opcode == 84:                     # OpTranspose
             res = self.emit_transpose(ins.operands[0])
         elif ins.opcode == 12 and ins.operands[1] == 34:   # MatrixInverse
@@ -465,7 +542,15 @@ class ValueLowerer:
             self.p.alu(**kw)
         return target
 
+    def is_col_major(self, mat_ssa):
+        self.matrix_operands(mat_ssa)
+        return mat_ssa in self.col_major
+
     def emit_mat_vec(self, mat_ssa, vec_ssa, dst=None, export_position=False):
+        # M * v over columns is sum(column_j * v_j), the row-vector form's multiply-add.
+        if self.is_col_major(mat_ssa):
+            return self.emit_vec_mat_ops(self.operand(vec_ssa), self.matrix_operands(mat_ssa), dst,
+                                         export_position)
         return self.emit_mat_vec_ops(self.matrix_operands(mat_ssa),
                                      self.operand(vec_ssa), dst,
                                      export_position)
@@ -491,6 +576,10 @@ class ValueLowerer:
         return target
 
     def emit_vec_mat(self, vec_ssa, mat_ssa, dst=None, export_position=False):
+        # v * M over columns is dot(v, column_j) for each j.
+        if self.is_col_major(mat_ssa):
+            return self.emit_mat_vec_ops(self.matrix_operands(mat_ssa), self.operand(vec_ssa), dst,
+                                         export_position)
         return self.emit_vec_mat_ops(self.operand(vec_ssa),
                                      self.matrix_operands(mat_ssa), dst,
                                      export_position)
@@ -498,6 +587,11 @@ class ValueLowerer:
     def emit_mat_mat(self, a_ssa, b_ssa):
         lhs = self.matrix_operands(a_ssa)
         rhs = self.matrix_operands(b_ssa)
+        if self.is_col_major(a_ssa) != self.is_col_major(b_ssa):
+            raise LowerError("a product of row and column matrices (v1)")
+        if self.is_col_major(a_ssa):
+            # Column k of A * B is A times column k of B.
+            return tuple(("reg", self.emit_vec_mat_ops(col, lhs)) for col in rhs)
         rows = []
         for row in lhs:
             rows.append(("reg", self.emit_vec_mat_ops(row, rhs)))
@@ -682,7 +776,10 @@ class ValueLowerer:
         elif op == 61:                            # Load
             src = ins.operands[0]
             ptr = self.m.by_result.get(src)
-            if ptr is not None and ptr.opcode == 65:
+            access = self.block_access(src)
+            if access is not None:
+                res = self.block_value(ssa_id, access)
+            elif ptr is not None and ptr.opcode == 65:
                 o, comp = self.scalar_origin(ssa_id)
                 bsw = 0 if comp == "B" else self.bsw(comp)
                 r = self.fresh()
@@ -815,6 +912,11 @@ class ValueLowerer:
         if ins.opcode == 61:                      # Load
             src = ins.operands[0]
             ptr = self.m.by_result.get(src)
+            access = self.block_access(src)
+            if access is not None and self.types[access[2]].kind != "vector":
+                return ("const", access[0]), access[1]
+            if access is not None:
+                return self.block_value(ssa_id, access), "B"
             if ptr is not None and ptr.opcode == 65:
                 base, comp = ptr.operands[0], self.const_val(ptr.operands[1])
                 if base in self.local_values:

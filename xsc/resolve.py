@@ -15,9 +15,14 @@ Conventions for the GLSL<->Xenos mapping (documented; v1):
   - VS outputs: BuiltIn Position -> oPos; Location N -> interpolator oN
     (usage TEXCOORD for vec2, COLOR otherwise — a heuristic; overridable).
   - FS inputs: Location N -> interpolator register rN (must match the VS).
-  - Uniform block members: float/vecN -> 1 constant register; matN -> N
-    constant registers; register index = Offset/16.
-  - Samplers (UniformConstant sampled image): tfetch fetch-constant = Binding.
+  - Uniform and push constant blocks hold raw std140 bytes: push constants
+    take the first registers after any bare uniforms, then each uniform block
+    in (DescriptorSet, Binding) order. A member at byte offset o of a block at
+    register b sits in b + o/16 from component (o%16)/4; a matrix keeps its
+    memory layout, one column (column-major) or row a register (Block).
+  - Samplers (UniformConstant sampled image): with a DescriptorSet decoration
+    (Vulkan), fetch constants from 0 in (DescriptorSet, Binding) order;
+    without (OpenGL), fetch-constant = Binding.
   - FS output Location 0 -> oC0.
 """
 from __future__ import annotations
@@ -39,7 +44,9 @@ SC_PUSH_CONSTANT = 9
 
 # SPIR-V Decoration
 DEC_BLOCK = 2
+DEC_ROW_MAJOR = 4
 DEC_COL_MAJOR = 5
+DEC_ARRAY_STRIDE = 6
 DEC_MATRIX_STRIDE = 7
 DEC_BUILTIN = 11
 DEC_LOCATION = 30
@@ -128,6 +135,7 @@ class Var:
     location: int | None = None
     binding: int | None = None
     builtin: int | None = None
+    descriptor_set: int | None = None
 
 
 @dataclass
@@ -136,6 +144,18 @@ class ConstantSlot:
     reg: int                 # base constant register
     regs: int                # how many (mat4 = 4)
     member: int
+
+
+@dataclass
+class Block:
+    """A uniform or push constant block: its registers hold the block's bytes."""
+    kind: str                # "uniform" or "push"
+    var: Var
+    descriptor_set: int | None
+    binding: int | None
+    struct: int              # struct type id
+    reg: int                 # first constant register
+    regs: int                # registers the block's bytes fill
 
 
 @dataclass
@@ -148,9 +168,9 @@ class ShaderInterface:
     color_out: list = field(default_factory=list)     # (Var, oC index)
     constants: list = field(default_factory=list)     # ConstantSlot
     samplers: list = field(default_factory=list)      # (Var, fetch_slot)
+    blocks: list = field(default_factory=list)        # Block, by register
     # fetch_slot -> SPIR-V Dim
     sampler_dims: dict = field(default_factory=dict)
-    block_var: int | None = None                      # uniform block var id
     # role lookup the lowering pass uses: var_id -> ("kind", payload)
     roles: dict = field(default_factory=dict)
 
@@ -160,6 +180,56 @@ def _usage_for_location(loc: int):
     table = {0: (ce.USAGE_POSITION, 0), 1: (ce.USAGE_COLOR, 0),
              2: (ce.USAGE_TEXCOORD, 0)}
     return table.get(loc, (ce.USAGE_TEXCOORD, max(0, loc - 2)))
+
+
+def member_decos(m: spirv.Module, struct: int, member: int) -> dict:
+    out = {}
+    for deco, args in m.member_decorations.get((struct, member), []):
+        out[deco] = args
+    return out
+
+
+def type_bytes(m: spirv.Module, types: dict, tid: int, member: dict) -> int:
+    """Bytes a block member of this type spans, by its std140 decorations."""
+    t = types.get(tid)
+    if t is None or t.kind in ("float", "int", "bool"):
+        return 4
+    if t.kind == "vector":
+        return 4 * t.count
+    if t.kind == "matrix":
+        stride = member.get(DEC_MATRIX_STRIDE, (16,))[0]
+        col = types.get(t.comp)
+        rows = col.count if col and col.kind == "vector" else 1
+        lines = rows if DEC_ROW_MAJOR in member else t.count
+        return stride * lines
+    if t.kind == "array":
+        stride = _decos(m, tid).get(DEC_ARRAY_STRIDE, (16,))[0]
+        lc = m.by_result.get(t.count)
+        length = lc.operands[0] if lc and lc.opcode == 43 else 1
+        return stride * length
+    if t.kind == "struct":
+        return max((member_decos(m, tid, i).get(DEC_OFFSET, (0,))[0] +
+                    type_bytes(m, types, mt, member_decos(m, tid, i))
+                    for i, mt in enumerate(t.members)), default=0)
+    raise ValueError(f"block member of type {t.kind}")
+
+
+def _assign_blocks(m, types, si, pending, first_reg):
+    """Registers for each block, push constants first, then (set, binding)."""
+    order = sorted(pending, key=lambda b: (b[0] != "push", b[1].descriptor_set or 0, b[1].binding or 0))
+    reg = first_reg
+    for kind, v in order:
+        regs = (type_bytes(m, types, v.pointee, {}) + 15) // 16
+        si.roles[v.vid] = ("block", len(si.blocks))
+        si.blocks.append(Block(kind, v, v.descriptor_set, v.binding, v.pointee, reg, regs))
+        for mi, mtid in enumerate(types[v.pointee].members):
+            md = member_decos(m, v.pointee, mi)
+            off = md.get(DEC_OFFSET, (16 * mi,))[0]
+            mregs = (type_bytes(m, types, mtid, md) + off % 16 + 15) // 16
+            mname = m.member_names.get((v.pointee, mi), f"m{mi}")
+            si.constants.append(ConstantSlot(mname, reg + off // 16, mregs, mi))
+        reg += regs
+    return reg
 
 
 def resolve_interface(m: spirv.Module) -> ShaderInterface:
@@ -180,9 +250,13 @@ def resolve_interface(m: spirv.Module) -> ShaderInterface:
             loc = d.get(DEC_LOCATION, (None,))[0]
             binding = d.get(DEC_BINDING, (None,))[0]
             builtin = d.get(DEC_BUILTIN, (None,))[0]
+            dset = d.get(DEC_DESCRIPTOR_SET, (None,))[0]
             variables.append(Var(
                 ins.result_id, m.names.get(ins.result_id, ""),
-                sc, ptr.comp if ptr else None, loc, binding, builtin))
+                sc, ptr.comp if ptr else None, loc, binding, builtin, dset))
+
+    pending_blocks = []
+    vulkan_samplers = []
 
     for v in variables:
         if v.storage_class == SC_INPUT:
@@ -229,26 +303,16 @@ def resolve_interface(m: spirv.Module) -> ShaderInterface:
             else:  # pixel color output
                 si.color_out.append((v, v.location or 0))
                 si.roles[v.vid] = ("color", v.location or 0)
-        elif v.storage_class == SC_UNIFORM:
-            # uniform block: struct (maybe via Block decoration)
+        elif v.storage_class in (SC_UNIFORM, SC_PUSH_CONSTANT):
             st = types.get(v.pointee)
             if st and st.kind == "struct":
-                si.block_var = v.vid
-                si.roles[v.vid] = ("block", None)
-                for mi, mtid in enumerate(st.members):
-                    off = None
-                    for deco, args in m.member_decorations.get(
-                            (v.pointee, mi), []):
-                        if deco == DEC_OFFSET:
-                            off = args[0]
-                    reg = (off // 16) if off is not None else mi
-                    mt = types.get(mtid)
-                    regs = mt.count if mt and mt.kind == "matrix" else 1
-                    mname = m.member_names.get((v.pointee, mi), f"m{mi}")
-                    si.constants.append(ConstantSlot(mname, reg, regs, mi))
+                kind = "push" if v.storage_class == SC_PUSH_CONSTANT else "uniform"
+                pending_blocks.append((kind, v))
         elif v.storage_class == SC_UNIFORM_CONSTANT:
             st = types.get(v.pointee)
-            if st and st.kind in ("sampledimage", "image", "sampler"):
+            if st and st.kind in ("sampledimage", "image", "sampler") and v.descriptor_set is not None:
+                vulkan_samplers.append(v)
+            elif st and st.kind in ("sampledimage", "image", "sampler"):
                 slot = v.binding if v.binding is not None else len(si.samplers)
                 img = types.get(st.comp) if st.kind == "sampledimage" else st
                 dim = img.dim if img and img.kind == "image" else None
@@ -280,6 +344,16 @@ def resolve_interface(m: spirv.Module) -> ShaderInterface:
                     ConstantSlot(v.name or f"u{reg}", reg, regs, -1))
                 si.roles[v.vid] = ("array", (reg, regs, elem_regs))
 
+    _assign_blocks(m, types, si, pending_blocks, _next_const[0])
+    vulkan_samplers.sort(key=lambda v: (v.descriptor_set, v.binding or 0))
+    for slot, v in enumerate(vulkan_samplers):
+        st = types.get(v.pointee)
+        img = types.get(st.comp) if st.kind == "sampledimage" else st
+        dim = img.dim if img and img.kind == "image" else None
+        si.samplers.append((v, slot))
+        si.sampler_dims[slot] = dim
+        si.roles[v.vid] = ("sampler", slot, dim)
+
     si.vfetch.sort(key=lambda x: x[0].location or 0)
     si.interp_in.sort(key=lambda x: x[1])
     si.interp_out.sort(key=lambda x: x[1])
@@ -298,6 +372,9 @@ def main():
             print(f"  interp_in  {v.name:11} -> r{r} (usage{usage})")
         for v, o, usage in si.interp_out:
             print(f"  interp_out {v.name:11} -> o{o} (usage{usage})")
+        for b in si.blocks:
+            print(f"  {b.kind:7} {b.var.name or '(block)':11} set {b.descriptor_set} binding {b.binding} -> "
+                  f"c{b.reg}..c{b.reg + b.regs - 1}")
         if si.position_out is not None:
             print(f"  position   %{si.position_out} -> oPos")
         for v, idx in si.color_out:
