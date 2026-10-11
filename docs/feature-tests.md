@@ -281,5 +281,20 @@ Through xsdk's `tests/test_sampling.c` and `tests/test_formats.c`, with the
   format's x is its lowest bits or first byte; 16-bit units, half floats and
   DXT's words take an 8-in-16 swap, 32-bit units 8-in-32, bytes none.
 
+**Vulkan SPIR-V through xsc: PASS on console (2026-10-11).** Through
+vulkan4xenon's milestones 1 and 2 (vulkan4xenon:results/2026-10-11-milestone-1/
+and -2/), every shader compiled from `glslang -V` output by xsc:
+
+- A triangle's position and colour, Vulkan SPIR-V lowering as OpenGL's does.
+- Uniform blocks and push constants as raw std140 bytes in consecutive
+  registers, by set and binding: a column-major `mat4 * vec4` placing quads,
+  a vec4 from a block's second line, push constants at offsets 0, 16 and 32,
+  and two blocks in two descriptor sets read by different stages.
+- Samplers in fetch constants by set and binding, sampling R8G8B8A8 and
+  B8G8R8A8 textures (k_8_8_8_8 unswapped) texel for texel.
+- A vertex shader with no varyings: interpolators allocated ahead of the
+  position, export count 0.
+- A constant written straight to a varying (`max o0, cN, cN`) and to oC0.
+
 **Still unproven:** `cjmp` (feat_cjmp), scalar co-issue (feat_coissue) and
 predication (feat_pred).
