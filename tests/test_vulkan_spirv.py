@@ -11,6 +11,7 @@
   them, as tests/test_matrix.py does for fragment shaders.
 - vk_samplers.frag must take fetch constants in (set, binding) order.
 - vk_three_inputs.vert must fetch into r0 last, as every fetch reads the vertex index there.
+- vk_block_literals.vert must give each block whole groups of 4, the literals after them.
 """
 import struct
 import sys
@@ -233,6 +234,29 @@ def check_constant_exports():
     return True
 
 
+def check_block_literals():
+    """Each block has whole groups of 4 to itself, the console's unit for loading constants from memory
+    (xsdk:docs/HARDWARE.md), so a host can load one without overwriting anything: push c0, uniform c4, literals c8."""
+    m = module("vk_block_literals.vert.spv")
+    blocks = [(b.kind, b.reg, b.regs) for b in resolve_interface(m).blocks]
+    blob, manifest = lower_ex(m)
+    literals = [reg for reg, _ in manifest]
+    offset, scale = [0.25, -1.0, 0.0, 0.0], [2.0, 0.5, 0.0, 0.0]
+    consts = {0: offset, 4: scale}
+    for reg, values in manifest:
+        consts[reg] = list(values)
+    exports = run_vertex(blob, {0: POSITION}, consts)
+    # w comes from the export's constant 1, which the simulator leaves out; x and y need both blocks, z the literal.
+    want = [POSITION[0] * scale[0] + offset[0], POSITION[1] * scale[1] + offset[1], 0.5]
+    if blocks != [("push", 0, 1), ("uniform", 4, 1)] or not literals or min(literals) < 8 or \
+            not close(exports.get(OPOS, [])[:3], want) or oracle_hlsl(blob, "vk_block_literals_vert") is None:
+        print(f"  FAIL vk_block_literals.vert: blocks {blocks}, literals at {literals}, position {exports.get(OPOS)} "
+              f"(want {want}), or the oracle rejected it")
+        return False
+    print("  PASS vk_block_literals.vert: push c0, uniform c4, literals from c8; the position from all three")
+    return True
+
+
 def check_fetch_order():
     """Input n goes to rn, and r0 holds the vertex index each fetch reads as it runs
     (xenia:src/xenia/gpu/dxbc_shader_translator_fetch.cc:80-88), so the fetch into r0 comes last. Fetched first, it
@@ -254,7 +278,7 @@ def check_fetch_order():
 
 def main():
     results = [check_triangle(), check_blocks(), check_matrices(), check_samplers(), check_position_only(),
-               check_constant_exports(), check_fetch_order()]
+               check_constant_exports(), check_fetch_order(), check_block_literals()]
     ok = all(results)
     print("OK" if ok else "FAILED")
     return 0 if ok else 1

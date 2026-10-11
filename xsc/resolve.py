@@ -226,13 +226,12 @@ def _round_up(reg, group):
 
 
 def _assign_blocks(m, types, si, pending, first_reg):
-    """Registers for each block, push constants first, then (set, binding). Each uniform block has whole groups of 4
-    to itself, so a host can load it straight from its buffer without touching anything else."""
+    """Registers for each block, push constants first, then (set, binding). Each block has whole groups of 4 to
+    itself, so a host can load it straight from memory without touching anything else."""
     order = sorted(pending, key=lambda b: (b[0] != "push", b[1].descriptor_set or 0, b[1].binding or 0))
     reg = first_reg
     for kind, v in order:
-        if kind == "uniform":
-            reg = _round_up(reg, CONSTANT_GROUP)
+        reg = _round_up(reg, CONSTANT_GROUP)
         regs = (type_bytes(m, types, v.pointee, {}) + 15) // 16
         si.roles[v.vid] = ("block", len(si.blocks))
         si.blocks.append(Block(kind, v, v.descriptor_set, v.binding, v.pointee, reg, regs))
@@ -242,9 +241,7 @@ def _assign_blocks(m, types, si, pending, first_reg):
             mregs = (type_bytes(m, types, mtid, md) + off % 16 + 15) // 16
             mname = m.member_names.get((v.pointee, mi), f"m{mi}")
             si.constants.append(ConstantSlot(mname, reg + off // 16, mregs, mi))
-        reg += regs
-        if kind == "uniform":
-            reg = _round_up(reg, CONSTANT_GROUP)
+        reg = _round_up(reg + regs, CONSTANT_GROUP)
     return reg
 
 
