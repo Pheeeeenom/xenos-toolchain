@@ -82,6 +82,35 @@ def fuzz(n=200, seed=0xA55E):
     return ok, True
 
 
+def cond_exec_opcodes():
+    """cexec/cexece assemble to the opcode the disassembler reads back:
+    kCondExecPredClean(End) by default, kCondExec(End) when marked
+    '// PredicateClean=false' -- a cond exec has no predicate-clean bit."""
+    K = xu.ControlFlowOpcode
+    cases = [("cexec b128", K.kCondExecPredClean),
+             ("cexec !b3    // PredicateClean=false", K.kCondExec),
+             ("cexece b7", K.kCondExecPredCleanEnd),
+             ("cexece b7    // PredicateClean=false", K.kCondExecEnd)]
+    ok = True
+    for line, want in cases:
+        tail = "" if line.startswith("cexece") else \
+            "      alloc colors\n      exece\n   max oC0, r1, r1\n"
+        src = (f"      exec\n   add r1, r0, c0\n      {line}\n"
+               f"   add r1, r0, c1\n{tail}")
+        ucode = assemble_text(src, "pixel")
+        dwords = struct.unpack(f">{len(ucode) // 4}I", ucode)
+        # CF index 1 is the second half of the first pair: its opcode is
+        # the top nibble of the pair's third dword (encode.pack_cf_pair).
+        got = K(dwords[2] >> 28)
+        again = assemble_text(xu.disassemble(list(dwords), "pixel"),
+                              "pixel")
+        if got != want or again != ucode:
+            ok = False
+            print(f"  FAIL {line!r}: opcode {got.name}, want {want.name}, "
+                  f"round-trip {'same' if again == ucode else 'differs'}")
+    return ok
+
+
 def source_mode_smoke():
     """Hand-authored .xasm -> container -> XenosRecomp accepts it."""
     from xasm.textasm import assemble_file
@@ -145,6 +174,10 @@ def main():
     n, fok = fuzz()
     print(f"  {'PASS' if fok else 'FAIL'} {n} combiner programs round-tripped")
     ok = ok and fok
+    print("== cond exec opcodes ==")
+    cok = cond_exec_opcodes()
+    print(f"  {'PASS' if cok else 'FAIL'} cexec/cexece, clean and unclean")
+    ok = ok and cok
     print("== source-mode smoke ==")
     sok = source_mode_smoke()
     print(f"  {'PASS' if sok else 'FAIL'} hand-authored .xasm -> container "

@@ -361,7 +361,14 @@ class TextAssembler:
                 raise AsmError("cexec needs a bool condition", lineno, rest)
             fields["bool_address"] = int(m.group(2))
             fields["condition"] = m.group(1) != "!"
-            opcode = (K.kCondExecEnd if is_end else K.kCondExec)
+            # A cond exec has no predicate-clean bit: the opcode carries it,
+            # kCondExec(End) unclean, kCondExecPredClean(End) clean, as
+            # ParseControlFlowCondExec decodes (xdis/xenos_ucode.py).
+            if fields.pop("is_predicate_clean"):
+                opcode = (K.kCondExecPredCleanEnd if is_end
+                          else K.kCondExecPredClean)
+            else:
+                opcode = K.kCondExecEnd if is_end else K.kCondExec
             kind = "cexec"
         elif is_pred:
             fields["condition"] = pred_cond
