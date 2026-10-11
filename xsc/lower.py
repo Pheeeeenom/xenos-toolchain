@@ -1602,7 +1602,7 @@ def lower_vertex(m: spirv.Module):
                   if ins.opcode == 59 and ins.operands[0] == 7}
     local_store = {tgt: val for tgt, val in stores.items()
                    if tgt in local_vars}
-    lit_base = max((cs.reg + cs.regs for cs in si.constants), default=0)
+    lit_base = max(max((cs.reg + cs.regs for cs in si.constants), default=0), si.constant_end)
     ctx = ValueLowerer(m=m, si=si, program=p, templates=T, types=types,
                        stores=stores, first_reg=reg, inputs=input_reg,
                        local_store=local_store, stage="vertex",
@@ -2019,7 +2019,7 @@ def lower_fragment(m: spirv.Module) -> bytes:
     used_samplers = set()
 
     # Literal pool starts after uniform-declared constants.
-    lit_base = max((cs.reg + cs.regs for cs in si.constants), default=0)
+    lit_base = max(max((cs.reg + cs.regs for cs in si.constants), default=0), si.constant_end)
 
     # Function-local variables (vec4 tmp = ...): store-forward in branch-free.
     local_vars = {ins.result_id for ins in m.instrs

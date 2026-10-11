@@ -169,6 +169,8 @@ class ShaderInterface:
     constants: list = field(default_factory=list)     # ConstantSlot
     samplers: list = field(default_factory=list)      # (Var, fetch_slot)
     blocks: list = field(default_factory=list)        # Block, by register
+    # the first register past every constant and block, where literals start
+    constant_end: int = 0
     # fetch_slot -> SPIR-V Dim
     sampler_dims: dict = field(default_factory=dict)
     # role lookup the lowering pass uses: var_id -> ("kind", payload)
@@ -214,11 +216,23 @@ def type_bytes(m: spirv.Module, types: dict, tid: int, member: dict) -> int:
     raise ValueError(f"block member of type {t.kind}")
 
 
+# The console loads float constants from memory only in whole groups of 4 from a multiple of 4
+# (xsdk:docs/HARDWARE.md, "Constants loaded from memory go in groups of 4 too").
+CONSTANT_GROUP = 4
+
+
+def _round_up(reg, group):
+    return (reg + group - 1) // group * group
+
+
 def _assign_blocks(m, types, si, pending, first_reg):
-    """Registers for each block, push constants first, then (set, binding)."""
+    """Registers for each block, push constants first, then (set, binding). Each uniform block has whole groups of 4
+    to itself, so a host can load it straight from its buffer without touching anything else."""
     order = sorted(pending, key=lambda b: (b[0] != "push", b[1].descriptor_set or 0, b[1].binding or 0))
     reg = first_reg
     for kind, v in order:
+        if kind == "uniform":
+            reg = _round_up(reg, CONSTANT_GROUP)
         regs = (type_bytes(m, types, v.pointee, {}) + 15) // 16
         si.roles[v.vid] = ("block", len(si.blocks))
         si.blocks.append(Block(kind, v, v.descriptor_set, v.binding, v.pointee, reg, regs))
@@ -229,6 +243,8 @@ def _assign_blocks(m, types, si, pending, first_reg):
             mname = m.member_names.get((v.pointee, mi), f"m{mi}")
             si.constants.append(ConstantSlot(mname, reg + off // 16, mregs, mi))
         reg += regs
+        if kind == "uniform":
+            reg = _round_up(reg, CONSTANT_GROUP)
     return reg
 
 
@@ -344,7 +360,7 @@ def resolve_interface(m: spirv.Module) -> ShaderInterface:
                     ConstantSlot(v.name or f"u{reg}", reg, regs, -1))
                 si.roles[v.vid] = ("array", (reg, regs, elem_regs))
 
-    _assign_blocks(m, types, si, pending_blocks, _next_const[0])
+    si.constant_end = _assign_blocks(m, types, si, pending_blocks, _next_const[0])
     vulkan_samplers.sort(key=lambda v: (v.descriptor_set, v.binding or 0))
     for slot, v in enumerate(vulkan_samplers):
         st = types.get(v.pointee)

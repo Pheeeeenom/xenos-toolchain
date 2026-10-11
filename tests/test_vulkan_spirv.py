@@ -134,15 +134,19 @@ def check_blocks():
     m = module("vk_blocks.vert.spv")
     si = resolve_interface(m)
     layout = [(b.kind, b.descriptor_set, b.binding, b.reg, b.regs) for b in si.blocks]
-    want = [("push", None, None, 0, 1), ("uniform", 0, 0, 1, 5), ("uniform", 0, 1, 6, 1)]
+    want = [("push", None, None, 0, 1), ("uniform", 0, 0, 4, 5), ("uniform", 0, 1, 12, 1)]
     if layout != want:
         print(f"  FAIL vk_blocks.vert: blocks at {layout}, want {want}")
         return False
     blob, manifest = lower_ex(m)
+    # Each uniform block has its groups of 4 to itself, so the literals start past the last one's.
+    if any(reg < 16 for reg, _ in manifest):
+        print(f"  FAIL vk_blocks.vert: literals at {[reg for reg, _ in manifest]}, inside a uniform block's group")
+        return False
     color, tint, scale, offset = [0.5, 0.25, 1.0, 2.0], [2.0, 4.0, 0.5, 1.0], 3.0, [0.125, -0.5]
     consts = registers(struct.pack("<4f", *color), 0)
-    consts.update(registers(columns(MVP) + struct.pack("<4f", *tint), 1))
-    consts.update(registers(struct.pack("<f4x2f", scale, *offset), 6))
+    consts.update(registers(columns(MVP) + struct.pack("<4f", *tint), 4))
+    consts.update(registers(struct.pack("<f4x2f", scale, *offset), 12))
     for reg, values in manifest:
         consts[reg] = list(values)
     exports = run_vertex(blob, {0: POSITION}, consts)
@@ -155,7 +159,8 @@ def check_blocks():
     if oracle_hlsl(blob, "vk_blocks_vert") is None:
         print("  FAIL vk_blocks.vert: XenosRecomp rejected it")
         return False
-    print("  PASS vk_blocks.vert: push c0, blocks c1-c5 and c6; mvp * position and the colour from raw std140 bytes")
+    print("  PASS vk_blocks.vert: push c0, blocks c4-c8 and c12, literals from c16; mvp * position and the colour "
+          "from raw std140 bytes")
     return True
 
 
