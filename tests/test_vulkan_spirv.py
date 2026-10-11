@@ -214,8 +214,22 @@ def check_position_only():
     return True
 
 
+def check_constant_exports():
+    """A constant goes straight to an export, as xsdk's hardware-proven constant shaders do."""
+    color = lower(module("vk_constant_color.frag.spv"))
+    c = container.Container(color)
+    text = xu.disassemble(c.ucode_dwords, c.shader_type)
+    exports = run_vertex(lower(module("vk_constant_varying.vert.spv")), {0: POSITION}, {0: [0.25, 0.5, 0.75, 1.0]})
+    if "max oC0, c2, c2" not in text or exports.get(0) != [0.25, 0.5, 0.75, 1.0] or             oracle_hlsl(color, "vk_constant_color_frag") is None:
+        print(f"  FAIL constant exports: colour shader {text!r}, varying {exports.get(0)}")
+        return False
+    print("  PASS constant exports: oC0 from push constant c2, and o0 from uniform c0")
+    return True
+
+
 def main():
-    results = [check_triangle(), check_blocks(), check_matrices(), check_samplers(), check_position_only()]
+    results = [check_triangle(), check_blocks(), check_matrices(), check_samplers(), check_position_only(),
+               check_constant_exports()]
     ok = all(results)
     print("OK" if ok else "FAILED")
     return 0 if ok else 1

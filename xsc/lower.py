@@ -1573,9 +1573,9 @@ class ValueLowerer:
         elif vi.opcode == 12:
             self.extinst(vi, dst=dst, export=export)
         else:
+            # A constant goes straight to the export, as xsdk's hardware-proven constant shaders do
+            # (xsdk:tools/gen_constant_shaders.py, max o0, c2, c2).
             r = self.operand(ssa)
-            if r[0] == "const":
-                raise LowerError(f"{self.stage} export of constants (v1)")
             self.emit(_V.kMax, {1: (r, False), 2: (r, False)}, dst, export)
 
 
@@ -1628,9 +1628,8 @@ def lower_vertex(m: spirv.Module):
         if v.vid not in stores:
             raise LowerError(f"interpolator {v.name} never written")
         r = ctx.operand(stores[v.vid])
-        if r[0] == "const":
-            raise LowerError("vertex interpolator export of constants (v1)")
-        p.export(o, usage, T["mov"], src1_reg=r[1], src2_reg=r[1])
+        temp = r[0] == "reg"
+        p.export(o, usage, T["mov"], src1_reg=r[1], src2_reg=r[1], src1_is_temp=temp, src2_is_temp=temp)
 
     constants = []
     for cs in si.constants:
