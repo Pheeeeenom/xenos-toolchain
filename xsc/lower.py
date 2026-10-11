@@ -1588,13 +1588,15 @@ def lower_vertex(m: spirv.Module):
     stores = _store_map(m)
     p = VertexProgram()
 
-    # --- phase 1: vfetch every input, assign registers in fetch order ---
+    # --- phase 1: vfetch every input, input n into rn ---
+    # r0 also holds the vertex index every fetch reads, so the fetch that overwrites it goes last: Xenia reads the index
+    # as each fetch runs (xenia:src/xenia/gpu/dxbc_shader_translator_fetch.cc:80-88), so the rest would index by r0's
+    # new value.
     input_reg = {}
-    reg = 0
-    for v, usage, uidx in si.vfetch:
-        p.fetch(usage, T["vf"], dest=reg, usage_index=uidx)
-        input_reg[v.vid] = reg
-        reg += 1
+    for n, (v, usage, uidx) in reversed(list(enumerate(si.vfetch))):
+        p.fetch(usage, T["vf"], dest=n, usage_index=uidx)
+        input_reg[v.vid] = n
+    reg = len(si.vfetch)
 
     local_vars = {ins.result_id for ins in m.instrs
                   if ins.opcode == 59 and ins.operands[0] == 7}

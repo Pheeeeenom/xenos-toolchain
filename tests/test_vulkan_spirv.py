@@ -10,6 +10,7 @@
   colour. The oracle can't see values, so a small simulator of the ALU checks
   them, as tests/test_matrix.py does for fragment shaders.
 - vk_samplers.frag must take fetch constants in (set, binding) order.
+- vk_three_inputs.vert must fetch into r0 last, as every fetch reads the vertex index there.
 """
 import struct
 import sys
@@ -227,9 +228,28 @@ def check_constant_exports():
     return True
 
 
+def check_fetch_order():
+    """Input n goes to rn, and r0 holds the vertex index each fetch reads as it runs
+    (xenia:src/xenia/gpu/dxbc_shader_translator_fetch.cc:80-88), so the fetch into r0 comes last. Fetched first, it
+    made vulkan4xenon's vkbench sprites read their uv and colour, in Xenia, from the vertex their x position named."""
+    blob = lower(module("vk_three_inputs.vert.spv"))
+    c = container.Container(blob)
+    text = xu.disassemble(c.ucode_dwords, c.shader_type)
+    operands = [line.split("*/")[-1].split() for line in text.splitlines() if "vfetch" in line]
+    fetches = [o[1].rstrip(",") for o in operands]
+    indices = [o[2].rstrip(",") for o in operands]
+    oracle_ok = oracle_hlsl(blob, "vk_three_inputs_vert") is not None
+    if fetches != ["r2", "r1", "r0"] or any(i != "r0.x" for i in indices) or not oracle_ok:
+        print(f"  FAIL vk_three_inputs.vert: fetches into {fetches} by {indices}, want r2, r1 then r0 by r0.x; "
+              "or the oracle rejected it")
+        return False
+    print("  PASS vk_three_inputs.vert: fetches into r2, r1 then r0, each by r0.x; oracle OK")
+    return True
+
+
 def main():
     results = [check_triangle(), check_blocks(), check_matrices(), check_samplers(), check_position_only(),
-               check_constant_exports()]
+               check_constant_exports(), check_fetch_order()]
     ok = all(results)
     print("OK" if ok else "FAILED")
     return 0 if ok else 1
