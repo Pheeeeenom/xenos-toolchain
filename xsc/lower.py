@@ -1607,6 +1607,10 @@ def lower_vertex(m: spirv.Module):
                        literal_base=lit_base, allow_literals=True)
 
     # --- phase 2: position ---
+    # Without varyings, interpolators are allocated ahead of the position, as xsdk's hardware-proven resolve shader
+    # does (xsdk:tools/gen_resolve_vs.py), so no alloc trails the end of the program.
+    if not si.interp_out:
+        p.alloc_interpolators()
     p.alloc_position()
     pos_value = None
     for tgt, val in stores.items():
@@ -1618,7 +1622,8 @@ def lower_vertex(m: spirv.Module):
     ctx.emit_value(pos_value, OPOS, True, export_position=True)
 
     # --- phase 3: interpolator exports ---
-    p.alloc_interpolators()
+    if si.interp_out:
+        p.alloc_interpolators()
     for v, o, usage in si.interp_out:
         if v.vid not in stores:
             raise LowerError(f"interpolator {v.name} never written")

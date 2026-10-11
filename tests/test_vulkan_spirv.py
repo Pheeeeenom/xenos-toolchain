@@ -197,8 +197,25 @@ def check_samplers():
     return True
 
 
+def check_position_only():
+    """No varyings: interpolators are allocated before the position, as xsdk's resolve shader does, and the export
+    count is 0; an alloc after the program's end would never run, and a count of -1 doesn't fit the field."""
+    blob = lower(module("vk_position_only.vert.spv"))
+    c = container.Container(blob)
+    text = xu.disassemble(c.ucode_dwords, c.shader_type)
+    lines = [line.split("*/")[-1].strip() for line in text.splitlines() if "alloc" in line or "exec" in line]
+    want = ["exec", "alloc interpolators", "alloc position", "exece"]
+    export_count = c.program_control >> 20 & 0xF
+    if lines != want or export_count or oracle_hlsl(blob, "vk_position_only_vert") is None:
+        print(f"  FAIL vk_position_only.vert: control flow {lines}, want {want}; export count {export_count}; "
+              "or the oracle rejected it")
+        return False
+    print("  PASS vk_position_only.vert: alloc interpolators, alloc position, exece, export count 0; oracle OK")
+    return True
+
+
 def main():
-    results = [check_triangle(), check_blocks(), check_matrices(), check_samplers()]
+    results = [check_triangle(), check_blocks(), check_matrices(), check_samplers(), check_position_only()]
     ok = all(results)
     print("OK" if ok else "FAILED")
     return 0 if ok else 1

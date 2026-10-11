@@ -421,7 +421,7 @@ class VertexProgram(_Program):
             program_control=(
                 self._max_reg |               # vs_num_reg (value-1 wants
                 (1 << 16) |                   # max reg index; vs_resource
-                ((len(self.interpolators) - 1) << 20)),  # vs_export_count
+                (max(len(self.interpolators) - 1, 0) << 20)),  # vs_export_count; 0 with none, as xsdk's resolve shader
             context_misc=0,
             interpolators=self.interpolators,
             vertex_elements=self.vertex_elements,
