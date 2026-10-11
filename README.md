@@ -86,9 +86,11 @@ hardware" means rendered on a real RGH Xbox 360 via libxenon, with photos.
   near-identical ISA already exists.
 - **Text assembler is in progress** — the builder API is the supported
   authoring path today.
-- **Unproven on hardware so far:** boolean constants + conditional jumps,
-  scalar co-issue, loops/predication, ubyte4 vertex formats, depth
-  export/MRT. The encoders exist; the hardware validation does not yet.
+- **Unproven on hardware so far:** conditional jumps (`cjmp`), scalar
+  co-issue, predication, ubyte4 vertex formats, depth export/MRT. The
+  encoders exist; the hardware validation does not yet. Boolean constants
+  (through `cexec`) and real loops on loop constants are proven; see
+  [`docs/feature-tests.md`](docs/feature-tests.md#hardware-results).
 - This is a toolchain for homebrew (libxenon), not a retail SDK replacement.
 
 ## Quickstart

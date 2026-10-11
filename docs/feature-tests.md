@@ -216,3 +216,33 @@ exit 0 with HLSL matching intended semantics; (c) two consecutive runs of
 `python examples/author_features.py` produce identical MD5s for all six
 outputs. The script also re-proves the ps_fb0 cjmp CF word
 (`build_cf_cond_jmp(...) == (0x4, 0xb200)`) before every build.
+
+## Hardware results
+
+**Boolean constants and real loops: PASS on console (2026-10-10).** Proven
+through the xsdk homebrew SDK (the sibling repo this toolchain is being
+merged with), not libxenon, by its `tests/probe_constants.c` and
+`tests/test_constants.c`. The shaders were packed with `xasm.encode` and
+cross-checked byte-for-byte against `xasm.textasm`'s assembly of the same
+program. Each step drew a quad, resolved it, and read its pixels back:
+
+- `cexec b128` (pixel shader boolean 0 in D3D's split) skipped its block
+  with the boolean clear and ran it with the boolean set.
+- `loop i0` / `endloop i0` ran 0, 1 and 3 passes as loop constant 0 said,
+  set per draw. With 0 passes, LOOP_START skipped straight past LOOP_END.
+- `mad oPos, r1, c0, c1`: two float constants in one ALU instruction.
+- Six quads a frame for 60 frames, each placed and coloured only by its
+  vertex, pixel, boolean and loop constants, all right on every frame.
+
+**The constant-write rule found on the way.** Constants must go to the GPU
+the way libxenon's `Xe_pUploadALUConstants` / `Xe_pUploadIntegerConstants`
+send them. Floats go 16 constants at a time, and all 40 boolean + loop dwords
+(0x4900-0x4927) go in one packet, each packet padded with type-2 NOPs so its
+values start on a 16-byte ring boundary (`Xe_pAlign`). Writing only what
+changed hung the GPU on the first draw, even when aligned: three float
+constants, one boolean dword and one loop dword. Which of those partial
+writes is the culprit isn't isolated yet. Anything driving the GPU without
+libxenon must keep whole-block uploads.
+
+**Still unproven:** `cjmp` (feat_cjmp), scalar co-issue (feat_coissue) and
+predication (feat_pred).
