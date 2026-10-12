@@ -141,16 +141,26 @@ subexpression elimination yet, so `normalize(v)` + `length(v)` recomputes
 - **`atan`** — odd polynomial, accurate on `[-1,1]` (no range reduction for
   `|x|>1` yet; `atan2`/wide-range is a refinement).
 
-## Register budget (16 GPRs)
+## Register budget
 
-Xenos pixel shaders have a hard **16-GPR budget** (r0..r15) — exceeding it is a
-silent GPU **hang** on hardware (oracle can't see this). `xasm/program.py` runs
-a **linear-scan register allocator** in `PixelProgram.finish()` whenever a
-shader needs >16 registers: it recycles dead temporaries (live range = first
-def → last use), pins the read-only interpolator inputs, and packs everything
-into the minimum register count (e.g. `invtrig` 33→6, `mathfns` 20→6). Shaders
-already within budget are left byte-for-byte unchanged. A self-check asserts no
-two simultaneously-live temps share a register.
+A shader may use only its kind's share of the shader unit's register split,
+which the runtime sets in `SQ_GPR_MANAGEMENT`; past it the GPU silently
+**hangs** on hardware (oracle can't see this). libxenon's set-up leaves pixel
+shaders **16 GPRs** (r0..r15) and vertex shaders 112; xsdk's leaves each 64,
+the kernel's own split, and a pixel shader using 64 ran on the console there
+(xsdk:docs/HARDWARE.md, milestone 24). `xasm.program.RegisterBudget` names a
+split: `LIBXENON_REGISTERS` by default, `XSDK_REGISTERS` for xsdk's titles
+(`lower_ex(module, XSDK_REGISTERS)`, or `--pixel-registers 64
+--vertex-registers 64` on `xsc.lower` and `xasm.textasm`). A shader past its
+share raises `RegisterBudgetError`.
+
+`xasm/program.py` runs a **linear-scan register allocator** in
+`PixelProgram.finish()` whenever a shader needs >16 registers, whatever the
+budget: it recycles dead temporaries (live range = first def → last use), pins
+the read-only interpolator inputs, and packs everything into the minimum
+register count (e.g. `invtrig` 33→6, `mathfns` 20→6). Shaders already within
+16 are left byte-for-byte unchanged. A self-check asserts no two
+simultaneously-live temps share a register.
 
 ## Loops (unrolling + mem2reg)
 

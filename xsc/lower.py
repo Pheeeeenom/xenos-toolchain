@@ -27,7 +27,8 @@ from xsc.templates import templates  # noqa: E402
 from xsc.unroll import UnrollError, unroll  # noqa: E402
 from xsc.resolve import (DEC_ARRAY_STRIDE, DEC_MATRIX_STRIDE, DEC_OFFSET, DEC_ROW_MAJOR, _decos,  # noqa: E402
                          member_decos, resolve_interface, resolve_types)
-from xasm.program import VertexProgram, PixelProgram  # noqa: E402
+from xasm.program import (LIBXENON_REGISTERS, PixelProgram, RegisterBudget,  # noqa: E402
+                          VertexProgram)
 
 OPOS = int(xu.ExportRegister.kVSPosition)  # 62
 _V = xu.AluVectorOpcode
@@ -1579,14 +1580,14 @@ class ValueLowerer:
             self.emit(_V.kMax, {1: (r, False), 2: (r, False)}, dst, export)
 
 
-def lower_vertex(m: spirv.Module):
+def lower_vertex(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS):
     si = resolve_interface(m)
     if si.stage != "vertex":
         raise LowerError("lower_vertex called on non-vertex module")
     T = _templates()
     types = resolve_types(m)
     stores = _store_map(m)
-    p = VertexProgram()
+    p = VertexProgram(registers)
 
     # --- phase 1: vfetch every input, input n into rn ---
     # r0 also holds the vertex index every fetch reads, so the fetch that overwrites it goes last: Xenia reads the index
@@ -1650,7 +1651,8 @@ def lower_vertex(m: spirv.Module):
     return p.finish(constants=constants), ctx.lit_manifest
 
 
-def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
+def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None,
+                             registers: RegisterBudget = LIBXENON_REGISTERS):
     """Minimal real-loop lowering for `for(i=0;i<u_count;i++) sum += k`.
 
     This intentionally bypasses the SSA value DAG: the loop-carried `sum` is a
@@ -1894,7 +1896,7 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
         fail("merge block must export the accumulator")
 
     T = _templates()
-    p = PixelProgram()
+    p = PixelProgram(registers)
 
     def emit(opcode, dst, srcs, export=False):
         f = dict(T["mov"], vector_opcode=opcode, vector_dest=dst,
@@ -1999,14 +2001,14 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None):
     return p.finish(constants=constants), manifest
 
 
-def lower_fragment(m: spirv.Module) -> bytes:
+def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS) -> bytes:
     si = resolve_interface(m)
     if si.stage != "pixel":
         raise LowerError("lower_fragment called on non-pixel module")
     T = _templates()
     types = resolve_types(m)
     stores = _store_map(m)
-    p = PixelProgram()
+    p = PixelProgram(registers)
 
     interp_reg = {}
     maxr = -1
@@ -2387,26 +2389,27 @@ def lower_fragment(m: spirv.Module) -> bytes:
     return p.finish(constants=constants), ctx.lit_manifest
 
 
-def lower_ex(m: spirv.Module):
+def lower_ex(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS):
     """Returns (container_bytes, literal_manifest). The manifest is
     [(constant_register, (f0,f1,f2,f3))] for GLSL literals, optionally plus
     ("loop", loop_id, uniform_name) for a real-loop trip count the host uploads
-    to integer_constants[8+loop_id]."""
+    to integer_constants[8+loop_id]. registers is the runtime's register
+    split; a shader past its kind's share raises RegisterBudgetError."""
     stage = "vertex" if m.entry_points[0][0] == 0 else "pixel"
     try:
         # expand constant-trip loops to straight-line SPIR-V (no-op if none)
         unroll(m)
     except UnrollError as e:
         if stage == "pixel" and any(i.opcode == 246 for i in m.instrs):
-            return lower_fragment_real_loop(m, e)
+            return lower_fragment_real_loop(m, e, registers)
         raise LowerError(str(e)) from e
     if stage == "vertex":
-        return lower_vertex(m)
-    return lower_fragment(m)
+        return lower_vertex(m, registers)
+    return lower_fragment(m, registers)
 
 
-def lower(m: spirv.Module) -> bytes:
-    return lower_ex(m)[0]
+def lower(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS) -> bytes:
+    return lower_ex(m, registers)[0]
 
 
 def main():
@@ -2414,9 +2417,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("spv")
     ap.add_argument("-o", "--out")
+    ap.add_argument("--pixel-registers", type=int, default=LIBXENON_REGISTERS.pixel,
+                    help="pixel shaders' share of the register split (libxenon's by default)")
+    ap.add_argument("--vertex-registers", type=int, default=LIBXENON_REGISTERS.vertex,
+                    help="vertex shaders' share of the register split (libxenon's by default)")
     args = ap.parse_args()
     m = spirv.Module.parse(Path(args.spv).read_bytes())
-    blob = lower(m)
+    blob = lower(m, RegisterBudget(pixel=args.pixel_registers, vertex=args.vertex_registers))
     if args.out:
         Path(args.out).write_bytes(blob)
         print(f"wrote {args.out} ({len(blob)} B)")

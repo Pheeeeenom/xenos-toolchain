@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import struct
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -37,6 +38,40 @@ from xasm import encode as enc  # noqa: E402
 K = xu.ControlFlowOpcode
 
 MAX_EXEC_COUNT = 6  # exec count field is 3 bits; stay below the 7 limit
+
+@dataclass(frozen=True)
+class RegisterBudget:
+    """The registers each kind of shader may use, from r0: its share of the
+    shader unit's split, which the runtime sets in SQ_GPR_MANAGEMENT (pixel
+    shaders' share in bits 4-11, vertex shaders' in bits 12-19,
+    Linux:drivers/gpu/drm/msm/registers/adreno/a2xx.xml:1231-1235). A shader
+    past its share hangs the GPU: under libxenon's split a pixel shader's r16
+    hangs and r15 runs (observed on hardware). Past both, instructions name
+    r63 at most and SQ_PROGRAM_CNTL counts 64 (xenia:src/xenia/gpu/
+    registers.h:127-148)."""
+    pixel: int
+    vertex: int
+
+
+# libxenon's set-up ends the split at 16 and 112 (libxenon:drivers/xenos/xe.c:
+# 527-528); xsdk's stops at the kernel's 64 and 64 (xsdk:src/gpu_setup.c).
+LIBXENON_REGISTERS = RegisterBudget(pixel=16, vertex=112)
+XSDK_REGISTERS = RegisterBudget(pixel=64, vertex=64)
+
+
+class RegisterBudgetError(ValueError):
+    """A shader needs more registers than its kind's share of the split."""
+
+
+def check_registers(shader_type: str, max_reg: int,
+                    budget: RegisterBudget) -> None:
+    """Raises RegisterBudgetError if r0..r<max_reg> is over the budget."""
+    share = budget.pixel if shader_type == "pixel" else budget.vertex
+    if max_reg + 1 > share:
+        raise RegisterBudgetError(
+            f"{shader_type} shader needs {max_reg + 1} registers "
+            f"(r0..r{max_reg}), over the {share} it may use; it would hang "
+            f"the GPU")
 
 # Scalar ALU opcodes that write the predicate register p0. An exec block that
 # contains one of these MUST be emitted with is_predicate_clean=False, or the
@@ -92,7 +127,8 @@ class _Instr:
 class _Program:
     shader_type = None
 
-    def __init__(self):
+    def __init__(self, registers: RegisterBudget = LIBXENON_REGISTERS):
+        self.registers = registers               # finish() refuses past it
         self._stages: list[list[_Instr]] = [[]]  # instr blocks
         self._alloc_after: dict = {}             # stage_idx -> alloc_type
         self._max_reg = 0
@@ -373,8 +409,8 @@ class _Program:
 class VertexProgram(_Program):
     shader_type = "vertex"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, registers: RegisterBudget = LIBXENON_REGISTERS):
+        super().__init__(registers)
         self.vertex_elements: list[ce.VertexElement] = []
 
     def fetch(self, usage: int, template: dict, dest: int,
@@ -409,6 +445,7 @@ class VertexProgram(_Program):
         return ins
 
     def finish(self, constants: list) -> bytes:
+        check_registers("vertex", self._max_reg, self.registers)
         ucode = self._build_ucode()
         for ins_list in self._stages:
             for ins in ins_list:
@@ -450,21 +487,15 @@ class PixelProgram(_Program):
     def alloc_colors(self):
         self._alloc(2)
 
-    # Xenos pixel-shader GPR budget: 16 registers (r0..r15). Exceeding it is a
-    # silent GPU hang on hardware (observed: r16 hangs, r15 runs), so fail at
-    # compile time instead. Proper fix for large shaders is a register
-    # allocator that recycles dead temps (see docs/xsc.md "the frontier").
-    PS_GPR_MAX = 15
+    # Past libxenon's 16 registers, dead temporaries are recycled first (see
+    # docs/xsc.md "the frontier"), whatever the budget, so every shader that
+    # fit 16 compiles as it did before budgets.
+    ALLOCATE_PAST = 16
 
     def finish(self, constants: list) -> bytes:
-        if self._max_reg > self.PS_GPR_MAX:
+        if self._max_reg + 1 > self.ALLOCATE_PAST:
             self._allocate_registers()                # recycle dead temps
-        if self._max_reg > self.PS_GPR_MAX:
-            import sys
-            print(f"xsc warning: pixel shader still needs {self._max_reg + 1} "
-                  f"GPRs (r0..r{self._max_reg}) > Xenos budget "
-                  f"{self.PS_GPR_MAX + 1} after allocation; will HANG on "
-                  f"hardware.", file=sys.stderr)
+        check_registers("pixel", self._max_reg, self.registers)
         ucode = self._build_ucode()
         return ce.build_container(
             "pixel", ucode, constants=constants,

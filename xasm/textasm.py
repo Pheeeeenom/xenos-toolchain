@@ -780,18 +780,23 @@ def assemble_text(text: str, shader_type: str) -> bytes:
     return a.assemble()
 
 
-def assemble_file(path: str, shader_type: str, container: bool = False):
+def assemble_file(path: str, shader_type: str, container: bool = False,
+                  registers=None):
+    """registers, a xasm.program.RegisterBudget (libxenon's by default), is
+    the runtime's register split; a container past its kind's share raises
+    RegisterBudgetError."""
     text = Path(path).read_text()
     a = TextAssembler(shader_type)
     a.parse(text)
     ucode = a.assemble()
     if not container:
         return ucode
-    return _emit_container(a, ucode)
+    return _emit_container(a, ucode, registers)
 
 
-def _emit_container(a: TextAssembler, ucode: bytes) -> bytes:
+def _emit_container(a: TextAssembler, ucode: bytes, registers=None) -> bytes:
     import xdis.container_emit as ce
+    from xasm.program import LIBXENON_REGISTERS, check_registers
     usage_by_name = {"position": ce.USAGE_POSITION, "color": ce.USAGE_COLOR,
                      "texcoord": ce.USAGE_TEXCOORD}
     nibble = {"texcoord": 0x3, "color": 0xF}
@@ -817,6 +822,7 @@ def _emit_container(a: TextAssembler, ucode: bytes) -> bytes:
                                          rows=1, columns=4))
 
     max_reg = _scan_max_reg(a)
+    check_registers(a.shader_type, max_reg, registers or LIBXENON_REGISTERS)
     if a.shader_type == "pixel":
         return ce.build_container(
             "pixel", ucode, constants=constants,
@@ -884,13 +890,20 @@ def _post_interpolator_slots(a: TextAssembler):
 
 def main(argv=None):
     import argparse
+    from xasm.program import LIBXENON_REGISTERS, RegisterBudget
     ap = argparse.ArgumentParser(prog="xasm.textasm")
     ap.add_argument("input")
     ap.add_argument("-o", "--output", required=True)
     ap.add_argument("--type", choices=["vertex", "pixel"], required=True)
     ap.add_argument("--container", action="store_true")
+    ap.add_argument("--pixel-registers", type=int, default=LIBXENON_REGISTERS.pixel,
+                    help="pixel shaders' share of the register split (libxenon's by default)")
+    ap.add_argument("--vertex-registers", type=int, default=LIBXENON_REGISTERS.vertex,
+                    help="vertex shaders' share of the register split (libxenon's by default)")
     args = ap.parse_args(argv)
-    blob = assemble_file(args.input, args.type, container=args.container)
+    blob = assemble_file(args.input, args.type, container=args.container,
+                         registers=RegisterBudget(pixel=args.pixel_registers,
+                                                  vertex=args.vertex_registers))
     Path(args.output).write_bytes(blob)
     print(f"wrote {args.output} ({len(blob)} B"
           f"{', container' if args.container else ', raw ucode'})")
