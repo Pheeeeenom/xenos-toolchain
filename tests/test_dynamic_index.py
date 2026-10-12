@@ -31,6 +31,7 @@ S = xu.AluScalarOpcode
 OPOS = int(xu.ExportRegister.kVSPosition)
 PARAM_GEN = 1 << 18          # SQ_PROGRAM_CNTL (xenia:src/xenia/gpu/registers.h:140)
 PARAM_GEN_POS_SHIFT = 8      # SQ_CONTEXT_MISC (registers.h:234)
+SC_OUTPUT_SCREEN_XY = 1 << 1  # SQ_CONTEXT_MISC (registers.h:156), which the console needs with PARAM_GEN
 
 
 def lowered(name):
@@ -187,9 +188,10 @@ def check_frag_coord():
     blob, manifest = lowered("vk_frag_coord.frag.spv")
     c = container.Container(blob)
     position = c.context_misc >> PARAM_GEN_POS_SHIFT & 0xFF
-    if not c.program_control & PARAM_GEN or position != 1:
+    if not c.program_control & PARAM_GEN or position != 1 or not c.context_misc & SC_OUTPUT_SCREEN_XY:
         print(f"  FAIL vk_frag_coord.frag: SQ_PROGRAM_CNTL {c.program_control:#010x}, SQ_CONTEXT_MISC "
-              f"{c.context_misc:#010x}: want PARAM_GEN on, the parameters in r1 past the interpolator")
+              f"{c.context_misc:#010x}: want PARAM_GEN and SC_OUTPUT_SCREEN_XY on, the parameters in r1 past the "
+              f"interpolator")
         return False
     colors = [[0.05 * k, 1.0 - 0.05 * k, 0.5, 1.0] for k in range(10)]
     consts = registers([x for color in colors for x in color], 0)

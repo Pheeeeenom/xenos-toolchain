@@ -513,10 +513,12 @@ class PixelProgram(_Program):
         check_registers("pixel", self._max_reg, self.registers)
         ucode = self._build_ucode()
         param_gen = self._param_gen
+        # The parameters' xy are the pixel's only with SC_OUTPUT_SCREEN_XY too; without it x read 0 on the console
+        # (vulkan4xenon:results/2026-10-12-milestone-11-step-3/vulkan4xenon_diag.log, D2 and D4).
         return ce.build_container(
             "pixel", ucode, constants=constants,
             program_control=(self._max_reg << 8) | (2 << 27) | ((1 << 18) if param_gen is not None else 0),
-            context_misc=0x8 | ((param_gen << 8) if param_gen is not None else 0),
+            context_misc=0x8 | ((param_gen << 8 | 0x2) if param_gen is not None else 0),
             field10=0x20000,
             interpolators=self.interpolators,
             ps_field18=(len(self.interpolators) << 16) | 7,

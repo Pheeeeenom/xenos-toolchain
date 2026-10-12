@@ -107,8 +107,12 @@ against the corpus as test vectors.
 - gl_FragCoord → the pixel parameters, which the container turns on: its
   record's SQ_PROGRAM_CNTL has PARAM_GEN, and its SQ_CONTEXT_MISC has
   PARAM_GEN_POS, the register past the interpolators, where the GPU writes the
-  pixel's column and row (xenia:src/xenia/gpu/registers.h:140, 158-234). xsdk
-  takes both from the record as they are.
+  pixel's column and row (xenia:src/xenia/gpu/registers.h:140, 158-234), and
+  SC_OUTPUT_SCREEN_XY, without which x read 0 on the console
+  (vulkan4xenon:results/2026-10-12-milestone-11-step-3/). xsdk takes both
+  registers from the record as they are.
+- The execs keep addressing mode 0 when ALU instructions read at a0: a pixel
+  shader with its execs' mode 1 drew black on the console (the same results).
 - Samplers (UniformConstant) → with a DescriptorSet decoration (Vulkan), fetch
   constants from 0 in (DescriptorSet, Binding) order; without (OpenGL), fetch
   constant = Binding.
