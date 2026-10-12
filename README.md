@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="assets/xost.png" alt="xost" width="640">
+</div>
+
 # xost (working title)
 
 > **Name is TBD** — "xost" = Xenos Open Shader Toolchain, a placeholder until a
