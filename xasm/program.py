@@ -469,11 +469,26 @@ class VertexProgram(_Program):
 class PixelProgram(_Program):
     shader_type = "pixel"
 
+    # The pixel parameters' register is an interpolator's index (xenia:src/xenia/gpu/registers.h:159-161).
+    MAX_INTERPOLATORS = 16
+
+    def __init__(self, registers: RegisterBudget = LIBXENON_REGISTERS):
+        super().__init__(registers)
+        self._param_gen = None                   # the pixel parameters' register, if the shader reads them
+
     def input(self, r: int, usage: int, usage_index: int = 0):
         """Declare interpolator arriving in rN (must match VS export order)."""
         assert r == len(self.interpolators), "declare inputs in r0,r1,... order"
         self.interpolators.append(ce.Interpolator(
             r, usage, usage_index, flags=_USAGE_NIBBLE.get(usage, 0)))
+        self._max_reg = max(self._max_reg, r)
+
+    def pixel_parameters(self, r: int):
+        """Have the pixel parameters written into rN, past the interpolators: |xy| the pixel's column and row (0, 1,
+        2, ...), the sign bits flags (SQ_PROGRAM_CNTL.PARAM_GEN, SQ_CONTEXT_MISC.PARAM_GEN_POS;
+        xenia:src/xenia/gpu/registers.h:140, 158-234)."""
+        assert len(self.interpolators) <= r < self.MAX_INTERPOLATORS, "the pixel parameters go past the inputs"
+        self._param_gen = r
         self._max_reg = max(self._max_reg, r)
 
     def tfetch(self, template: dict, dest: int, src: int) -> _Instr:
@@ -497,10 +512,11 @@ class PixelProgram(_Program):
             self._allocate_registers()                # recycle dead temps
         check_registers("pixel", self._max_reg, self.registers)
         ucode = self._build_ucode()
+        param_gen = self._param_gen
         return ce.build_container(
             "pixel", ucode, constants=constants,
-            program_control=(self._max_reg << 8) | (2 << 27),
-            context_misc=0x8,
+            program_control=(self._max_reg << 8) | (2 << 27) | ((1 << 18) if param_gen is not None else 0),
+            context_misc=0x8 | ((param_gen << 8) if param_gen is not None else 0),
             field10=0x20000,
             interpolators=self.interpolators,
             ps_field18=(len(self.interpolators) << 16) | 7,

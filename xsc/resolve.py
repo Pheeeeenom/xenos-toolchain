@@ -60,6 +60,7 @@ BUILTIN_POINT_SIZE = 1
 # input builtins we ignore as real vertex inputs
 BUILTIN_VERTEX_ID = 5
 BUILTIN_INSTANCE_ID = 6
+BUILTIN_FRAG_COORD = 15
 _IGNORED_INPUT_BUILTINS = {BUILTIN_VERTEX_ID, BUILTIN_INSTANCE_ID}
 
 
@@ -165,6 +166,7 @@ class ShaderInterface:
     interp_out: list = field(default_factory=list)    # (Var, o_index, usage)
     interp_in: list = field(default_factory=list)     # (Var, r_reg, usage)
     position_out: int | None = None                   # gl_Position var id
+    frag_coord: Var | None = None                     # a pixel shader's gl_FragCoord
     color_out: list = field(default_factory=list)     # (Var, oC index)
     constants: list = field(default_factory=list)     # ConstantSlot
     samplers: list = field(default_factory=list)      # (Var, fetch_slot)
@@ -282,6 +284,9 @@ def resolve_interface(m: spirv.Module) -> ShaderInterface:
                 usage, uidx = _usage_for_location(v.location or 0)
                 si.vfetch.append((v, usage, uidx))
                 si.roles[v.vid] = ("vfetch", len(si.vfetch) - 1)
+            elif v.builtin == BUILTIN_FRAG_COORD:  # from the pixel parameters, not an interpolator
+                si.frag_coord = v
+                si.roles[v.vid] = ("frag_coord", None)
             else:  # pixel interpolator input
                 r = v.location or 0
                 shape = types.get(v.pointee)

@@ -70,6 +70,30 @@ def _signed_int(lit: int) -> int:
     return lit - (1 << 32) if lit >= (1 << 31) else lit
 
 
+def _frag_coord_reads(m: spirv.Module, types: dict, var_id: int) -> set:
+    """The components of gl_FragCoord a shader reads: all four through any use but one component's."""
+    loads, used = set(), set()
+    for ins in m.instrs:
+        if ins.opcode == 61 and ins.operands[0] == var_id:                # Load
+            loads.add(ins.result_id)
+        elif ins.opcode == 65 and ins.operands[0] == var_id:              # AccessChain(var, component)
+            c = m.by_result.get(ins.operands[1])
+            used.update((c.operands[0],) if c is not None and c.opcode == 43 else range(4))
+    for ins in m.instrs:
+        if ins.opcode == 81:                                              # CompositeExtract(v, component)
+            if ins.operands[0] in loads:
+                used.add(ins.operands[1])
+        elif ins.opcode == 79:                                            # VectorShuffle(a, b, components...)
+            first = types.get(m.by_result[ins.operands[0]].result_type)
+            size = first.count if first is not None and first.kind == "vector" else 1
+            for base, vec in ((0, ins.operands[0]), (size, ins.operands[1])):
+                if vec in loads:
+                    used.update(c - base for c in ins.operands[2:] if base <= c < base + 4)
+        elif any(w in loads for w in ins.operands[2 if ins.opcode == 12 else 0:]):
+            used.update(range(4))
+    return used
+
+
 class ValueLowerer:
     """Shared SPIR-V value lowering for vertex and fragment stages.
 
@@ -104,6 +128,8 @@ class ValueLowerer:
         self.local_values = {}
         # Matrix values whose registers hold columns, as a block's std140 bytes do.
         self.col_major = set()
+        # The run-time index a0 holds, as set_a0's key, so reads at the same index share one MOVA.
+        self.a0_key = None
 
     def fresh(self):
         r = self.next_reg
@@ -318,9 +344,32 @@ class ValueLowerer:
                  vector_clamp=False)
         self.p.alu(**f)
 
+    def split_index(self, ssa):
+        """A run-time int index -> (the part only known at run time, the constant added to it), so the constant
+        part can go in the register number: rows[i + 1] reads c[a0 + base + 1] with a0 = i."""
+        c = self.int_const(ssa)
+        if c is not None:
+            return None, c
+        ins = self.m.by_result[ssa]
+        if ins.opcode == 61 and ins.operands[0] in self.local_store:      # Load of a local
+            return self.split_index(self.local_store[ins.operands[0]])
+        if ins.opcode in (128, 130):                                      # IAdd ISub
+            cb = self.int_const(ins.operands[1])
+            if cb is not None:
+                part, k = self.split_index(ins.operands[0])
+                return part, k + (cb if ins.opcode == 128 else -cb)
+            ca = self.int_const(ins.operands[0])
+            if ca is not None and ins.opcode == 128:
+                part, k = self.split_index(ins.operands[1])
+                return part, k + ca
+        return ssa, 0
+
     def block_access(self, ptr_id):
         """An AccessChain into a uniform or push constant block -> (register,
-        first component, type id, member decorations); None for other pointers."""
+        first component, type id, member decorations, run-time index); None for
+        other pointers. One array index may be known only at run time: the
+        run-time index is then (its run-time part, registers an element), and
+        the register is the one its run-time part 0 would read."""
         ptr = self.m.by_result.get(ptr_id)
         if ptr is None or ptr.opcode not in (65, 66):
             return None
@@ -328,12 +377,18 @@ class ValueLowerer:
         if not role or role[0] != "block":
             return None
         block = self.si.blocks[role[1]]
-        tid, offset, member = block.struct, 0, {}
+        tid, offset, member, dyn = block.struct, 0, {}, None
         for idx_id in ptr.operands[1:]:
             idx = self.int_const(idx_id)
-            if idx is None:
-                raise LowerError("dynamic index into a uniform block (v1)")
             t = self.types[tid]
+            if idx is None:
+                if t.kind != "array" or dyn is not None:
+                    raise LowerError("a run-time index other than one into a block's array (v1)")
+                stride = _decos(self.m, tid).get(DEC_ARRAY_STRIDE, (16,))[0]
+                if stride % 16:
+                    raise LowerError("a run-time index into an array not on 16-byte lines (v1)")
+                part, idx = self.split_index(idx_id)
+                dyn = (part, stride // 16)
             if t.kind == "struct":
                 member = member_decos(self.m, tid, idx)
                 offset += member.get(DEC_OFFSET, (16 * idx,))[0]
@@ -351,36 +406,80 @@ class ValueLowerer:
                 tid = t.comp
             else:
                 raise LowerError(f"index into a block {t.kind} (v1)")
-        return block.reg + offset // 16, (offset % 16) // 4, tid, member
+        return block.reg + offset // 16, (offset % 16) // 4, tid, member, dyn
+
+    def set_a0(self, part, scale):
+        """a0 = a run-time index's run-time part times scale, the registers an element, unless a0 holds it already.
+        int(f) sets it by MOVA_FLOOR from f, which is the same for f >= 0, as indices are; any other index is a whole
+        number by then, which MOVA rounds to itself. a0 is -256 to 255 (xenia:src/xenia/gpu/ucode.h:1138-1150)."""
+        if self.a0_key == (part, scale):
+            return
+        ins = self.m.by_result[part]
+        if ins.opcode == 110 and scale == 1:                              # ConvertFToS
+            opnd, comp = self.scalar_origin(ins.operands[0])
+            sop = _S.kMaxAsf
+        else:
+            opnd, comp, sop = self.int_operand(part), 0, _S.kMaxAs
+            if scale != 1:
+                r = self.fresh()
+                self.emit(_V.kMul, {1: (opnd, False), 2: (("const", self.literal_reg((float(scale),) * 4)), False)},
+                          r, False)
+                opnd = ("reg", r)
+        kind, reg = opnd
+        # The scalar op reads its operands a and b from components w and x of src3, both the index's here
+        # (xenia:src/xenia/gpu/shader_translator.cc:1246).
+        f = dict(self.T["mov"], vector_opcode=_V.kMax, vector_dest=0, vector_write_mask=0, vector_clamp=False,
+                 scalar_opcode=sop, scalar_dest=0, scalar_write_mask=0, scalar_clamp=False, is_export=False,
+                 src3_reg=reg, src3_is_temp=(kind == "reg"), src3_swizzle=self.bsw(0 if comp == "B" else comp),
+                 src3_negate=False)
+        self.p.alu(**f)
+        self.a0_key = (part, scale)
+
+    def block_register(self, access, extra=0):
+        """The operand holding a block access's register, plus extra registers: the constant itself, or at a run-time
+        index c[a0 + register] copied into a temp, so a later index can't change what it read."""
+        reg, _comp, _tid, _member, dyn = access
+        if dyn is None:
+            return ("const", reg + extra)
+        self.set_a0(*dyn)
+        r = self.fresh()
+        f = dict(self.T["mov"], vector_opcode=_V.kMax, vector_dest=r, is_export=False, vector_write_mask=0xF,
+                 vector_clamp=False, src1_const_rel=True, src2_const_rel=True,
+                 is_const_address_register_relative=True)
+        self.src(f, 1, ("const", reg + extra))
+        self.src(f, 2, ("const", reg + extra))
+        self.p.alu(**f)
+        return ("reg", r)
 
     def block_value(self, ssa_id, access):
         """A Load of a block member as an operand."""
-        reg, comp, tid, _member = access
+        _reg, comp, tid, _member, _dyn = access
         t = self.types[tid]
         if t.kind == "matrix":
             return ("mat", self.matrix_operands(ssa_id))
         n = t.count if t.kind == "vector" else 1
         if t.kind == "vector" and comp == 0:
-            return ("const", reg)
+            return self.block_register(access)
         if comp + n > 4:
             raise LowerError("a block member across registers (v1)")
         swz = self.bsw(comp) if n == 1 else self.swz([comp + i for i in range(n)])
+        src = self.block_register(access)
         r = self.fresh()
-        self.emit(_V.kMax, {1: (("const", reg), False, swz), 2: (("const", reg), False, swz)}, r, False)
+        self.emit(_V.kMax, {1: (src, False, swz), 2: (src, False, swz)}, r, False)
         return ("reg", r)
 
     def block_matrix(self, ssa_id, access):
         """A block matrix's registers: columns (marked) unless it's row-major."""
-        reg, comp, tid, member = access
+        _reg, comp, tid, member, _dyn = access
         t = self.types[tid]
         col = self.types.get(t.comp)
         rows = col.count if col and col.kind == "vector" else 1
         if comp or member.get(DEC_MATRIX_STRIDE, (16,))[0] != 16:
             raise LowerError("a block matrix not on 16-byte lines (v1)")
         if DEC_ROW_MAJOR in member:
-            return tuple(("const", reg + i) for i in range(rows))
+            return tuple(self.block_register(access, i) for i in range(rows))
         self.col_major.add(ssa_id)
-        return tuple(("const", reg + i) for i in range(t.count))
+        return tuple(self.block_register(access, i) for i in range(t.count))
 
     def matrix_operands(self, ssa_id):
         """Resolve a mat4 value to four vector operands (one per register)."""
@@ -915,7 +1014,7 @@ class ValueLowerer:
             ptr = self.m.by_result.get(src)
             access = self.block_access(src)
             if access is not None and self.types[access[2]].kind != "vector":
-                return ("const", access[0]), access[1]
+                return self.block_register(access), access[1]
             if access is not None:
                 return self.block_value(ssa_id, access), "B"
             if ptr is not None and ptr.opcode == 65:
@@ -1664,6 +1763,8 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None,
         raise LowerError("real-loop lowering is pixel-only") from reason
     if len(si.color_out) != 1:
         raise LowerError("real-loop path expects one color output") from reason
+    if si.frag_coord is not None:
+        raise LowerError("gl_FragCoord in a hardware loop (v1)") from reason
 
     instrs = m.instrs
     func_idx = next(i for i, ins in enumerate(instrs) if ins.opcode == 54)
@@ -2016,6 +2117,14 @@ def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTE
         p.input(r, usage)
         interp_reg[v.vid] = r
         maxr = max(maxr, r)
+    # gl_FragCoord.xy from the pixel parameters, written into the register past the interpolators.
+    param_reg = None
+    if si.frag_coord is not None:
+        if _frag_coord_reads(m, types, si.frag_coord.vid) & {2, 3}:
+            raise LowerError("gl_FragCoord.zw: the pixel parameters hold no depth (v1)")
+        param_reg = maxr + 1
+        p.pixel_parameters(param_reg)
+        maxr = param_reg
     sample_reg = {}       # ImageSample ssa-id -> register (phase 1)
     deriv_reg = {}        # dFdx/dFdy/fwidth ssa-id -> register (phase 1)
     used_samplers = set()
@@ -2035,6 +2144,12 @@ def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTE
                        stage="fragment", sample_reg=sample_reg,
                        deriv_reg=deriv_reg,
                        literal_base=lit_base, allow_literals=True)
+    if param_reg is not None:
+        # Vulkan's gl_FragCoord is the pixel's centre, the column and row plus 0.5 (|xy|: the sign bits are flags).
+        coord = ctx.fresh()
+        ctx.emit(_V.kAdd, {1: (("reg", param_reg | 0x80), False),
+                           2: (("const", ctx.literal_reg((0.5, 0.5, 0.5, 0.5))), False)}, coord, False, mask=0x3)
+        interp_reg[si.frag_coord.vid] = coord
 
     # phase 1 (before alloc_colors): emit a tfetch for every ImageSample
     # reachable from the output expression (walk the whole DAG).

@@ -63,6 +63,8 @@ against the corpus as test vectors.
 | uniforms (block + bare), samplers | constant regs / fetch consts |
 | Vulkan uniform / push constant block members at any std140 offset | the member's register, swizzled from its first component |
 | block matrix (column-major, std140) `M * v` / `v * M` / `A * B` | `mul`+`mad` over columns / 4x `dp4` with columns / columns of A times each column of B |
+| block array at a run-time index, `rows[int(f) + k]`, `m[i]` | `movasf` (`int(f)`) or `movas` sets a0, then `c[a0 + base + k]` is copied into a temp; reads at one index share the `movas` (`tests/test_dynamic_index.py`) |
+| fragment `gl_FragCoord.xy` | the pixel parameters in the register past the interpolators, `\|r.xy\| + 0.5`; `.zw` refused |
 | float / vec literals in FS/VS | constant pool; 0/1 folds (see below) |
 | ternary `cond ? a : b` (OpSelect) | `f + (t−f)·cond` (sub + mad) |
 | vector relational `lessThan`/`greaterThan`/`equal`/`notEqual`/… → bvec | per-component `sgt`/`sge`/`seq`/`sne` (1.0/0.0) |
@@ -98,6 +100,15 @@ against the corpus as test vectors.
   of a block at register *b* sits in *b* + *o*/16 from component (*o*%16)/4.
   Matrices keep their memory layout: column-major ones (glslang's default) hold
   a column a register, so `M * v` lowers to multiply-adds over columns.
+- A block's array read at a run-time index takes `a0` from the index: one
+  index a chain, into an array on 16-byte lines, `int(f)` for `f >= 0` as
+  indices are (a0 is `floor(f)`), and the result within -256 to 255
+  (xenia:src/xenia/gpu/ucode.h:1138-1150).
+- gl_FragCoord → the pixel parameters, which the container turns on: its
+  record's SQ_PROGRAM_CNTL has PARAM_GEN, and its SQ_CONTEXT_MISC has
+  PARAM_GEN_POS, the register past the interpolators, where the GPU writes the
+  pixel's column and row (xenia:src/xenia/gpu/registers.h:140, 158-234). xsdk
+  takes both from the record as they are.
 - Samplers (UniformConstant) → with a DescriptorSet decoration (Vulkan), fetch
   constants from 0 in (DescriptorSet, Binding) order; without (OpenGL), fetch
   constant = Binding.
