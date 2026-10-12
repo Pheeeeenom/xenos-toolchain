@@ -11,7 +11,7 @@
   them, as tests/test_matrix.py does for fragment shaders.
 - vk_samplers.frag must take fetch constants in (set, binding) order.
 - vk_three_inputs.vert must fetch into r0 last, as every fetch reads the vertex index there.
-- vk_block_literals.vert must give each block whole groups of 4, the literals after them.
+- vk_block_literals.vert must give its uniform block whole groups of 4, the literals after them.
 """
 import struct
 import sys
@@ -235,7 +235,7 @@ def check_constant_exports():
 
 
 def check_block_literals():
-    """Each block has whole groups of 4 to itself, the console's unit for loading constants from memory
+    """A uniform block has whole groups of 4 to itself, the console's unit for loading constants from memory
     (xsdk:docs/HARDWARE.md), so a host can load one without overwriting anything: push c0, uniform c4, literals c8."""
     m = module("vk_block_literals.vert.spv")
     blocks = [(b.kind, b.reg, b.regs) for b in resolve_interface(m).blocks]
