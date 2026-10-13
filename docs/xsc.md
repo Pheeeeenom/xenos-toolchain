@@ -55,7 +55,8 @@ against the corpus as test vectors.
 | `radians` / `degrees` | mul by pooled `π/180` / `180/π` |
 | `clamp(x, lo, hi)` arbitrary | `min(max(x,lo),hi)`, lo/hi pooled literals |
 | **`if/else`**, incl. **nested**, assigning the output | branch-free chained `cndgt`/`cndge`/`cndeq` selects |
-| **`if/else` assigning a Function-local** later read by the output | branch-free `cnd*` select into a temp registered as that local's merged value |
+| **`if/else` assigning a Function-local** later read by the output | branch-free `cnd*` select into a temp registered as that local's merged value (pixel shaders) |
+| `if/else`, or a `?:` glslang branches for, in a **vertex** shader | refused: lowered as straight-line code it would take its last arm (`tests/test_vertex_branches.py`) |
 | **`discard` / `OpKill` inside `if(cond)`** | `kill_gt`/`kill_ge`/`kill_eq`/`kill_ne` ALU side effect; oracle-valid, pending console verification in `glslgallery` G26 |
 | **`for`/`while`** with a compile-time trip count, incl. **nested** | unrolled to branch-free SSA; induction variable constant-folded (see below) |
 | uniform-bound loop `sum += const` | real `LOOP_START/END` (G28 pending) |

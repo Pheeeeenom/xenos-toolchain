@@ -1683,6 +1683,11 @@ def lower_vertex(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS
     si = resolve_interface(m)
     if si.stage != "vertex":
         raise LowerError("lower_vertex called on non-vertex module")
+    # A vertex shader lowers as straight-line code, a local's value its last store. A branch left after unrolling, an
+    # if/else or a ?: that glslang makes one, would lower as its last arm alone, silently: refuse it.
+    if any(ins.opcode in (250, 251) for ins in m.instrs):  # OpBranchConditional, OpSwitch
+        raise LowerError("vertex shader control flow (an if/else, a ?: glslang branches for, or a switch) "
+                         "isn't lowered")
     T = _templates()
     types = resolve_types(m)
     stores = _store_map(m)
