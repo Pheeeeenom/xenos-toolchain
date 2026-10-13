@@ -65,13 +65,18 @@ class RegisterBudgetError(ValueError):
 
 def check_registers(shader_type: str, max_reg: int,
                     budget: RegisterBudget) -> None:
-    """Raises RegisterBudgetError if r0..r<max_reg> is over the budget."""
+    """Raises RegisterBudgetError if r0..r<max_reg> is over the budget, or
+    past r63, the last register an instruction names."""
     share = budget.pixel if shader_type == "pixel" else budget.vertex
     if max_reg + 1 > share:
         raise RegisterBudgetError(
             f"{shader_type} shader needs {max_reg + 1} registers "
             f"(r0..r{max_reg}), over the {share} it may use; it would hang "
             f"the GPU")
+    if max_reg + 1 > 64:
+        raise RegisterBudgetError(
+            f"{shader_type} shader needs {max_reg + 1} registers "
+            f"(r0..r{max_reg}); an instruction names r63 at most")
 
 # Scalar ALU opcodes that write the predicate register p0. An exec block that
 # contains one of these MUST be emitted with is_predicate_clean=False, or the
@@ -116,6 +121,9 @@ def mask4(s: str) -> int:
     return out
 
 
+ABS_SOURCE = 1 << 16                             # a whole temp source's absolute value
+
+
 class _Instr:
     def __init__(self, kind: str, triple, is_fetch: bool):
         self.kind = kind
@@ -129,6 +137,12 @@ class _Program:
 
     def __init__(self, registers: RegisterBudget = LIBXENON_REGISTERS):
         self.registers = registers               # finish() refuses past it
+        # A temp source's value: its register in bits 0-5 with 0x40 relative
+        # and 0x80 its absolute value, as an instruction encodes it; or, where
+        # whole_sources is set (xsc's programs, whose temps run past r63 till
+        # the allocator packs them), the whole register with ABS_SOURCE for its
+        # absolute value, encoded when the instruction is.
+        self.whole_sources = False
         self._stages: list[list[_Instr]] = [[]]  # instr blocks
         self._alloc_after: dict = {}             # stage_idx -> alloc_type
         self._max_reg = 0
@@ -137,14 +151,32 @@ class _Program:
         self._loops: list[tuple] = []            # (start, end, loop_id, brk, cond)
         self._loop_open = None
 
-    @staticmethod
-    def _src_temp_index(reg: int) -> int:
-        return reg & 0x3F
+    def _src_temp_index(self, reg: int) -> int:
+        return reg & (ABS_SOURCE - 1) if self.whole_sources else reg & 0x3F
 
-    @staticmethod
-    def _remap_src_temp(reg: int, mapping: dict) -> int:
-        idx = reg & 0x3F
+    def _encoded_src_temp(self, reg: int, mapping: dict) -> int:
+        """A temp source as an instruction encodes it, its register mapped."""
+        idx = self._src_temp_index(reg)
+        if self.whole_sources:
+            return mapping.get(idx, idx) | (0x80 if reg & ABS_SOURCE else 0)
         return (reg & ~0x3F) | mapping.get(idx, idx)
+
+    def _remap_fields(self, fields: dict, mapping: dict) -> dict:
+        """The fields with each temp mapped (the allocator's mapping, or none),
+        its sources as an instruction encodes them."""
+        f = dict(fields)
+        if "vector_opcode" in f or "scalar_opcode" in f:       # ALU
+            if not f.get("is_export") and f.get("vector_write_mask", 0):
+                f["vector_dest"] = mapping.get(f["vector_dest"], f["vector_dest"])
+            if f.get("scalar_write_mask", 0) and not f.get("is_export"):
+                f["scalar_dest"] = mapping.get(f.get("scalar_dest", 0), f.get("scalar_dest", 0))
+            for i in (1, 2, 3):
+                if f.get(f"src{i}_is_temp"):
+                    f[f"src{i}_reg"] = self._encoded_src_temp(f[f"src{i}_reg"], mapping)
+        else:                                                  # fetch
+            f["dest"] = mapping.get(f["dest"], f["dest"])
+            f["src"] = mapping.get(f.get("src", 0), f.get("src", 0))
+        return f
 
     # ---- declarations ----
 
@@ -165,9 +197,22 @@ class _Program:
                     self._max_reg,
                     self._src_temp_index(fields[f"src{i}_reg"]))
 
-    def alu(self, **fields) -> _Instr:
+    # A temp's index is six bits in an instruction (xenia:src/xenia/gpu/ucode.h); one past it is encoded once the
+    # allocator has recycled the temps.
+    ENCODABLE_REGS = 64
+
+    def _encodable(self, fields: dict) -> bool:
+        before = self._max_reg
+        self._max_reg = 0
         self._track_regs(fields)
-        ins = _Instr("alu", enc.build_alu(**fields), is_fetch=False)
+        fits = self._max_reg < self.ENCODABLE_REGS
+        self._max_reg = before
+        return fits
+
+    def alu(self, **fields) -> _Instr:
+        triple = enc.build_alu(**self._remap_fields(fields, {})) if self._encodable(fields) else ()
+        self._track_regs(fields)
+        ins = _Instr("alu", triple, is_fetch=False)
         ins.fields = dict(fields)
         self._stages[-1].append(ins)
         return ins
@@ -311,8 +356,7 @@ class _Program:
         assert len(dwords) == total_slots * 3
         return struct.pack(f">{len(dwords)}I", *dwords)
 
-    @staticmethod
-    def _defs_uses(ins):
+    def _defs_uses(self, ins):
         """Temp registers an instruction writes (defs) and reads (uses).
         Constants, the oC export, and read-only inputs are excluded from defs;
         only is_temp sources count as uses."""
@@ -325,50 +369,73 @@ class _Program:
                 d.append(f.get("scalar_dest", 0))
             for i in (1, 2, 3):
                 if f.get(f"src{i}_is_temp"):
-                    u.append(_Program._src_temp_index(f[f"src{i}_reg"]))
+                    u.append(self._src_temp_index(f[f"src{i}_reg"]))
         else:                                         # tfetch / vfetch
             d.append(f["dest"])
-            u.append(f["src"])
+            u.append(f.get("src", 0))                 # a vfetch's index, r0 unless named
         return d, u
 
     def _allocate_registers(self):
         """Linear-scan register allocation: recycle dead temporaries so the
-        shader fits the GPR budget. Read-but-never-written registers (the
-        interpolator inputs) stay pinned to r0..; every written register is a
+        shader fits the GPR budget. Registers read but never written (a pixel
+        shader's interpolator inputs and pixel parameters) stay pinned where
+        they are, and so does one a vertex fetch reads its index from before
+        it's written (a vertex shader's r0); every other written register is a
         'temp' whose live range [first def, last use] is packed into the
-        smallest pool of physical registers. Pixel-shader only (clean
-        input/temp split; a VS's r0 is both vertex-index and a fetch dest)."""
+        smallest pool of physical registers above the pinned ones. A temp live
+        across a hardware loop's back edge is kept for the whole loop, as the
+        next pass reads it again. An ALU's unused source slots count as reads,
+        so only a fetch's read pins a written register."""
         import heapq
         instrs = [ins for stage in self._stages for ins in stage]
 
-        first_def, last_use = {}, {}
+        first_def, first_use, last_use, fetch_read = {}, {}, {}, {}
         for idx, ins in enumerate(instrs):
             d, u = self._defs_uses(ins)
             for r in u:
+                first_use.setdefault(r, idx)
                 last_use[r] = idx
+                if ins.kind != "alu":
+                    fetch_read.setdefault(r, idx)
             for r in d:
                 first_def.setdefault(r, idx)
                 last_use[r] = max(last_use.get(r, idx), idx)
 
-        inputs = [r for r in last_use if r not in first_def]
-        ninput = (max(inputs) + 1) if inputs else 0
-        temps = list(first_def)
+        never = len(instrs)
+        pinned = {r for r in last_use if r not in first_def} | \
+            {r for r in fetch_read if fetch_read[r] < first_def.get(r, never)}
+        npinned = (max(pinned) + 1) if pinned else 0
+        temps = [r for r in first_def if r not in pinned]
+        start = {r: first_def[r] for r in temps}
+        end = {r: last_use[r] for r in temps}
 
-        intervals = sorted((first_def[r], last_use[r], r) for r in temps)
-        free = list(range(ninput, ninput + len(temps) + 1))
+        # A loop's instructions, by index; a temp defined in it before its
+        # first use there lives within one pass.
+        for s0, s1, *_ in self._loops:
+            lo = sum(len(stage) for stage in self._stages[:s0])
+            hi = sum(len(stage) for stage in self._stages[:s1]) - 1
+            for r in temps:
+                within = lo <= start[r] and end[r] <= hi and \
+                    first_use.get(r, never) >= start[r]
+                if not within and start[r] <= hi and end[r] >= lo:
+                    start[r] = min(start[r], lo)
+                    end[r] = max(end[r], hi)
+
+        intervals = sorted((start[r], end[r], r) for r in temps)
+        free = list(range(npinned, npinned + len(temps) + 1))
         heapq.heapify(free)
         active, mapping = [], {}
-        for start, end, r in intervals:
+        for begin, finish, r in intervals:
             keep = []
             for e, ph, vr in active:
-                if e < start:                         # dead -> recycle its reg
+                if e < begin:                         # dead -> recycle its reg
                     heapq.heappush(free, ph)
                 else:
                     keep.append((e, ph, vr))
             active = keep
             ph = heapq.heappop(free)
             mapping[r] = ph
-            active.append((end, ph, r))
+            active.append((finish, ph, r))
 
         # self-check: temps sharing a physical reg must have disjoint live
         # ranges (the correctness invariant of the allocation).
@@ -376,34 +443,23 @@ class _Program:
         for r, ph in mapping.items():
             share.setdefault(ph, []).append(r)
         for ph, vrs in share.items():
-            vrs.sort(key=lambda r: first_def[r])
+            vrs.sort(key=lambda r: start[r])
             for a, b in zip(vrs, vrs[1:]):
-                assert last_use[a] < first_def[b], \
+                assert end[a] < start[b], \
                     f"register-allocation conflict on physical r{ph}"
 
         for ins in instrs:                            # remap + re-encode
-            f = dict(ins.fields)
+            f = self._remap_fields(ins.fields, mapping)
             if ins.kind == "alu":
-                if not f.get("is_export") and f.get("vector_write_mask", 0):
-                    f["vector_dest"] = mapping.get(f["vector_dest"],
-                                                   f["vector_dest"])
-                if f.get("scalar_write_mask", 0) and not f.get("is_export"):
-                    f["scalar_dest"] = mapping.get(f.get("scalar_dest", 0),
-                                                   f.get("scalar_dest", 0))
-                for i in (1, 2, 3):
-                    if f.get(f"src{i}_is_temp"):
-                        f[f"src{i}_reg"] = self._remap_src_temp(
-                            f[f"src{i}_reg"], mapping)
                 ins.triple = tuple(enc.build_alu(**f))
             else:
-                f["dest"] = mapping.get(f["dest"], f["dest"])
-                f["src"] = mapping.get(f["src"], f["src"])
                 ins.triple = tuple(enc.build_tfetch(**f)
                                    if ins.kind == "tfetch"
                                    else enc.build_vfetch_full(**f))
             ins.fields = f
+        self.whole_sources = False                    # the fields are encoded now
 
-        self._max_reg = max([ninput - 1] + list(mapping.values()))
+        self._max_reg = max([npinned - 1] + list(mapping.values()))
 
 
 class VertexProgram(_Program):
@@ -417,8 +473,10 @@ class VertexProgram(_Program):
               usage_index: int = 0) -> _Instr:
         """Template vfetch (patched at load by Xe_ShaderApplyVFetchPatches)."""
         fields = dict(template, dest=dest)
+        triple = enc.build_vfetch_full(**fields) if self._encodable(fields) else ()
         self._track_regs(fields)
-        ins = _Instr("vfetch", enc.build_vfetch_full(**fields), is_fetch=True)
+        ins = _Instr("vfetch", triple, is_fetch=True)
+        ins.fields = dict(fields)
         self._stages[-1].append(ins)
         self.vertex_elements.append(
             ce.VertexElement(0, usage, usage_index,
@@ -444,7 +502,14 @@ class VertexProgram(_Program):
                   | _USAGE_NIBBLE.get(usage, 0)))
         return ins
 
+    # A vertex shader keeps a register for each value xsc numbers unless that
+    # runs past r63; then dead temporaries are recycled, as a pixel shader's
+    # are past 16, so every vertex shader that fit compiles as it did.
+    ALLOCATE_PAST = 64
+
     def finish(self, constants: list) -> bytes:
+        if self._max_reg + 1 > self.ALLOCATE_PAST:
+            self._allocate_registers()                # recycle dead temps
         check_registers("vertex", self._max_reg, self.registers)
         ucode = self._build_ucode()
         for ins_list in self._stages:
@@ -493,8 +558,9 @@ class PixelProgram(_Program):
 
     def tfetch(self, template: dict, dest: int, src: int) -> _Instr:
         fields = dict(template, dest=dest, src=src)
+        triple = enc.build_tfetch(**fields) if self._encodable(fields) else ()
         self._track_regs(fields)
-        ins = _Instr("tfetch", enc.build_tfetch(**fields), is_fetch=True)
+        ins = _Instr("tfetch", triple, is_fetch=True)
         ins.fields = dict(fields)
         self._stages[-1].append(ins)
         return ins

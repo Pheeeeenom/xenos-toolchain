@@ -75,7 +75,7 @@ against the corpus as test vectors.
 | `mat3` / `mat2` × vec | per-row `dp3` / `dp2add` (matrix uploaded as rows, same as mat4) |
 | `textureLod` / `texture(…,bias)` | constant LOD folded into the tfetch LOD-bias field (1/16 units) |
 | `textureProj` | perspective divide `uv·rcp(w)` then `tfetch2D` |
-| `texture()` with a computed coord | coord expression emitted, then tfetch (not just bare interpolators) |
+| `texture()` with a computed coord | coord expression emitted, then tfetch (not just bare interpolators); a coord from another sample (a dependent read) has that sample fetched first |
 | `CompositeInsert` (`v[i] = x`) | copy + masked component mov |
 | uniform-array loop `for(i<n) sum += w[i]` | real loop; body `add acc, acc, c[base+aL]` (aL-relative array read) |
 | `for(i<n){ …; if(acc.c CMP k) break; }` | body `setp_*` + a predicated LOOP_END (data-dependent break) |
@@ -171,11 +171,18 @@ share raises `RegisterBudgetError`.
 
 `xasm/program.py` runs a **linear-scan register allocator** in
 `PixelProgram.finish()` whenever a shader needs >16 registers, whatever the
-budget: it recycles dead temporaries (live range = first def → last use), pins
-the read-only interpolator inputs, and packs everything into the minimum
-register count (e.g. `invtrig` 33→6, `mathfns` 20→6). Shaders already within
-16 are left byte-for-byte unchanged. A self-check asserts no two
-simultaneously-live temps share a register.
+budget, and in `VertexProgram.finish()` whenever one needs >64, the most an
+instruction names: it recycles dead temporaries (live range = first def → last
+use), pins the read-only interpolator inputs and pixel parameters and a vertex
+shader's vertex index in r0, keeps a temp live across a hardware loop's back
+edge for the whole loop, and packs everything into the minimum register count
+(e.g. `invtrig` 33→6, `mathfns` 20→6). Shaders already within 16 (pixel) or 64
+(vertex) are left byte-for-byte unchanged. A self-check asserts no two
+simultaneously-live temps share a register. xsc numbers a temp for each value,
+so its programs hold whole registers in their instructions' fields, encoded
+once the allocator has packed them (`whole_sources`, `ABS_SOURCE`).
+`tests/test_register_alloc.py` checks a vertex shader of 145 temps on
+`xdis/simulate.py`, which runs a program's ALU, fetches and exports on the CPU.
 
 ## Loops (unrolling + mem2reg)
 

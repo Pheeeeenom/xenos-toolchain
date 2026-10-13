@@ -27,7 +27,7 @@ from xsc.templates import templates  # noqa: E402
 from xsc.unroll import UnrollError, unroll  # noqa: E402
 from xsc.resolve import (DEC_ARRAY_STRIDE, DEC_MATRIX_STRIDE, DEC_OFFSET, DEC_ROW_MAJOR, _decos,  # noqa: E402
                          member_decos, resolve_interface, resolve_types)
-from xasm.program import (LIBXENON_REGISTERS, PixelProgram, RegisterBudget,  # noqa: E402
+from xasm.program import (ABS_SOURCE, LIBXENON_REGISTERS, PixelProgram, RegisterBudget,  # noqa: E402
                           VertexProgram)
 
 OPOS = int(xu.ExportRegister.kVSPosition)  # 62
@@ -1687,6 +1687,7 @@ def lower_vertex(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS
     types = resolve_types(m)
     stores = _store_map(m)
     p = VertexProgram(registers)
+    p.whole_sources = True                        # temps run past r63 till the allocator packs them
 
     # --- phase 1: vfetch every input, input n into rn ---
     # r0 also holds the vertex index every fetch reads, so the fetch that overwrites it goes last: Xenia reads the index
@@ -2110,6 +2111,7 @@ def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTE
     types = resolve_types(m)
     stores = _store_map(m)
     p = PixelProgram(registers)
+    p.whole_sources = True                        # temps run past r63 till the allocator packs them
 
     interp_reg = {}
     maxr = -1
@@ -2147,7 +2149,7 @@ def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTE
     if param_reg is not None:
         # Vulkan's gl_FragCoord is the pixel's centre, the column and row plus 0.5 (|xy|: the sign bits are flags).
         coord = ctx.fresh()
-        ctx.emit(_V.kAdd, {1: (("reg", param_reg | 0x80), False),
+        ctx.emit(_V.kAdd, {1: (("reg", param_reg | ABS_SOURCE), False),
                            2: (("const", ctx.literal_reg((0.5, 0.5, 0.5, 0.5))), False)}, coord, False, mask=0x3)
         interp_reg[si.frag_coord.vid] = coord
 
@@ -2209,6 +2211,9 @@ def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTE
             rest = list(ins.operands[2:])
             if rest and (rest[0] & 0x3) and len(rest) > 1:
                 lod_bias = ctx.const_scalar(rest[1])
+            # A coord computed from another sample (a dependent read, as GX's
+            # indirect texturing makes) has that sample fetched first.
+            gather(coord)
             # Coord resolves through operand(): an interpolator Load returns its
             # register with no extra ALU (texture2D stays byte-identical), while
             # a computed coord (e.g. uv*2, or the projective divide) is emitted.
@@ -2225,7 +2230,7 @@ def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTE
                         ctx.swz([1, 0, 2, 2])),   # .yxzz
                 },
                          cube, False)
-                ctx.emit_scalar(_S.kRcp, cube, ("reg", cube | 0x80),
+                ctx.emit_scalar(_S.kRcp, cube, ("reg", cube | ABS_SOURCE),
                                 src_comp=2, mask=0x4)
                 bias = ("const", ctx.literal_reg((1.5, 1.5, 1.5, 1.5)))
                 ctx.emit(_V.kMad, {1: (("reg", cube), False),
