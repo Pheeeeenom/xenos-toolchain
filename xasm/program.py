@@ -34,6 +34,7 @@ if str(_ROOT) not in sys.path:
 import xdis.container_emit as ce  # noqa: E402
 import xdis.xenos_ucode as xu  # noqa: E402
 from xasm import encode as enc  # noqa: E402
+from xasm.optimize import optimize as _optimize_instructions  # noqa: E402
 
 K = xu.ControlFlowOpcode
 
@@ -143,6 +144,9 @@ class _Program:
         # the allocator packs them), the whole register with ABS_SOURCE for its
         # absolute value, encoded when the instruction is.
         self.whole_sources = False
+        # Whether finish() first rewrites the instructions (xasm/optimize.py); off, a program compiles as it always
+        # has.
+        self.optimize = False
         self._stages: list[list[_Instr]] = [[]]  # instr blocks
         self._alloc_after: dict = {}             # stage_idx -> alloc_type
         self._max_reg = 0
@@ -356,6 +360,17 @@ class _Program:
         assert len(dwords) == total_slots * 3
         return struct.pack(f">{len(dwords)}I", *dwords)
 
+    def _optimize(self):
+        """Rewrites the instructions if asked to and the program allows it, then encodes them again; the registers
+        they name are a subset of those before, so _max_reg stays a bound."""
+        if not self.optimize or not _optimize_instructions(self, ABS_SOURCE):
+            return
+        for stage in self._stages:
+            for ins in stage:
+                if ins.kind == "alu":
+                    ins.triple = tuple(enc.build_alu(**self._remap_fields(ins.fields, {}))) \
+                        if self._encodable(ins.fields) else ()
+
     def _defs_uses(self, ins):
         """Temp registers an instruction writes (defs) and reads (uses).
         Constants, the oC export, and read-only inputs are excluded from defs;
@@ -508,6 +523,7 @@ class VertexProgram(_Program):
     ALLOCATE_PAST = 64
 
     def finish(self, constants: list) -> bytes:
+        self._optimize()
         if self._max_reg + 1 > self.ALLOCATE_PAST:
             self._allocate_registers()                # recycle dead temps
         check_registers("vertex", self._max_reg, self.registers)
@@ -574,6 +590,7 @@ class PixelProgram(_Program):
     ALLOCATE_PAST = 16
 
     def finish(self, constants: list) -> bytes:
+        self._optimize()
         if self._max_reg + 1 > self.ALLOCATE_PAST:
             self._allocate_registers()                # recycle dead temps
         check_registers("pixel", self._max_reg, self.registers)

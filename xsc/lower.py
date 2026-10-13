@@ -1679,7 +1679,7 @@ class ValueLowerer:
             self.emit(_V.kMax, {1: (r, False), 2: (r, False)}, dst, export)
 
 
-def lower_vertex(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS):
+def lower_vertex(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS, optimize: bool = False):
     si = resolve_interface(m)
     if si.stage != "vertex":
         raise LowerError("lower_vertex called on non-vertex module")
@@ -1692,6 +1692,7 @@ def lower_vertex(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS
     types = resolve_types(m)
     stores = _store_map(m)
     p = VertexProgram(registers)
+    p.optimize = optimize
     p.whole_sources = True                        # temps run past r63 till the allocator packs them
 
     # --- phase 1: vfetch every input, input n into rn ---
@@ -2108,7 +2109,8 @@ def lower_fragment_real_loop(m: spirv.Module, reason: Exception | None = None,
     return p.finish(constants=constants), manifest
 
 
-def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS) -> bytes:
+def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS,
+                   optimize: bool = False) -> bytes:
     si = resolve_interface(m)
     if si.stage != "pixel":
         raise LowerError("lower_fragment called on non-pixel module")
@@ -2116,6 +2118,7 @@ def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTE
     types = resolve_types(m)
     stores = _store_map(m)
     p = PixelProgram(registers)
+    p.optimize = optimize
     p.whole_sources = True                        # temps run past r63 till the allocator packs them
 
     interp_reg = {}
@@ -2514,12 +2517,13 @@ def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTE
     return p.finish(constants=constants), ctx.lit_manifest
 
 
-def lower_ex(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS):
+def lower_ex(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS, optimize: bool = False):
     """Returns (container_bytes, literal_manifest). The manifest is
     [(constant_register, (f0,f1,f2,f3))] for GLSL literals, optionally plus
     ("loop", loop_id, uniform_name) for a real-loop trip count the host uploads
     to integer_constants[8+loop_id]. registers is the runtime's register
-    split; a shader past its kind's share raises RegisterBudgetError."""
+    split; a shader past its kind's share raises RegisterBudgetError. optimize
+    has xasm/optimize.py rewrite the instructions before they're allocated."""
     stage = "vertex" if m.entry_points[0][0] == 0 else "pixel"
     try:
         # expand constant-trip loops to straight-line SPIR-V (no-op if none)
@@ -2529,12 +2533,12 @@ def lower_ex(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS):
             return lower_fragment_real_loop(m, e, registers)
         raise LowerError(str(e)) from e
     if stage == "vertex":
-        return lower_vertex(m, registers)
-    return lower_fragment(m, registers)
+        return lower_vertex(m, registers, optimize)
+    return lower_fragment(m, registers, optimize)
 
 
-def lower(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS) -> bytes:
-    return lower_ex(m, registers)[0]
+def lower(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS, optimize: bool = False) -> bytes:
+    return lower_ex(m, registers, optimize)[0]
 
 
 def main():
@@ -2546,9 +2550,10 @@ def main():
                     help="pixel shaders' share of the register split (libxenon's by default)")
     ap.add_argument("--vertex-registers", type=int, default=LIBXENON_REGISTERS.vertex,
                     help="vertex shaders' share of the register split (libxenon's by default)")
+    ap.add_argument("--optimize", action="store_true", help="rewrite the instructions first (xasm/optimize.py)")
     args = ap.parse_args()
     m = spirv.Module.parse(Path(args.spv).read_bytes())
-    blob = lower(m, RegisterBudget(pixel=args.pixel_registers, vertex=args.vertex_registers))
+    blob = lower(m, RegisterBudget(pixel=args.pixel_registers, vertex=args.vertex_registers), args.optimize)
     if args.out:
         Path(args.out).write_bytes(blob)
         print(f"wrote {args.out} ({len(blob)} B)")

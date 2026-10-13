@@ -185,6 +185,11 @@ buffer) and load the output with `Xe_LoadShaderFromMemory`.
 5. **Real hardware** — every milestone rendered on an RGH console; the
    on-console vfetch dump confirmed `Xe_ShaderApplyVFetchPatches` consumed
    our patch tables exactly as designed.
+6. **Optimiser equivalence** — `xasm/optimize.py` (`lower_ex(...,
+   optimize=True)`, `--optimize`) is checked by running each program before
+   and after its rewrites on random inputs (`xdis/equivalence.py`), both the
+   instructions and the allocated microcode (`tests/test_optimize.py`;
+   `tools/check_optimize.py` over a folder of shaders).
 
 No benchmarks are claimed beyond what the on-screen HUD shows in the photos.
 
