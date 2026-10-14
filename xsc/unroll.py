@@ -15,8 +15,10 @@ graph: every Function-local variable is threaded through an environment (full
 mem2reg), counted loops with a compile-time trip count are expanded in place
 (the induction variable constant-folded so `float(i)`, `i*k`, ... become
 literals), and only stores to output variables survive. The result is consumed
-by the existing (hardware-verified) lowering unchanged. Loop-free modules are
-returned untouched, so they still lower byte-for-byte as before.
+by the existing (hardware-verified) lowering unchanged. A loop-free module gets
+the same rewrite when it has no branches and stores a local more than once, as
+`x = x * k + c;` written out does; other loop-free modules are returned
+untouched, so they still lower byte-for-byte as before.
 
 Out of scope for v1 -> raises UnrollError so the caller reports rather than
 miscompiles:
@@ -54,12 +56,24 @@ class UnrollError(Exception):
 
 def unroll(m: Module) -> Module:
     """Expand constant-trip loops + mem2reg the function. Returns m (mutated).
-    A no-op returning the unchanged object when the module has no OpLoopMerge,
-    so loop-free shaders lower byte-for-byte as before."""
-    if not any(i.opcode == LOOP_MERGE for i in m.instrs):
-        return m
-    _rewrite_function(m)
+    Also mem2regs a loop-free function without branches that stores a local
+    more than once, or into one through an access chain, which the
+    straight-line lowering would read as its last store. Any other module is
+    returned unchanged, so it lowers byte-for-byte as before."""
+    if any(i.opcode == LOOP_MERGE for i in m.instrs) or _stores_locals_again(m):
+        _rewrite_function(m)
     return m
+
+
+def _stores_locals_again(m: Module) -> bool:
+    """One function, no branches, and a local stored more than once or into through an access chain."""
+    if sum(1 for i in m.instrs if i.opcode == FUNCTION) != 1 or any(i.opcode == BRANCH_COND for i in m.instrs):
+        return False
+    local_vars = {i.result_id for i in m.instrs if i.opcode == VARIABLE and i.operands[0] == STORAGE_FUNCTION}
+    chains = {i.result_id: i.operands[0] for i in m.instrs if i.opcode == ACCESS_CHAIN}
+    targets = [i.operands[0] for i in m.instrs if i.opcode == STORE]
+    stored = [t for t in targets if t in local_vars]
+    return len(stored) != len(set(stored)) or any(chains.get(t) in local_vars for t in targets)
 
 
 # ---------------------------------------------------------------- helpers
@@ -227,8 +241,11 @@ def _rewrite_function(m: Module):
                 rval = lm.get(val, env.get(val, val))
                 if tgt in func_vars:
                     env[tgt] = rval                   # mem2reg: stays in env
-                else:                                 # store to an output var
-                    emitted.append(Instr(STORE, (tgt, rval), None, None))
+                else:                                 # store to an output, or
+                    #                                   through the chain cloned
+                    #                                   for gl_Position
+                    emitted.append(Instr(STORE, (lm.get(tgt, tgt), rval),
+                                         None, None))
             elif op == ACCESS_CHAIN and ins.operands[0] in func_vars:
                 raise UnrollError("indexed access into a local not supported")
             elif op in (IADD, ISUB, IMUL, SDIV):

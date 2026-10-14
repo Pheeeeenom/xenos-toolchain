@@ -52,6 +52,31 @@ def _store_map(m: spirv.Module):
     return out
 
 
+def _check_local_stores(m: spirv.Module, local_vars, merged_local=None, merge_label=None):
+    """Refuses a local the lowering would read wrong: it reads a local as its last store (_store_map), and the
+    unroller rewrites the modules where that isn't what each load sees, but not those with branches. Left to refuse:
+    a store into part of a local, a local stored more than once beside an if/else, and the if/else's own variable,
+    merged after it, read before the merge."""
+    chains = {ins.result_id: ins.operands[0] for ins in m.instrs if ins.opcode == 65}
+    stored = set()
+    merged = False
+    for ins in m.instrs:
+        if ins.opcode == 248 and ins.result_id == merge_label:
+            merged = True
+        if ins.opcode == 61 and merged_local is not None and not merged and \
+                merged_local in (ins.operands[0], chains.get(ins.operands[0])):
+            raise LowerError(f"local %{merged_local} read before the if/else that assigns it ends")
+        if ins.opcode != 62:
+            continue
+        target = ins.operands[0]
+        if chains.get(target) in local_vars:
+            raise LowerError(f"a store into part of local %{chains[target]}")
+        if target in local_vars and target != merged_local:
+            if target in stored:
+                raise LowerError(f"local %{target} stored more than once where the unroller doesn't rewrite it")
+            stored.add(target)
+
+
 def _access_chain_base(m: spirv.Module, ptr_id: int):
     """If ptr_id is an AccessChain, return (base_var_id, [index consts])."""
     ins = m.by_result.get(ptr_id)
@@ -1707,6 +1732,7 @@ def lower_vertex(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTERS
 
     local_vars = {ins.result_id for ins in m.instrs
                   if ins.opcode == 59 and ins.operands[0] == 7}
+    _check_local_stores(m, local_vars)
     local_store = {tgt: val for tgt, val in stores.items()
                    if tgt in local_vars}
     lit_base = max(max((cs.reg + cs.regs for cs in si.constants), default=0), si.constant_end)
@@ -2399,6 +2425,12 @@ def lower_fragment(m: spirv.Module, registers: RegisterBudget = LIBXENON_REGISTE
             raise LowerError("o_color never written")
         out_val = stores[out_var]
         gather(out_val)
+    # The if/else's merge block, named by the OpSelectionMerge just before its branch.
+    merge_label = None
+    if top_brc is not None:
+        before = m.instrs[m.instrs.index(top_brc) - 1]
+        merge_label = before.operands[0] if before.opcode == 247 else None
+    _check_local_stores(m, local_vars, merged_local, merge_label)
 
     # phase 2 (after alloc_colors): arithmetic, operand-typed.
     p.alloc_colors()
