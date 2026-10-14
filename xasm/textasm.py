@@ -786,12 +786,17 @@ def assemble_file(path: str, shader_type: str, container: bool = False,
     the runtime's register split; a container past its kind's share raises
     RegisterBudgetError."""
     text = Path(path).read_text()
+    if not container:
+        return assemble_text(text, shader_type)
+    return assemble_container(text, shader_type, registers)
+
+
+def assemble_container(text: str, shader_type: str, registers=None) -> bytes:
+    """Assembles source-mode text, directives included, to a container;
+    registers as assemble_file takes them."""
     a = TextAssembler(shader_type)
     a.parse(text)
-    ucode = a.assemble()
-    if not container:
-        return ucode
-    return _emit_container(a, ucode, registers)
+    return _emit_container(a, a.assemble(), registers)
 
 
 def _emit_container(a: TextAssembler, ucode: bytes, registers=None) -> bytes:
