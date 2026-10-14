@@ -154,6 +154,10 @@ class _Program:
         self._export_stage_idx = None
         self._loops: list[tuple] = []            # (start, end, loop_id, brk, cond)
         self._loop_open = None
+        # Set once _group_fetches has laid the stages out: a stage whose ALU work runs right into two fetches or more
+        # then starts an exec wherever ALU and fetch runs meet (_exec_chunks), and what a run of fetches reads stays
+        # in its register till the run ends (_allocate_registers).
+        self._clauses = False
 
     def _src_temp_index(self, reg: int) -> int:
         return reg & (ABS_SOURCE - 1) if self.whole_sources else reg & 0x3F
@@ -255,12 +259,32 @@ class _Program:
 
     # ---- layout ----
 
+    def _exec_chunks(self, stage) -> list:
+        """A stage's execs, MAX_EXEC_COUNT instructions at most each. Once
+        _group_fetches has laid it out, a stage whose ALU work runs right into
+        two fetches or more also starts an exec wherever ALU and fetch runs
+        meet, so each run of fetches is an exec of its own, as the layout
+        measured fastest is (the SDK's docs/HARDWARE.md, "The texel rate,
+        milestone 36"). Other stages keep plain chunks: those of shaders that
+        sample only their inputs, and those whose fetches each wait on the work
+        before them, as nothing was measured to gain from it there."""
+        runs = [stage]
+        if self._clauses and any(not a.is_fetch and b.is_fetch and c.is_fetch
+                                 for a, b, c in zip(stage, stage[1:],
+                                                    stage[2:])):
+            runs = []
+            for ins in stage:
+                if runs and runs[-1][-1].is_fetch == ins.is_fetch:
+                    runs[-1].append(ins)
+                else:
+                    runs.append([ins])
+        return [run[i:i + MAX_EXEC_COUNT] for run in runs
+                for i in range(0, len(run), MAX_EXEC_COUNT)]
+
     def _cf_entry_count(self) -> int:
         n = 0
         for i, stage in enumerate(self._stages):
-            chunks = max(1, (len(stage) + MAX_EXEC_COUNT - 1)
-                         // MAX_EXEC_COUNT) if stage else 0
-            n += chunks
+            n += len(self._exec_chunks(stage))
             if i in self._alloc_after:
                 n += 1
         return n + 2 * len(self._loops)  # LOOP_START + LOOP_END per loop
@@ -283,7 +307,7 @@ class _Program:
         # the final non-empty exec chunk gets kExecEnd (ends the shader)
         last_exec = None
         for si, stage in enumerate(self._stages):
-            nch = (len(stage) + MAX_EXEC_COUNT - 1) // MAX_EXEC_COUNT
+            nch = len(self._exec_chunks(stage))
             if nch:
                 last_exec = (si, nch - 1)
 
@@ -294,8 +318,7 @@ class _Program:
                 lid = loop_start_at[si]
                 open_loops[lid] = len(cf)
                 cf.append({"t": "loop_start", "loop_id": lid, "skip": None})
-            chunks = [stage[i:i + MAX_EXEC_COUNT]
-                      for i in range(0, len(stage), MAX_EXEC_COUNT)]
+            chunks = self._exec_chunks(stage)
             for ci, chunk in enumerate(chunks):
                 is_last = (si, ci) == last_exec
                 seq = 0
@@ -371,6 +394,91 @@ class _Program:
                     ins.triple = tuple(enc.build_alu(**self._remap_fields(ins.fields, {}))) \
                         if self._encodable(ins.fields) else ()
 
+    def _group_fetches(self):
+        """Lays each stage out with the work its fetches' coordinates need
+        ahead of them and the fetches together: that work as soon as it's
+        ready, then every fetch that's ready, again for fetches that read what
+        others fetched, then the rest in its own order. Four fetches each
+        after its own coordinate's add, the coordinates sharing a register,
+        sampled 10 texels a clock on the console; the adds first and the
+        fetches together, 16, the texture units' rate (the SDK's
+        docs/HARDWARE.md, "The texel rate, milestone 36")."""
+        for si, stage in enumerate(self._stages):
+            if any(ins.is_fetch for ins in stage):
+                self._stages[si] = self._fetches_grouped(stage)
+        self._clauses = True
+
+    _STATE_FETCHES = frozenset(int(o) for o in (
+        xu.FetchOpcode.kSetTextureLod, xu.FetchOpcode.kSetTextureGradientsHorz,
+        xu.FetchOpcode.kSetTextureGradientsVert))
+
+    def _ordered(self, a, b) -> bool:
+        """Whether b, after a, must stay after it for what their registers
+        don't show: the predicate, the scalar unit's previous result, a fetch
+        that sets state the next fetches read, and the exports' order."""
+        fa, fb = a.fields, b.fields
+        if _modifies_predicate(a) and (fb.get("is_predicated")
+                                       or _modifies_predicate(b)):
+            return True
+        if fa.get("is_predicated") and _modifies_predicate(b):
+            return True
+        retain = int(xu.AluScalarOpcode.kRetainPrev)
+        if a.kind == "alu" and b.kind == "alu" \
+                and int(fa.get("scalar_opcode", retain)) != retain \
+                and int(fb.get("scalar_opcode", retain)) != retain:
+            return True
+        if a.is_fetch and b.is_fetch and (
+                int(fa.get("opcode", 0)) in self._STATE_FETCHES
+                or int(fb.get("opcode", 0)) in self._STATE_FETCHES):
+            return True
+        return bool(fa.get("is_export") and fb.get("is_export"))
+
+    def _fetches_grouped(self, stage) -> list:
+        n = len(stage)
+        regs = [tuple(map(set, self._defs_uses(ins))) for ins in stage]
+        # the instructions each must follow: its registers' writers and
+        # readers before it, and those _ordered keeps before it
+        after = [set() for _ in range(n)]
+        for j in range(n):
+            dj, uj = regs[j]
+            for i in range(j):
+                di, ui = regs[i]
+                if di & uj or ui & dj or di & dj or \
+                        self._ordered(stage[i], stage[j]):
+                    after[j].add(i)
+        needs = [set() for _ in range(n)]
+        for j in range(n):
+            for i in after[j]:
+                needs[j] |= needs[i] | {i}
+        done, order = set(), []
+
+        def take(k):
+            done.add(k)
+            order.append(k)
+
+        def ready(k):
+            return k not in done and after[k] <= done
+
+        while any(ins.is_fetch and k not in done
+                  for k, ins in enumerate(stage)):
+            wanted = set().union(*(needs[k] for k, ins in enumerate(stage)
+                                   if ins.is_fetch and k not in done))
+            taken = len(order)
+            more = True
+            while more:                         # the work fetches need
+                more = False
+                for k in range(n):
+                    if k in wanted and not stage[k].is_fetch and ready(k):
+                        take(k)
+                        more = True
+            for k in range(n):                  # then the fetches ready
+                if stage[k].is_fetch and ready(k):
+                    take(k)
+            if len(order) == taken:             # never, but never stall
+                take(min(k for k in range(n) if ready(k)))
+        order += [k for k in range(n) if k not in done]
+        return [stage[k] for k in order]
+
     def _defs_uses(self, ins):
         """Temp registers an instruction writes (defs) and reads (uses).
         Constants, the oC export, and read-only inputs are excluded from defs;
@@ -415,6 +523,22 @@ class _Program:
             for r in d:
                 first_def.setdefault(r, idx)
                 last_use[r] = max(last_use.get(r, idx), idx)
+        if self._clauses:
+            # Once _group_fetches has laid them out, what a run of fetches
+            # reads stays in its register till the run ends, as in the layout
+            # measured fastest, so no fetch in it writes another's coordinates.
+            stage_of = [si for si, stage in enumerate(self._stages)
+                        for _ in stage]
+            run_end = {}
+            for idx in range(len(instrs) - 1, -1, -1):
+                if instrs[idx].is_fetch:
+                    nxt = idx + 1
+                    run_end[idx] = run_end[nxt] if nxt < len(instrs) and \
+                        instrs[nxt].is_fetch and \
+                        stage_of[nxt] == stage_of[idx] else idx
+            for idx, end in run_end.items():
+                for r in self._defs_uses(instrs[idx])[1]:
+                    last_use[r] = max(last_use[r], end)
 
         never = len(instrs)
         pinned = {r for r in last_use if r not in first_def} | \
@@ -592,6 +716,8 @@ class PixelProgram(_Program):
 
     def finish(self, constants: list) -> bytes:
         self._optimize()
+        if self.whole_sources:                        # xsc's: fetches together
+            self._group_fetches()
         if self.whole_sources or self._max_reg + 1 > self.ALLOCATE_PAST:
             self._allocate_registers()                # recycle dead temps
         check_registers("pixel", self._max_reg, self.registers)
