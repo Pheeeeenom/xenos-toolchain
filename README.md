@@ -2,6 +2,9 @@
   <img src="assets/xost.png" alt="xost" width="640">
 </div>
 
+> **xost is now part of xsdk:** [github.com/xenosworks/xsdk](https://github.com/xenosworks/xsdk), in
+> `xenos-toolchain/`, since 2026-10-14. This repository is archived as it was then, history included.
+
 # xost (working title)
 
 > **Name is TBD** — "xost" = Xenos Open Shader Toolchain, a placeholder until a
