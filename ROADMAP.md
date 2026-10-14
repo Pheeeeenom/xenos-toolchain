@@ -86,7 +86,10 @@ dashboard as the OS shell.
   no feature claimed that isn't tested.
 - **Code the GPU runs fast** — measured on the console through the SDK
   (2026-10-13): every program xsc lowers is register-packed, which sped a
-  four-sample pixel shader up 1.6-1.8 times. Still to do: scalar ops co-issued
+  four-sample pixel shader up 1.6-1.8 times. Since 2026-10-14 a pixel
+  shader's fetches go together, after the work their coordinates need: four
+  samples at coordinates a shader works out ran 10.2 texels a clock and now
+  15.9, the texture units' 16. Still to do: scalar ops co-issued
   beside vector ones (a scalar chain lowers as `.xxxx` vector ops), and a vec4
   plus a float in one add (it lowers as four, a component each).
 

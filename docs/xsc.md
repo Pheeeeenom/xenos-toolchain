@@ -76,7 +76,7 @@ against the corpus as test vectors.
 | `mat3` / `mat2` × vec | per-row `dp3` / `dp2add` (matrix uploaded as rows, same as mat4) |
 | `textureLod` / `texture(…,bias)` | constant LOD folded into the tfetch LOD-bias field (1/16 units) |
 | `textureProj` | perspective divide `uv·rcp(w)` then `tfetch2D` |
-| `texture()` with a computed coord | coord expression emitted, then tfetch (not just bare interpolators); a coord from another sample (a dependent read) has that sample fetched first |
+| `texture()` with a computed coord | coord expression emitted, then tfetch (not just bare interpolators); a coord from another sample (a dependent read) has that sample fetched first; in a pixel shader the coords' work goes first and the fetches together (see Fetch layout) |
 | `CompositeInsert` (`v[i] = x`) | copy + masked component mov |
 | uniform-array loop `for(i<n) sum += w[i]` | real loop; body `add acc, acc, c[base+aL]` (aL-relative array read) |
 | `for(i<n){ …; if(acc.c CMP k) break; }` | body `setp_*` + a predicated LOOP_END (data-dependent break) |
@@ -186,6 +186,23 @@ so its programs hold whole registers in their instructions' fields, encoded
 once the allocator has packed them (`whole_sources`, `ABS_SOURCE`).
 `tests/test_register_alloc.py` checks a vertex shader of 145 temps on
 `xdis/simulate.py`, which runs a program's ALU, fetches and exports on the CPU.
+
+## Fetch layout
+
+Before allocation, `xasm/program.py`'s `_group_fetches` lays out each block of
+a pixel shader xsc lowers: the work its fetches' coordinates need as soon as
+it's ready, then every fetch that's ready, again for fetches reading what
+others fetched, then the rest in its own order. A block whose ALU work runs
+into two fetches or more starts an exec wherever ALU and fetch runs meet, and
+the allocator keeps what a run of fetches reads till the run ends, so no fetch
+in it writes another's coordinates. Before, xsc emitted each sample's
+coordinate work, then its fetch, and packing let the coordinates share one
+register: four samples a texel apart ran 10.2 texels a clock on the console
+that way, and 15.9 laid out (the texture units' 16; xsdk:docs/HARDWARE.md,
+milestone 36). Shaders whose fetches read only their interpolators or pixel
+parameters lower byte for byte as before, and so does a lone fetch after its
+coordinate's work. `tests/test_fetch_layout.py` checks the layout, the
+simulator's results and those shaders.
 
 ## Loops (unrolling + mem2reg)
 
