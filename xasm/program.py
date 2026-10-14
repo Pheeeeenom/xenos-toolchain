@@ -517,14 +517,14 @@ class VertexProgram(_Program):
                   | _USAGE_NIBBLE.get(usage, 0)))
         return ins
 
-    # A vertex shader keeps a register for each value xsc numbers unless that
-    # runs past r63; then dead temporaries are recycled, as a pixel shader's
-    # are past 16, so every vertex shader that fit compiles as it did.
+    # A hand-built vertex shader keeps its registers unless they run past r63,
+    # so each compiles as it did; xsc's are always packed (whole_sources), as
+    # fewer registers a thread let more threads run.
     ALLOCATE_PAST = 64
 
     def finish(self, constants: list) -> bytes:
         self._optimize()
-        if self._max_reg + 1 > self.ALLOCATE_PAST:
+        if self.whole_sources or self._max_reg + 1 > self.ALLOCATE_PAST:
             self._allocate_registers()                # recycle dead temps
         check_registers("vertex", self._max_reg, self.registers)
         ucode = self._build_ucode()
@@ -585,13 +585,14 @@ class PixelProgram(_Program):
         self._alloc(2)
 
     # Past libxenon's 16 registers, dead temporaries are recycled first (see
-    # docs/xsc.md "the frontier"), whatever the budget, so every shader that
-    # fit 16 compiles as it did before budgets.
+    # docs/xsc.md "the frontier"), whatever the budget, so every hand-built
+    # shader that fit 16 compiles as it did before budgets; xsc's are always
+    # packed (whole_sources), as fewer registers a thread let more threads run.
     ALLOCATE_PAST = 16
 
     def finish(self, constants: list) -> bytes:
         self._optimize()
-        if self._max_reg + 1 > self.ALLOCATE_PAST:
+        if self.whole_sources or self._max_reg + 1 > self.ALLOCATE_PAST:
             self._allocate_registers()                # recycle dead temps
         check_registers("pixel", self._max_reg, self.registers)
         ucode = self._build_ucode()

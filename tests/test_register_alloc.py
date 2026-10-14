@@ -82,19 +82,18 @@ def check_many_live():
         failures.append("vk_many_live.vert: XenosRecomp rejected it")
 
     # Without the allocator, a vertex shader past r63 is refused.
-    saved = program.VertexProgram.ALLOCATE_PAST
-    program.VertexProgram.ALLOCATE_PAST = 1 << 20
+    original = program._Program._allocate_registers
+    program._Program._allocate_registers = lambda self: None
     try:
         lowered("vk_many_live.vert.spv")
         failures.append("vk_many_live.vert: lowered without the allocator, past r63")
     except RegisterBudgetError as error:
         print(f"  PASS without the allocator it's refused: {error}")
     finally:
-        program.VertexProgram.ALLOCATE_PAST = saved
+        program._Program._allocate_registers = original
 
     # An allocation that gives one source the wrong register is seen by the numbers: the last add of two temps reads
     # its first operand twice.
-    original = program._Program._allocate_registers
 
     def corrupted(self):
         original(self)

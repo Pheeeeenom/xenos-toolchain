@@ -258,9 +258,9 @@ def check_block_literals():
 
 
 def check_fetch_order():
-    """Input n goes to rn, and r0 holds the vertex index each fetch reads as it runs
-    (xenia:src/xenia/gpu/dxbc_shader_translator_fetch.cc:80-88), so the fetch into r0 comes last. Fetched first, it
-    made vulkan4xenon's vkbench sprites read their uv and colour, in Xenia, from the vertex their x position named."""
+    """r0 holds the vertex index each fetch reads as it runs (xenia:src/xenia/gpu/dxbc_shader_translator_fetch.cc:80-88),
+    so the fetch into r0 comes last; the allocator packs the others where it likes. Fetched first, it made
+    vulkan4xenon's vkbench sprites read their uv and colour, in Xenia, from the vertex their x position named."""
     blob = lower(module("vk_three_inputs.vert.spv"))
     c = container.Container(blob)
     text = xu.disassemble(c.ucode_dwords, c.shader_type)
@@ -268,11 +268,11 @@ def check_fetch_order():
     fetches = [o[1].rstrip(",") for o in operands]
     indices = [o[2].rstrip(",") for o in operands]
     oracle_ok = oracle_hlsl(blob, "vk_three_inputs_vert") is not None
-    if fetches != ["r2", "r1", "r0"] or any(i != "r0.x" for i in indices) or not oracle_ok:
-        print(f"  FAIL vk_three_inputs.vert: fetches into {fetches} by {indices}, want r2, r1 then r0 by r0.x; "
-              "or the oracle rejected it")
+    if len(set(fetches)) != 3 or fetches[-1] != "r0" or any(i != "r0.x" for i in indices) or not oracle_ok:
+        print(f"  FAIL vk_three_inputs.vert: fetches into {fetches} by {indices}, want three registers, r0 last, "
+              "each by r0.x; or the oracle rejected it")
         return False
-    print("  PASS vk_three_inputs.vert: fetches into r2, r1 then r0, each by r0.x; oracle OK")
+    print(f"  PASS vk_three_inputs.vert: fetches into {', '.join(fetches)}, r0 last, each by r0.x; oracle OK")
     return True
 
 

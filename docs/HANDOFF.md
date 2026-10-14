@@ -34,7 +34,7 @@ breadth below. Renders a real app: mupen64-360's shaders go through it.
 
 1. **The 16-GPR ceiling is a silent GPU hang.** Pixel shaders have r0..r15.
    Exceeding it does not error — it *hangs the console*. `program.py`'s
-   linear-scan allocator (`PixelProgram.finish`, runs only when over budget)
+   linear-scan allocator (`PixelProgram.finish`, on every program xsc lowers)
    keeps shaders inside it. `scalar_dest` (rcp/sqrt/sin/cos results) **must** be
    counted toward the GPR total — forgetting it under-declares and hangs.
 

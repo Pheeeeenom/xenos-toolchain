@@ -170,15 +170,17 @@ split: `LIBXENON_REGISTERS` by default, `XSDK_REGISTERS` for xsdk's titles
 --vertex-registers 64` on `xsc.lower` and `xasm.textasm`). A shader past its
 share raises `RegisterBudgetError`.
 
-`xasm/program.py` runs a **linear-scan register allocator** in
-`PixelProgram.finish()` whenever a shader needs >16 registers, whatever the
-budget, and in `VertexProgram.finish()` whenever one needs >64, the most an
-instruction names: it recycles dead temporaries (live range = first def → last
-use), pins the read-only interpolator inputs and pixel parameters and a vertex
-shader's vertex index in r0, keeps a temp live across a hardware loop's back
-edge for the whole loop, and packs everything into the minimum register count
-(e.g. `invtrig` 33→6, `mathfns` 20→6). Shaders already within 16 (pixel) or 64
-(vertex) are left byte-for-byte unchanged. A self-check asserts no two
+`xasm/program.py` runs a **linear-scan register allocator** in `finish()` on
+every program xsc lowers, and on a hand-built one only when it needs >16
+registers (pixel) or >64 (vertex, the most an instruction names), so those
+compile byte-for-byte as before: it recycles dead temporaries (live range =
+first def → last use), pins the read-only interpolator inputs and pixel
+parameters and a vertex shader's vertex index in r0, keeps a temp live across a
+hardware loop's back edge for the whole loop, and packs everything into the
+minimum register count (e.g. `invtrig` 33→6, `mathfns` 20→6). Fewer registers a
+thread let the GPU keep more threads in flight: packed, a pixel shader taking
+four samples went from 12 registers to 6, and sampled 1.6-1.8 times as fast on
+the console. A self-check asserts no two
 simultaneously-live temps share a register. xsc numbers a temp for each value,
 so its programs hold whole registers in their instructions' fields, encoded
 once the allocator has packed them (`whole_sources`, `ABS_SOURCE`).

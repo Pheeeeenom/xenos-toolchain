@@ -8,6 +8,7 @@ checks them against the hardware-proven hand-built equivalents:
   - spincube.vert must be oracle-equivalent to xost_vs2 (XenosRecomp accepts
     it and emits the mvp dp4 transform + passthrough interpolators).
 """
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -25,6 +26,13 @@ RECOMP = (ROOT / "reference" / "XenosRecomp" / "build" / "XenosRecomp" /
           "XenosRecomp.exe")
 SHADER_COMMON = (ROOT / "reference" / "XenosRecomp" / "XenosRecomp" /
                  "shader_common.h")
+
+
+def found(needle, text):
+    """Whether text has needle, any register standing for each rN in it: the allocator numbers a program's registers
+    as it packs them, so a check names the instructions, not their registers."""
+    pattern = re.sub(r"\br\d+\b", lambda _: r"r\d+", re.escape(needle))
+    return re.search(pattern, text) is not None
 
 
 def compile_glsl(name):
@@ -170,7 +178,7 @@ def main():
         print("  FAIL blend.frag: XenosRecomp rejected it")
     else:
         need = ["r1.xyzw + -r2.xyzw", "* u_blend.xyzw + r2.xyzw"]
-        miss = [s for s in need if s not in bhlsl]
+        miss = [s for s in need if not found(s, bhlsl)]
         if miss:
             ok = False
             print(f"  FAIL blend.frag mix() decomposition wrong: missing "
@@ -188,7 +196,7 @@ def main():
     else:
         need = ["oC0.xyz = max(r3.xyz", "r2.xyzw * r1.xyzw",
                 "oC0.w = max(r2.w"]
-        miss = [s for s in need if s not in thlsl]
+        miss = [s for s in need if not found(s, thlsl)]
         if miss:
             ok = False
             print(f"  FAIL tint.frag swizzle/construct wrong: missing {miss}")
@@ -202,7 +210,7 @@ def main():
         (TD / "blend50.frag.spv").read_bytes()))
     b50hl = oracle_hlsl(bl50, "blend50_frag")
     want_man = [(0, (0.5, 0.5, 0.5, 0.5))]
-    if b50hl is None or "_lit0.xyzw + r2.xyzw" not in b50hl or \
+    if b50hl is None or not found("_lit0.xyzw + r2.xyzw", b50hl) or \
             manifest != want_man:
         ok = False
         print(f"  FAIL blend50.frag: literal pool wrong (manifest {manifest})")
@@ -217,7 +225,7 @@ def main():
     l01hl = oracle_hlsl(lit01, "lit01_frag")
     need = ["oC0.z = 0.0", "oC0.w = 1.0",
             "oC0.x = max(", "oC0.y = max("]
-    miss = [s for s in need if not l01hl or s not in l01hl]
+    miss = [s for s in need if not l01hl or not found(s, l01hl)]
     has_lit = l01hl and "_lit" in l01hl
     if l01hl is None or miss or l01man != [] or has_lit:
         ok = False
@@ -237,7 +245,7 @@ def main():
     ]:
         blob = compile_glsl(f"{name}.frag")
         h = oracle_hlsl(blob, f"{name}_frag")
-        if h is None or needle not in h:
+        if h is None or not found(needle, h):
             ok = False
             print(f"  FAIL {name}.frag: {desc}")
         else:
@@ -246,7 +254,7 @@ def main():
     # control flow: if/else select -> branch-free cnd op (no jumps)
     cfif = compile_glsl("cf_if.frag")
     chl = oracle_hlsl(cfif, "cf_if_frag")
-    if chl is None or "select(r3.xyzw > 0.0, r1.xyzw, r2.xyzw)" not in chl:
+    if chl is None or not found("select(r3.xyzw > 0.0, r1.xyzw, r2.xyzw)", chl):
         ok = False
         print("  FAIL cf_if.frag: if/else cnd select wrong")
     else:
@@ -256,8 +264,8 @@ def main():
     # nested if/else -> chained cnd selects (inner select feeds the outer)
     nif = compile_glsl("nested_if.frag")
     nhl = oracle_hlsl(nif, "nested_if_frag")
-    if nhl is None or "r4.xyzw = select(r5" not in nhl or \
-            "oC0.xyzw = select(r3" not in nhl:
+    if nhl is None or not found("r4.xyzw = select(r5", nhl) or \
+            not found("oC0.xyzw = select(r3", nhl):
         ok = False
         print("  FAIL nested_if.frag: nested if/else chained-select wrong")
     else:
@@ -269,7 +277,7 @@ def main():
     fblh = oracle_hlsl(fbl, "fs_branch_local_frag")
     need = ["r3.xyzw = select(r4.xyzw > 0.0, r2.xyzw, r1.xyzw)",
             "oC0.xyzw = r3.xyzw * r1.xyzw"]
-    miss = [s for s in need if not fblh or s not in fblh]
+    miss = [s for s in need if not fblh or not found(s, fblh)]
     if fblh is None or miss:
         ok = False
         print(f"  FAIL fs_branch_local.frag: local select merge wrong "
@@ -285,7 +293,7 @@ def main():
     need = ["clip(any(_lit0.x > r0.x) ? -1 : 1)",
             "oC0.xyzw = r2.xyzw * r1.xyzw"]
     want_man = [(0, (0.5, 0.5, 0.5, 0.5))]
-    miss = [s for s in need if not fdkh or s not in fdkh]
+    miss = [s for s in need if not fdkh or not found(s, fdkh)]
     if fdkh is None or miss or dkman != want_man:
         ok = False
         print(f"  FAIL fs_discard.frag: discard kill wrong "
@@ -324,7 +332,7 @@ def main():
             "r2.yxw, cubeMapData).xyzw",
             "oC0.xyzw = max(r1.xyzw, r1.xyzw)"]
     want_man = [(0, (1.5, 1.5, 1.5, 1.5))]
-    miss = [s for s in need if not fchl or s not in fchl]
+    miss = [s for s in need if not fchl or not found(s, fchl)]
     body_has_2d = fchl and \
         "tfetch2D(tex0_Texture2DDescriptorIndex" in fchl
     _fcube, fcman = lower_ex(spirv.Module.parse(
@@ -347,7 +355,7 @@ def main():
     ]:
         blob = compile_glsl(f"{name}.frag")
         h = oracle_hlsl(blob, f"{name}_frag")
-        if h is None or needle not in h:
+        if h is None or not found(needle, h):
             ok = False
             print(f"  FAIL {name}.frag: {desc}")
         else:
@@ -365,7 +373,7 @@ def main():
     ]:
         blob = compile_glsl(f"{name}.frag")
         h = oracle_hlsl(blob, f"{name}_frag")
-        miss = [s for s in needles if not h or s not in h]
+        miss = [s for s in needles if not h or not found(s, h)]
         if h is None or miss:
             ok = False
             print(f"  FAIL {name}.frag: {desc} (missing {miss})")
@@ -390,7 +398,7 @@ def main():
     ]:
         blob = compile_glsl(f"{name}.frag")
         h = oracle_hlsl(blob, f"{name}_frag")
-        miss = [s for s in needles if not h or s not in h]
+        miss = [s for s in needles if not h or not found(s, h)]
         if h is None or miss:
             ok = False
             print(f"  FAIL {name}.frag: {desc} (missing {miss})")
@@ -442,7 +450,7 @@ def main():
             "r2.xyzw = _lit0.xyzw + -_lit0.xyzw",
             "r2.xyzw = r2.xyzw + _lit0.xyzw",
             "oC0.xyzw = max(r2.xyzw, r2.xyzw)"]
-    miss = [s for s in need if not lhlsl or s not in lhlsl]
+    miss = [s for s in need if not lhlsl or not found(s, lhlsl)]
     if lhlsl is None or miss or lman != want_man or not cf_ok:
         ok = False
         print(f"  FAIL loop_uniform.frag: real loop wrong "
@@ -459,7 +467,7 @@ def main():
     ladis = xu.disassemble(container.Container(lablob).ucode_dwords, "pixel")
     la_cf = [o[0] for o in cf_ops(lablob)]
     want_laman = [("array", 1, 4, "u_w"), ("loop", 0, "u_count")]
-    if lah is None or "+aL]" not in ladis or laman != want_laman or \
+    if lah is None or not found("+aL]", ladis) or laman != want_laman or \
             "loop_start" not in la_cf:
         ok = False
         print(f"  FAIL loop_array.frag: aL-relative array loop wrong "
@@ -474,7 +482,7 @@ def main():
     lbblob, lbman = lower_ex(lb)
     lbh = oracle_hlsl(lbblob, "loop_break_frag")
     lbdis = xu.disassemble(container.Container(lbblob).ucode_dwords, "pixel")
-    if lbh is None or "setp_gt" not in lbdis or "(p0) endloop" not in lbdis:
+    if lbh is None or not found("setp_gt", lbdis) or not found("(p0) endloop", lbdis):
         ok = False
         print(f"  FAIL loop_break.frag: predicated while-break wrong "
               f"(oracle={'OK' if lbh else 'REJECTED'})")
@@ -500,8 +508,8 @@ def main():
     # dot(): luminance desaturation (vec3 dot -> dp3, broadcast scalar)
     gray = compile_glsl("gray.frag")
     ghl = oracle_hlsl(gray, "gray_frag")
-    if ghl is None or "dot(r2.xyz, _lit0.xyz)" not in ghl or \
-            "oC0.xyz = max(r3.xyz" not in ghl:
+    if ghl is None or not found("dot(r2.xyz, _lit0.xyz)", ghl) or \
+            not found("oC0.xyz = max(r3.xyz", ghl):
         ok = False
         print("  FAIL gray.frag: dot()/dp3 desaturation wrong")
     else:
@@ -511,7 +519,7 @@ def main():
     # clamp(x,0,1) -> free saturate modifier (no extra instruction)
     sat = compile_glsl("sat.frag")
     shl = oracle_hlsl(sat, "sat_frag")
-    if shl is None or "saturate(r2.xyzw + r1.xyzw)" not in shl:
+    if shl is None or not found("saturate(r2.xyzw + r1.xyzw)", shl):
         ok = False
         print("  FAIL sat.frag: clamp->saturate wrong")
     else:
@@ -521,7 +529,7 @@ def main():
     # VectorTimesScalar: modulate by a scalar uniform (.xxxx broadcast)
     bright = compile_glsl("bright.frag")
     bhl = oracle_hlsl(bright, "bright_frag")
-    if bhl is None or "u_brightness.xxxx" not in bhl:
+    if bhl is None or not found("u_brightness.xxxx", bhl):
         ok = False
         print("  FAIL bright.frag: VectorTimesScalar broadcast wrong")
     else:
@@ -536,7 +544,7 @@ def main():
     want_ops = {111, 128, 132}     # ConvertSToF, IAdd, IMul
     want_man = [(0, (0.875, 0.875, 0.875, 0.875))]
     need = ["oC0.xyzw = r0.xyzw * _lit0.xxxx"]
-    miss = [s for s in need if not imhl or s not in imhl]
+    miss = [s for s in need if not imhl or not found(s, imhl)]
     if imhl is None or miss or imman != want_man or not want_ops <= have_ops:
         ok = False
         print(f"  FAIL intmix.frag: int->float fold wrong "
@@ -559,7 +567,7 @@ def main():
             "r4.xyzw = r3.xyzw + _lit1.xyzw",
             "r5.xyzw = r4.xyzw * _lit2.xyzw",
             "oC0.w = 1.0", "oC0.xyz = max(r5.xyz, r5.xyz)"]
-    miss = [s for s in need if not ibhl or s not in ibhl]
+    miss = [s for s in need if not ibhl or not found(s, ibhl)]
     if ibhl is None or miss or ibman != want_man or not want_ops <= have_ops:
         ok = False
         print(f"  FAIL intbucket.frag: float-backed int wrong "
@@ -584,7 +592,7 @@ def main():
         blob = compile_glsl(f"{name}.frag")
         h = oracle_hlsl(blob, name)
         dis = xu.disassemble(container.Container(blob).ucode_dwords, "pixel")
-        miss = [s for s in needles if s not in dis]
+        miss = [s for s in needles if not found(s, dis)]
         if h is None or miss:
             ok = False
             print(f"  FAIL {name}.frag: {desc} "
@@ -602,7 +610,7 @@ def main():
         blob = compile_glsl(f"{name}.frag")
         h = oracle_hlsl(blob, name)
         dis = xu.disassemble(container.Container(blob).ucode_dwords, "pixel")
-        miss = [s for s in needles if s not in dis]
+        miss = [s for s in needles if not found(s, dis)]
         if h is None or miss:
             ok = False
             print(f"  FAIL {name}.frag: {desc} "
@@ -616,7 +624,7 @@ def main():
         blob = compile_glsl(f"{name}.frag")
         h = oracle_hlsl(blob, name)
         dis = xu.disassemble(container.Container(blob).ucode_dwords, "pixel")
-        if h is None or "getGradients" not in dis:
+        if h is None or not found("getGradients", dis):
             ok = False
             print(f"  FAIL {name}.frag: derivatives "
                   f"(oracle={'OK' if h else 'REJECTED'})")
@@ -632,7 +640,7 @@ def main():
     else:
         need = ["dot(r0.xyzw, u_mvp(0)", "dot(r0.xyzw, u_mvp(3)",
                 "oTexCoord0", "oColor0"]
-        miss = [s for s in need if s not in hlsl]
+        miss = [s for s in need if not found(s, hlsl)]
         if miss:
             ok = False
             print(f"  FAIL spincube.vert HLSL missing {miss}")
@@ -650,7 +658,7 @@ def main():
         need = ["dot(r0.xyzw, u_model(0)", "r3.w = dot(r0.xyzw, u_model(3)",
                 "dot(r3.xyzw, u_viewproj(0)",
                 "dot(r3.xyzw, u_viewproj(3)", "oTexCoord0", "oColor0"]
-        miss = [s for s in need if s not in chlsl]
+        miss = [s for s in need if not found(s, chlsl)]
         if miss:
             ok = False
             print(f"  FAIL chainmat.vert HLSL missing {miss}")
@@ -667,7 +675,7 @@ def main():
         blob = compile_glsl(f"{name}.vert")
         h = oracle_hlsl(blob, name)
         dis = xu.disassemble(container.Container(blob).ucode_dwords, "vertex")
-        if h is None or needle not in dis or "dp4 oPos" not in dis:
+        if h is None or not found(needle, dis) or not found("dp4 oPos", dis):
             ok = False
             print(f"  FAIL {name}.vert: {desc} (oracle="
                   f"{'OK' if h else 'REJECTED'}, {needle}={needle in dis})")
@@ -683,7 +691,7 @@ def main():
         blob = compile_glsl(f"{name}.frag")
         h = oracle_hlsl(blob, name)
         dis = xu.disassemble(container.Container(blob).ucode_dwords, "pixel")
-        if h is None or needle not in dis:
+        if h is None or not found(needle, dis):
             ok = False
             print(f"  FAIL {name}.frag: {desc} "
                   f"(oracle={'OK' if h else 'REJECTED'})")
@@ -706,7 +714,7 @@ def main():
             "r3.xyzw = u_basis(3).xyzw * r0.wwww + r3.xyzw",
             "oPos.xyzw = max(r3.xyzw, r3.xyzw)",
             "oTexCoord0", "oColor0"]
-    miss = [s for s in need if not vmhl or s not in vmhl]
+    miss = [s for s in need if not vmhl or not found(s, vmhl)]
     if vmhl is None or miss or not close4(vgot, vwant):
         ok = False
         print(f"  FAIL vs_vecmat.vert: vec*mat wrong "
@@ -735,7 +743,7 @@ def main():
             "r10.xyzw = u_model(3).xyzw * r9.wwww + r10.xyzw",
             "oPos.x = dot(r0.xyzw, r4.xyzw)",
             "oPos.w = dot(r0.xyzw, r10.xyzw)"]
-    miss = [s for s in need if not mmhl or s not in mmhl]
+    miss = [s for s in need if not mmhl or not found(s, mmhl)]
     if mmhl is None or miss or not close4(mgot, mwant):
         ok = False
         print(f"  FAIL vs_matmat.vert: mat*mat wrong "
@@ -755,7 +763,7 @@ def main():
                 "dot(r3.xyzw, u_mvp(0)", "dot(r3.xyzw, u_mvp(3)",
                 "r4.xyzw = r1.xyzw * u_tint.xyzw",
                 "oColor0.xyzw = max(r4.xyzw, r4.xyzw)"]
-        miss = [s for s in need if s not in vahl]
+        miss = [s for s in need if not found(s, vahl)]
         if miss:
             ok = False
             print(f"  FAIL vtx_arith.vert HLSL missing {miss}")
@@ -771,7 +779,7 @@ def main():
     need = ["rsqrt(r7.w)", "r9.xyzw = max(r6.zzzz, r6.zzzz)",
             "max(r9.xyzw, _lit4.xyzw)",
             "oColor0.xyzw = max(r4.xyzw, r4.xyzw)"]
-    miss = [s for s in need if not vlhl or s not in vlhl]
+    miss = [s for s in need if not vlhl or not found(s, vlhl)]
     if vlhl is None or miss or vlman != want_vlman:
         ok = False
         print(f"  FAIL vs_lighting.vert: VS literal manifest wrong "
@@ -787,7 +795,7 @@ def main():
     want_vwman = [(4, (0.5, 0.5, 0.5, 0.5))]
     need = ["ps = sin(r6.w)", "r3.xzw = max(r0.xzw, r0.xzw)",
             "r3.y = r0.y + r4.y", "dot(r3.xyzw, u_mvp(0)"]
-    miss = [s for s in need if not vwhl or s not in vwhl]
+    miss = [s for s in need if not vwhl or not found(s, vwhl)]
     if vwhl is None or miss or vwman != want_vwman:
         ok = False
         print(f"  FAIL vs_wave.vert: VS literal/sin path wrong "
