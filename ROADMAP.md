@@ -84,6 +84,11 @@ dashboard as the OS shell.
   golden exists, regression suite green before commit.
 - **Honest scope in docs** — `docs/xsc.md` capability table stays current;
   no feature claimed that isn't tested.
+- **Code the GPU runs fast** — measured on the console through the SDK
+  (2026-10-13): every program xsc lowers is register-packed, which sped a
+  four-sample pixel shader up 1.6-1.8 times. Still to do: scalar ops co-issued
+  beside vector ones (a scalar chain lowers as `.xxxx` vector ops), and a vec4
+  plus a float in one add (it lowers as four, a component each).
 
 ## Suggested order
 3b (finish the compiler) → 4 (release it) → 5 (dashboard). But 4 can come
